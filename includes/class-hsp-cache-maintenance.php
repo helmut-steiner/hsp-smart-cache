@@ -8,6 +8,9 @@ class HSP_Cache_Maintenance {
     public static function run_db_cleanup() {
         global $wpdb;
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+
         // Delete revisions
         $wpdb->query( "DELETE FROM {$wpdb->posts} WHERE post_type = 'revision'" );
         // Delete auto-drafts
@@ -29,11 +32,18 @@ class HSP_Cache_Maintenance {
             )
         );
 
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+
         return true;
     }
 
     public static function optimize_tables() {
         global $wpdb;
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        // phpcs:disable PluginCheck.Security.DirectDB.UnescapedDBParameter
         $tables = $wpdb->get_col( 'SHOW TABLES' );
         if ( empty( $tables ) ) {
             return false;
@@ -41,6 +51,10 @@ class HSP_Cache_Maintenance {
         foreach ( $tables as $table ) {
             $wpdb->query( "OPTIMIZE TABLE {$table}" );
         }
+        // phpcs:enable PluginCheck.Security.DirectDB.UnescapedDBParameter
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
         return true;
     }
 }

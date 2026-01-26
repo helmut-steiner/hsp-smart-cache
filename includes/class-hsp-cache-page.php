@@ -115,7 +115,7 @@ class HSP_Cache_Page {
             $etag = '"' . md5( $cache_file . '|' . filemtime( $cache_file ) ) . '"';
             header( 'ETag: ' . $etag );
 
-            $if_none_match = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? trim( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : '';
+            $if_none_match = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : '';
             if ( ! $is_miss && $if_none_match === $etag ) {
                 status_header( 304 );
                 exit;

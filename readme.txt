@@ -8,11 +8,11 @@ Stable tag: 0.1.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
-== Description ==
-HSP Smart Cache provides page caching, HTML/CSS/JS minification, CDN rewriting, and a file-based persistent object cache with a simple settings UI.
-
 == Short Description ==
 Fast page caching and asset optimization for WordPress with simple controls.
+
+== Description ==
+HSP Smart Cache provides page caching, HTML/CSS/JS minification, CDN rewriting, and a file-based persistent object cache with a simple settings UI.
 
 == Installation ==
 1. Upload the `hsp-smart-cache` folder to the `/wp-content/plugins/` directory.

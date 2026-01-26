@@ -1,0 +1,166 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: HSP Smart Cache 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-26 00:00+0000\n"
+"PO-Revision-Date: 2026-01-26 00:00+0000\n"
+"Last-Translator: HSPDev\n"
+"Language-Team: German\n"
+"Language: de_DE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "HSP Smart Cache"
+msgstr "HSP Smart Cache"
+
+msgid "Cache cleared."
+msgstr "Cache geleert."
+
+msgid "Defaults restored."
+msgstr "Standardwerte wiederhergestellt."
+
+msgid "Cache tests completed."
+msgstr "Cache-Tests abgeschlossen."
+
+msgid "Enable page caching for anonymous visitors"
+msgstr "Seiten-Cache für anonyme Besucher aktivieren"
+
+msgid "Cache TTL (seconds)"
+msgstr "Cache-TTL (Sekunden)"
+
+msgid "Allow page caching for logged-in users"
+msgstr "Seiten-Cache für eingeloggte Benutzer erlauben"
+
+msgid "Browser Cache Headers"
+msgstr "Browser-Cache-Header"
+
+msgid "Send Cache-Control headers for cacheable pages"
+msgstr "Cache-Control-Header für cachebare Seiten senden"
+
+msgid "HTML cache TTL (seconds)"
+msgstr "HTML-Cache-TTL (Sekunden)"
+
+msgid "Asset cache TTL (seconds)"
+msgstr "Asset-Cache-TTL (Sekunden)"
+
+msgid "Static Asset Caching"
+msgstr "Statisches Asset-Caching"
+
+msgid "Enable browser caching for WordPress/theme/plugin assets"
+msgstr "Browser-Cache für WordPress/Theme/Plugin-Assets aktivieren"
+
+msgid "Static asset TTL (seconds)"
+msgstr "Statischer Asset-TTL (Sekunden)"
+
+msgid "Add immutable directive where supported"
+msgstr "Immutable-Direktive hinzufügen (wenn unterstützt)"
+
+msgid "Auto-write .htaccess rules when possible"
+msgstr ".htaccess-Regeln automatisch schreiben (wenn möglich)"
+
+msgid "Apache .htaccess snippet"
+msgstr "Apache-.htaccess-Snippet"
+
+msgid "Render Blocking Optimization"
+msgstr "Optimierung der Render-Blockierung"
+
+msgid "Add defer to enqueued scripts"
+msgstr "defer zu eingebundenen Skripten hinzufügen"
+
+msgid "Defer exclusions (script handles, one per line)"
+msgstr "Defer-Ausnahmen (Script-Handles, je Zeile)"
+
+msgid "Add async to enqueued scripts (if defer is off)"
+msgstr "async zu eingebundenen Skripten hinzufügen (wenn defer aus ist)"
+
+msgid "Async exclusions (script handles, one per line)"
+msgstr "Async-Ausnahmen (Script-Handles, je Zeile)"
+
+msgid "Preconnect URLs (one per line)"
+msgstr "Preconnect-URLs (eine pro Zeile)"
+
+msgid "Preload font URLs (one per line)"
+msgstr "Font-Preload-URLs (eine pro Zeile)"
+
+msgid "Preload CSS URLs (one per line)"
+msgstr "CSS-Preload-URLs (eine pro Zeile)"
+
+msgid "Inline critical CSS"
+msgstr "Kritisches CSS inline"
+
+msgid "Additional Performance"
+msgstr "Zusätzliche Performance"
+
+msgid "Enable native lazy-loading for images"
+msgstr "Native Lazy-Loading für Bilder aktivieren"
+
+msgid "Enable native lazy-loading for iframes"
+msgstr "Native Lazy-Loading für iFrames aktivieren"
+
+msgid "Add decoding=\"async\" to images"
+msgstr "decoding=\"async\" zu Bildern hinzufügen"
+
+msgid "Disable emoji scripts and styles"
+msgstr "Emoji-Skripte und -Styles deaktivieren"
+
+msgid "Disable WordPress embeds"
+msgstr "WordPress-Embeds deaktivieren"
+
+msgid "Disable Dashicons for guests"
+msgstr "Dashicons für Gäste deaktivieren"
+
+msgid "DNS prefetch URLs (one per line)"
+msgstr "DNS-Prefetch-URLs (eine pro Zeile)"
+
+msgid "Minification"
+msgstr "Minifizierung"
+
+msgid "Minify HTML"
+msgstr "HTML minifizieren"
+
+msgid "Minify CSS files"
+msgstr "CSS-Dateien minifizieren"
+
+msgid "Minify JS files"
+msgstr "JS-Dateien minifizieren"
+
+msgid "Object Cache"
+msgstr "Objekt-Cache"
+
+msgid "Enable file-based persistent object cache (drop-in)"
+msgstr "Dateibasierten persistenten Objekt-Cache (Drop-in) aktivieren"
+
+msgid "CDN"
+msgstr "CDN"
+
+msgid "Enable CDN URL rewriting for static assets"
+msgstr "CDN-URL-Umschreibung für statische Assets aktivieren"
+
+msgid "CDN Base URL"
+msgstr "CDN-Basis-URL"
+
+msgid "Clear All Caches"
+msgstr "Alle Caches leeren"
+
+msgid "Run Cache Tests"
+msgstr "Cache-Tests ausführen"
+
+msgid "Restore Defaults"
+msgstr "Standardwerte wiederherstellen"
+
+msgid "Delete cache of current page"
+msgstr "Cache der aktuellen Seite löschen"
+
+msgid "Delete all cache files"
+msgstr "Alle Cache-Dateien löschen"
+
+msgid "Rebuild current page cache"
+msgstr "Cache der aktuellen Seite neu erstellen"
+
+msgid "Rebuild all caches"
+msgstr "Alle Caches neu erstellen"
+
+msgid "Unauthorized"
+msgstr "Nicht autorisiert"

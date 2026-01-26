@@ -1,0 +1,13 @@
+{
+  "name": "hsp-smart-cache",
+  "private": true,
+  "devDependencies": {
+    "@wordpress/env": "^10.0.0"
+  },
+  "scripts": {
+    "wp-env:start": "wp-env start",
+    "wp-env:stop": "wp-env stop",
+    "wp-env:destroy": "wp-env destroy",
+    "wp-env:tests": "wp-env run tests-cli phpunit"
+  }
+}

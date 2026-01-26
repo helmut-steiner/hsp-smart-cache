@@ -3,7 +3,7 @@
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
  * Version: 0.1.0
- * Author: HSPDev
+ * Author: Helmut Steiner
  * Text Domain: hsp-smart-cache
  */
 

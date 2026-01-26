@@ -1,5 +1,5 @@
 === HSP Smart Cache ===
-Contributors: hspdev
+Contributors: Helmut Steiner
 Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.5

@@ -76,7 +76,7 @@ class HSP_Cache_Minify {
             return;
         }
 
-        $path = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '';
+        $path = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
         if ( strpos( $path, '/wp-content/cache/hsp-cache/assets/' ) === false ) {
             return;
         }

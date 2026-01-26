@@ -17,7 +17,16 @@ class HSP_Cache_Static_Assets {
         if ( ! current_user_can( 'manage_options' ) ) {
             return;
         }
-        if ( isset( $_GET['hsp_apply_static_rules'] ) && $_GET['hsp_apply_static_rules'] === '1' ) {
+        $apply = filter_input( INPUT_GET, 'hsp_apply_static_rules', FILTER_UNSAFE_RAW );
+        if ( $apply !== null ) {
+            $apply = sanitize_key( $apply );
+            if ( $apply !== '1' ) {
+                return;
+            }
+            $nonce = filter_input( INPUT_GET, '_wpnonce', FILTER_UNSAFE_RAW );
+            if ( ! $nonce || ! wp_verify_nonce( sanitize_text_field( $nonce ), 'hsp_apply_static_rules' ) ) {
+                return;
+            }
             self::apply_rules( null, get_option( HSP_Cache_Settings::OPTION_KEY, HSP_Cache_Settings::defaults() ) );
         }
     }
@@ -33,8 +42,13 @@ class HSP_Cache_Static_Assets {
             return;
         }
 
+        $fs = HSP_Cache_Utils::get_filesystem();
+        if ( ! $fs ) {
+            return;
+        }
+
         $htaccess = ABSPATH . '.htaccess';
-        if ( ! file_exists( $htaccess ) && ! is_writable( ABSPATH ) ) {
+        if ( ! $fs->exists( $htaccess ) && ! $fs->is_writable( ABSPATH ) ) {
             return;
         }
 
@@ -69,9 +83,13 @@ class HSP_Cache_Static_Assets {
     }
 
     protected static function update_htaccess_block( $htaccess, $rules ) {
+        $fs = HSP_Cache_Utils::get_filesystem();
+        if ( ! $fs ) {
+            return;
+        }
         $contents = '';
-        if ( file_exists( $htaccess ) ) {
-            $contents = file_get_contents( $htaccess );
+        if ( $fs->exists( $htaccess ) ) {
+            $contents = $fs->get_contents( $htaccess );
             if ( $contents === false ) {
                 return;
             }
@@ -84,6 +102,6 @@ class HSP_Cache_Static_Assets {
             $contents = rtrim( $contents ) . "\n\n" . $rules;
         }
 
-        file_put_contents( $htaccess, $contents );
+        $fs->put_contents( $htaccess, $contents );
     }
 }

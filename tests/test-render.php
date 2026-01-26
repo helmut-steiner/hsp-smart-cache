@@ -12,7 +12,7 @@ class HSP_Cache_Render_Test extends WP_UnitTestCase {
     }
 
     public function test_script_tag_gets_defer() {
-        $tag = '<script src="/wp-includes/js/wp-embed.js"></script>';
+        $tag = wp_get_script_tag( array( 'src' => '/wp-includes/js/wp-embed.js' ) );
         $filtered = HSP_Cache_Render::filter_script_tag( $tag, 'wp-embed', '/wp-includes/js/wp-embed.js' );
         $this->assertStringContainsString( 'defer', $filtered );
     }
@@ -22,7 +22,7 @@ class HSP_Cache_Render_Test extends WP_UnitTestCase {
             'render_defer_js' => true,
             'render_defer_exclusions' => "jquery\n",
         ) ) );
-        $tag = '<script src="/wp-includes/js/jquery.js"></script>';
+        $tag = wp_get_script_tag( array( 'src' => '/wp-includes/js/jquery.js' ) );
         $filtered = HSP_Cache_Render::filter_script_tag( $tag, 'jquery', '/wp-includes/js/jquery.js' );
         $this->assertStringNotContainsString( 'defer', $filtered );
     }
@@ -32,7 +32,7 @@ class HSP_Cache_Render_Test extends WP_UnitTestCase {
             'render_defer_js' => false,
             'render_async_js' => true,
         ) ) );
-        $tag = '<script src="/wp-includes/js/wp-embed.js"></script>';
+        $tag = wp_get_script_tag( array( 'src' => '/wp-includes/js/wp-embed.js' ) );
         $filtered = HSP_Cache_Render::filter_script_tag( $tag, 'wp-embed', '/wp-includes/js/wp-embed.js' );
         $this->assertStringContainsString( 'async', $filtered );
     }

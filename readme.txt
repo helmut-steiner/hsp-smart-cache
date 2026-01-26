@@ -2,14 +2,17 @@
 Contributors: Helmut Steiner
 Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
-Tested up to: 6.5
+Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
 == Description ==
 HSP Smart Cache provides page caching, HTML/CSS/JS minification, CDN rewriting, and a file-based persistent object cache with a simple settings UI.
+
+== Short Description ==
+Fast page caching and asset optimization for WordPress with simple controls.
 
 == Installation ==
 1. Upload the `hsp-smart-cache` folder to the `/wp-content/plugins/` directory.
@@ -27,5 +30,8 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+= 0.1.1 =
+* Maintenance and security fixes.
+
 = 0.1.0 =
 * Initial release.

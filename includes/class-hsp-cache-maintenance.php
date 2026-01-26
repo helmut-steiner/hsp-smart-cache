@@ -19,10 +19,12 @@ class HSP_Cache_Maintenance {
 
         // Delete expired transients
         $now = time();
-        $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_%' AND option_value < %d", $now ) );
+        $like = $wpdb->esc_like( '_transient_timeout_' ) . '%';
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_value < %d", $like, $now ) );
         $wpdb->query(
             $wpdb->prepare(
-                "DELETE o FROM {$wpdb->options} o LEFT JOIN {$wpdb->options} t ON o.option_name = REPLACE(t.option_name, '_timeout', '') WHERE t.option_name LIKE '_transient_timeout_%' AND t.option_value < %d",
+                "DELETE o FROM {$wpdb->options} o LEFT JOIN {$wpdb->options} t ON o.option_name = REPLACE(t.option_name, '_timeout', '') WHERE t.option_name LIKE %s AND t.option_value < %d",
+                $like,
                 $now
             )
         );

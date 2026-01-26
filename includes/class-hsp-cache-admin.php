@@ -145,8 +145,10 @@ class HSP_Cache_Admin {
     }
 
     protected static function get_target_url() {
-        if ( ! empty( $_GET['hsp_return'] ) ) {
-            return esc_url_raw( rawurldecode( $_GET['hsp_return'] ) );
+        $return = filter_input( INPUT_GET, 'hsp_return', FILTER_UNSAFE_RAW );
+        if ( ! empty( $return ) ) {
+            $return = rawurldecode( $return );
+            return esc_url_raw( $return );
         }
         $referer = wp_get_referer();
         if ( $referer ) {
@@ -237,26 +239,37 @@ class HSP_Cache_Admin {
         $options = get_option( HSP_Cache_Settings::OPTION_KEY, HSP_Cache_Settings::defaults() );
         $options = wp_parse_args( $options, HSP_Cache_Settings::defaults() );
         $test_results = get_transient( 'hsp_cache_test_results' );
+        $cache_notice = filter_input( INPUT_GET, 'cache', FILTER_UNSAFE_RAW );
+        $settings_notice = filter_input( INPUT_GET, 'settings', FILTER_UNSAFE_RAW );
+        $preload_notice = filter_input( INPUT_GET, 'preload', FILTER_UNSAFE_RAW );
+        $db_notice = filter_input( INPUT_GET, 'db', FILTER_UNSAFE_RAW );
+        $tests_notice = filter_input( INPUT_GET, 'tests', FILTER_UNSAFE_RAW );
+
+        $cache_notice = $cache_notice ? sanitize_key( $cache_notice ) : '';
+        $settings_notice = $settings_notice ? sanitize_key( $settings_notice ) : '';
+        $preload_notice = $preload_notice ? sanitize_key( $preload_notice ) : '';
+        $db_notice = $db_notice ? sanitize_key( $db_notice ) : '';
+        $tests_notice = $tests_notice ? sanitize_key( $tests_notice ) : '';
         ?>
         <div class="wrap">
             <h1><?php echo esc_html__( 'HSP Smart Cache', 'hsp-smart-cache' ); ?></h1>
-            <?php if ( isset( $_GET['cache'] ) && $_GET['cache'] === 'cleared' ) : ?>
+            <?php if ( $cache_notice === 'cleared' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Cache cleared.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
-            <?php if ( isset( $_GET['settings'] ) && $_GET['settings'] === 'restored' ) : ?>
+            <?php if ( $settings_notice === 'restored' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Defaults restored.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
-            <?php if ( isset( $_GET['preload'] ) && $_GET['preload'] === 'done' ) : ?>
+            <?php if ( $preload_notice === 'done' ) : ?>
                 <?php $preload_result = get_transient( 'hsp_cache_preload_result' ); ?>
-                <div class="notice notice-success"><p><?php echo esc_html__( 'Preload completed.', 'hsp-smart-cache' ); ?> <?php if ( is_array( $preload_result ) ) { echo esc_html( sprintf( __( '%d URLs warmed.', 'hsp-smart-cache' ), $preload_result['count'] ) ); } ?></p></div>
+                <div class="notice notice-success"><p><?php echo esc_html__( 'Preload completed.', 'hsp-smart-cache' ); ?> <?php if ( is_array( $preload_result ) ) { /* translators: %d is the number of warmed URLs. */ echo esc_html( sprintf( __( '%d URLs warmed.', 'hsp-smart-cache' ), $preload_result['count'] ) ); } ?></p></div>
             <?php endif; ?>
-            <?php if ( isset( $_GET['db'] ) && $_GET['db'] === 'cleaned' ) : ?>
+            <?php if ( $db_notice === 'cleaned' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Database cleanup completed.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
-            <?php if ( isset( $_GET['db'] ) && $_GET['db'] === 'optimized' ) : ?>
+            <?php if ( $db_notice === 'optimized' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Database optimization completed.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
-            <?php if ( isset( $_GET['tests'] ) && $_GET['tests'] === 'done' && is_array( $test_results ) ) : ?>
+            <?php if ( $tests_notice === 'done' && is_array( $test_results ) ) : ?>
                 <div class="notice notice-info">
                     <p><?php echo esc_html__( 'Cache tests completed.', 'hsp-smart-cache' ); ?></p>
                     <ul>

@@ -2,8 +2,10 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: Helmut Steiner
+ * License: MIT
+ * License URI: https://opensource.org/licenses/MIT
  * Text Domain: hsp-smart-cache
  */
 
@@ -11,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSP_CACHE_VERSION', '0.1.0' );
+define( 'HSP_CACHE_VERSION', '0.1.1' );
 define( 'HSP_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
 define( 'HSP_CACHE_URL', content_url( '/cache/hsp-cache' ) );
 
@@ -31,7 +33,6 @@ require_once __DIR__ . '/includes/class-hsp-cache-preload.php';
 
 class HSP_Cache_Plugin {
     public static function init() {
-        load_plugin_textdomain( 'hsp-smart-cache', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
         HSP_Cache_Settings::init();
         HSP_Cache_Admin::init();
         HSP_Cache_Minify::init();

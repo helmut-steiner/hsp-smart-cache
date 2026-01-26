@@ -48,7 +48,7 @@ class HSP_Cache_Render {
         foreach ( $urls as $url ) {
             $href = esc_url( $url );
             if ( $href ) {
-                echo '<link rel="preconnect" href="' . $href . '" crossorigin />' . "\n";
+                printf( '<link rel="preconnect" href="%s" crossorigin />' . "\n", esc_url( $href ) );
             }
         }
     }
@@ -62,7 +62,7 @@ class HSP_Cache_Render {
             $href = esc_url( $font );
             if ( $href ) {
                 $type = self::guess_font_type( $href );
-                echo '<link rel="preload" href="' . $href . '" as="font" type="' . esc_attr( $type ) . '" crossorigin />' . "\n";
+                printf( '<link rel="preload" href="%s" as="font" type="%s" crossorigin />' . "\n", esc_url( $href ), esc_attr( $type ) );
             }
         }
 
@@ -70,7 +70,7 @@ class HSP_Cache_Render {
         foreach ( $styles as $style ) {
             $href = esc_url( $style );
             if ( $href ) {
-                echo '<link rel="preload" href="' . $href . '" as="style" />' . "\n";
+                printf( '<link rel="preload" href="%s" as="style" />' . "\n", esc_url( $href ) );
             }
         }
     }
@@ -83,7 +83,7 @@ class HSP_Cache_Render {
         if ( empty( $css ) ) {
             return;
         }
-        echo "<style id=\"hsp-critical-css\">\n" . $css . "\n</style>\n";
+        echo "<style id=\"hsp-critical-css\">\n" . esc_html( $css ) . "\n</style>\n";
     }
 
     protected static function parse_list( $value ) {

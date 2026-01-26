@@ -32,7 +32,20 @@ class HSP_Cache_Page {
             if ( $age <= $ttl ) {
                 self::send_browser_cache_headers( $cache_file );
                 header( 'X-HSP-Cache: HIT' );
-                readfile( $cache_file );
+                $fs = HSP_Cache_Utils::get_filesystem();
+                if ( $fs ) {
+                    $contents = $fs->get_contents( $cache_file );
+                    if ( $contents !== false ) {
+                        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                        echo $contents;
+                    }
+                } else {
+                    $contents = file_get_contents( $cache_file );
+                    if ( $contents !== false ) {
+                        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                        echo $contents;
+                    }
+                }
                 exit;
             }
         }
@@ -102,7 +115,8 @@ class HSP_Cache_Page {
             $etag = '"' . md5( $cache_file . '|' . filemtime( $cache_file ) ) . '"';
             header( 'ETag: ' . $etag );
 
-            if ( ! $is_miss && isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) && trim( $_SERVER['HTTP_IF_NONE_MATCH'] ) === $etag ) {
+            $if_none_match = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? trim( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : '';
+            if ( ! $is_miss && $if_none_match === $etag ) {
                 status_header( 304 );
                 exit;
             }
@@ -110,8 +124,8 @@ class HSP_Cache_Page {
     }
 
     protected static function get_cache_key() {
-        $host = isset( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : 'localhost';
-        $uri  = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '/';
+        $host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : 'localhost';
+        $uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
         $ssl  = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
 
         return md5( $ssl . '://' . $host . $uri );
@@ -144,7 +158,12 @@ class HSP_Cache_Page {
     public static function clear_cache_for_url( $url ) {
         $file = self::get_cache_file_path_for_url( $url );
         if ( $file && file_exists( $file ) ) {
-            @unlink( $file );
+            $fs = HSP_Cache_Utils::get_filesystem();
+            if ( $fs ) {
+                $fs->delete( $file );
+            } else {
+                wp_delete_file( $file );
+            }
         }
     }
 

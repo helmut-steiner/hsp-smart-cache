@@ -5,6 +5,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class HSP_Cache_Utils {
+    public static function get_filesystem() {
+        global $wp_filesystem;
+
+        if ( ! $wp_filesystem ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+
+        return $wp_filesystem;
+    }
+
     public static function ensure_cache_dirs() {
         $paths = array(
             HSP_CACHE_PATH,
@@ -21,6 +32,10 @@ class HSP_Cache_Utils {
     }
 
     public static function delete_dir_contents( $dir ) {
+        $fs = self::get_filesystem();
+        if ( ! $fs ) {
+            return;
+        }
         if ( ! is_dir( $dir ) ) {
             return;
         }
@@ -35,9 +50,9 @@ class HSP_Cache_Utils {
             $path = $dir . '/' . $item;
             if ( is_dir( $path ) ) {
                 self::delete_dir_contents( $path );
-                @rmdir( $path );
+                $fs->rmdir( $path, false );
             } else {
-                @unlink( $path );
+                $fs->delete( $path );
             }
         }
     }
@@ -52,7 +67,8 @@ class HSP_Cache_Utils {
         if ( defined( 'DONOTCACHEPAGE' ) && DONOTCACHEPAGE ) {
             return false;
         }
-        if ( ! empty( $_POST ) || ( isset( $_SERVER['REQUEST_METHOD'] ) && strtoupper( $_SERVER['REQUEST_METHOD'] ) !== 'GET' ) ) {
+        $method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
+        if ( $method !== 'GET' ) {
             return false;
         }
         if ( is_preview() || is_feed() || is_robots() || is_trackback() ) {

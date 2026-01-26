@@ -29,7 +29,7 @@ class HSP_Cache_Object {
     public static function remove_dropin() {
         $target = WP_CONTENT_DIR . '/object-cache.php';
         if ( file_exists( $target ) ) {
-            @unlink( $target );
+            wp_delete_file( $target );
         }
     }
 

@@ -15,10 +15,26 @@ if ( ! class_exists( 'HSP_File_Object_Cache' ) ) {
         protected $non_persistent_groups = array();
         protected $cache_dir;
 
+        protected function get_filesystem() {
+            global $wp_filesystem;
+
+            if ( ! $wp_filesystem ) {
+                if ( ! function_exists( 'WP_Filesystem' ) && file_exists( ABSPATH . 'wp-admin/includes/file.php' ) ) {
+                    require_once ABSPATH . 'wp-admin/includes/file.php';
+                }
+                if ( function_exists( 'WP_Filesystem' ) ) {
+                    WP_Filesystem();
+                }
+            }
+
+            return $wp_filesystem;
+        }
+
         public function __construct() {
             $this->cache_dir = WP_CONTENT_DIR . '/cache/hsp-cache/object';
-            if ( ! is_dir( $this->cache_dir ) ) {
-                @mkdir( $this->cache_dir, 0755, true );
+            $fs = $this->get_filesystem();
+            if ( $fs && ! $fs->is_dir( $this->cache_dir ) ) {
+                $fs->mkdir( $this->cache_dir, 0755, true );
             }
         }
 
@@ -46,12 +62,18 @@ if ( ! class_exists( 'HSP_File_Object_Cache' ) ) {
                 'value'  => $data,
             );
 
-            $dir = dirname( $file );
-            if ( ! is_dir( $dir ) ) {
-                @mkdir( $dir, 0755, true );
+            $fs = $this->get_filesystem();
+            if ( ! $fs ) {
+                return true;
             }
 
-            return (bool) @file_put_contents( $file, serialize( $payload ) );
+            $dir = dirname( $file );
+            if ( ! $fs->is_dir( $dir ) ) {
+                $fs->mkdir( $dir, 0755, true );
+            }
+
+            $chmod = defined( 'FS_CHMOD_FILE' ) ? FS_CHMOD_FILE : 0644;
+            return (bool) $fs->put_contents( $file, serialize( $payload ), $chmod );
         }
 
         public function get( $key, $group = 'default', $force = false, &$found = null ) {
@@ -70,12 +92,13 @@ if ( ! class_exists( 'HSP_File_Object_Cache' ) ) {
             }
 
             $file = $this->get_file_path( $key, $group );
-            if ( ! file_exists( $file ) ) {
+            $fs = $this->get_filesystem();
+            if ( ! $fs || ! $fs->exists( $file ) ) {
                 $found = false;
                 return false;
             }
 
-            $raw = @file_get_contents( $file );
+            $raw = $fs->get_contents( $file );
             if ( $raw === false ) {
                 $found = false;
                 return false;
@@ -88,7 +111,7 @@ if ( ! class_exists( 'HSP_File_Object_Cache' ) ) {
             }
 
             if ( ! empty( $payload['expire'] ) && time() > $payload['expire'] ) {
-                @unlink( $file );
+                $fs->delete( $file );
                 $found = false;
                 return false;
             }
@@ -110,8 +133,9 @@ if ( ! class_exists( 'HSP_File_Object_Cache' ) ) {
             }
 
             $file = $this->get_file_path( $key, $group );
-            if ( file_exists( $file ) ) {
-                return @unlink( $file );
+            $fs = $this->get_filesystem();
+            if ( $fs && $fs->exists( $file ) ) {
+                return $fs->delete( $file );
             }
             return true;
         }
@@ -178,6 +202,10 @@ if ( ! class_exists( 'HSP_File_Object_Cache' ) ) {
         }
 
         protected function delete_dir_contents( $dir ) {
+            $fs = $this->get_filesystem();
+            if ( ! $fs ) {
+                return;
+            }
             if ( ! is_dir( $dir ) ) {
                 return;
             }
@@ -192,9 +220,9 @@ if ( ! class_exists( 'HSP_File_Object_Cache' ) ) {
                 $path = $dir . '/' . $item;
                 if ( is_dir( $path ) ) {
                     $this->delete_dir_contents( $path );
-                    @rmdir( $path );
+                    $fs->rmdir( $path, false );
                 } else {
-                    @unlink( $path );
+                    $fs->delete( $path );
                 }
             }
         }

@@ -7,8 +7,6 @@ Requires PHP: 7.4
 Stable tag: 0.1.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
-
-== Short Description ==
 Fast page caching and asset optimization for WordPress with simple controls.
 
 == Description ==

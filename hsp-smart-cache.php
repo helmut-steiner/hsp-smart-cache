@@ -2,7 +2,7 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.1.3
+ * Version: 0.1.4
  * Author: Helmut Steiner
  * License: MIT
  * License URI: https://opensource.org/licenses/MIT
@@ -13,9 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSP_CACHE_VERSION', '0.1.3' );
-define( 'HSP_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
-define( 'HSP_CACHE_URL', content_url( '/cache/hsp-cache' ) );
+define( 'HSP_SMART_CACHE_VERSION', '0.1.4' );
+define( 'HSP_SMART_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
+define( 'HSP_SMART_CACHE_URL', content_url( '/cache/hsp-cache' ) );
 
 require_once __DIR__ . '/includes/class-hsp-cache-settings.php';
 require_once __DIR__ . '/includes/class-hsp-cache-utils.php';
@@ -31,19 +31,42 @@ require_once __DIR__ . '/includes/class-hsp-cache-performance.php';
 require_once __DIR__ . '/includes/class-hsp-cache-maintenance.php';
 require_once __DIR__ . '/includes/class-hsp-cache-preload.php';
 
-class HSP_Cache_Plugin {
-    public static function init() {
-        HSP_Cache_Settings::init();
-        HSP_Cache_Admin::init();
-        HSP_Cache_Minify::init();
-        HSP_Cache_Page::init();
-        HSP_Cache_CDN::init();
-        HSP_Cache_Object::init();
-        HSP_Cache_Static_Assets::init();
-        HSP_Cache_Render::init();
-        HSP_Cache_Performance::init();
+$hsp_smart_cache_aliases = array(
+    'HSP_Cache_Settings'      => 'HSP_Smart_Cache_Settings',
+    'HSP_Cache_Utils'         => 'HSP_Smart_Cache_Utils',
+    'HSP_Cache_Admin'         => 'HSP_Smart_Cache_Admin',
+    'HSP_Cache_Minify'        => 'HSP_Smart_Cache_Minify',
+    'HSP_Cache_Page'          => 'HSP_Smart_Cache_Page',
+    'HSP_Cache_CDN'           => 'HSP_Smart_Cache_CDN',
+    'HSP_Cache_Object'        => 'HSP_Smart_Cache_Object',
+    'HSP_Cache_Tests'         => 'HSP_Smart_Cache_Tests',
+    'HSP_Cache_Static_Assets' => 'HSP_Smart_Cache_Static_Assets',
+    'HSP_Cache_Render'        => 'HSP_Smart_Cache_Render',
+    'HSP_Cache_Performance'   => 'HSP_Smart_Cache_Performance',
+    'HSP_Cache_Maintenance'   => 'HSP_Smart_Cache_Maintenance',
+    'HSP_Cache_Preload'       => 'HSP_Smart_Cache_Preload',
+    'HSP_Cache_Plugin'        => 'HSP_Smart_Cache_Plugin',
+);
 
-        add_action( 'send_headers', array( 'HSP_Cache_Minify', 'maybe_send_asset_headers' ), 0 );
+foreach ( $hsp_smart_cache_aliases as $alias => $class ) {
+    if ( ! class_exists( $alias ) && class_exists( $class ) ) {
+        class_alias( $class, $alias );
+    }
+}
+
+class HSP_Smart_Cache_Plugin {
+    public static function init() {
+        HSP_Smart_Cache_Settings::init();
+        HSP_Smart_Cache_Admin::init();
+        HSP_Smart_Cache_Minify::init();
+        HSP_Smart_Cache_Page::init();
+        HSP_Smart_Cache_CDN::init();
+        HSP_Smart_Cache_Object::init();
+        HSP_Smart_Cache_Static_Assets::init();
+        HSP_Smart_Cache_Render::init();
+        HSP_Smart_Cache_Performance::init();
+
+        add_action( 'send_headers', array( 'HSP_Smart_Cache_Minify', 'maybe_send_asset_headers' ), 0 );
         add_filter( 'robots_txt', array( __CLASS__, 'filter_robots_txt' ), 10, 2 );
 
         add_action( 'save_post', array( __CLASS__, 'handle_post_change' ), 10, 3 );
@@ -59,19 +82,19 @@ class HSP_Cache_Plugin {
     }
 
     public static function activate() {
-        HSP_Cache_Utils::ensure_cache_dirs();
-        HSP_Cache_Settings::ensure_defaults();
-        HSP_Cache_Object::sync_dropin();
+        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        HSP_Smart_Cache_Settings::ensure_defaults();
+        HSP_Smart_Cache_Object::sync_dropin();
     }
 
     public static function deactivate() {
-        HSP_Cache_Object::remove_dropin();
+        HSP_Smart_Cache_Object::remove_dropin();
     }
 
     public static function flush_all_caches() {
-        HSP_Cache_Page::clear_cache();
-        HSP_Cache_Minify::clear_cache();
-        HSP_Cache_Object::flush_cache();
+        HSP_Smart_Cache_Page::clear_cache();
+        HSP_Smart_Cache_Minify::clear_cache();
+        HSP_Smart_Cache_Object::flush_cache();
     }
 
     public static function handle_post_change( $post_id, $post, $update ) {
@@ -81,14 +104,14 @@ class HSP_Cache_Plugin {
         if ( ! $post || $post->post_status === 'auto-draft' ) {
             return;
         }
-        HSP_Cache_Page::clear_cache_for_post( $post_id );
+        HSP_Smart_Cache_Page::clear_cache_for_post( $post_id );
     }
 
     public static function handle_post_delete( $post_id ) {
         if ( ! $post_id ) {
             return;
         }
-        HSP_Cache_Page::clear_cache_for_post( $post_id );
+        HSP_Smart_Cache_Page::clear_cache_for_post( $post_id );
     }
 
     public static function handle_comment_change( $comment_id ) {
@@ -96,15 +119,15 @@ class HSP_Cache_Plugin {
         if ( ! $comment || empty( $comment->comment_post_ID ) ) {
             return;
         }
-        HSP_Cache_Page::clear_cache_for_post( (int) $comment->comment_post_ID );
+        HSP_Smart_Cache_Page::clear_cache_for_post( (int) $comment->comment_post_ID );
     }
 
     public static function filter_robots_txt( $output, $public ) {
-        return HSP_Cache_Utils::apply_robots_rules( $output, (bool) $public );
+        return HSP_Smart_Cache_Utils::apply_robots_rules( $output, (bool) $public );
     }
 }
 
-register_activation_hook( __FILE__, array( 'HSP_Cache_Plugin', 'activate' ) );
-register_deactivation_hook( __FILE__, array( 'HSP_Cache_Plugin', 'deactivate' ) );
+register_activation_hook( __FILE__, array( 'HSP_Smart_Cache_Plugin', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'HSP_Smart_Cache_Plugin', 'deactivate' ) );
 
-add_action( 'plugins_loaded', array( 'HSP_Cache_Plugin', 'init' ) );
+add_action( 'plugins_loaded', array( 'HSP_Smart_Cache_Plugin', 'init' ) );

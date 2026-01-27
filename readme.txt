@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.1.4
+Stable tag: 0.1.5
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -28,6 +28,11 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+= 0.1.5 =
+* Minify inline CSS and JS inside HTML output.
+* Standardize internal class references to HSP_Smart_Cache_*.
+* Add test coverage for inline minification.
+
 = 0.1.4 =
 * Maintenance and security fixes.
 

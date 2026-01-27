@@ -693,6 +693,10 @@ class HSP_Smart_Cache_Admin {
                     updatePreview();
                 })();
             </script>
+
+            <p class="description" style="margin-top:16px;">
+                <?php echo esc_html__( 'Made by Helmut Steiner Productions with ❤️ in Vienna', 'hsp-smart-cache' ); ?>
+            </p>
         </div>
         <?php
     }

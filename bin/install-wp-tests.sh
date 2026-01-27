@@ -23,7 +23,15 @@ if [ ! -d "$WP_TESTS_DIR/includes" ]; then
   svn checkout --quiet https://develop.svn.wordpress.org/trunk/tests/phpunit/data/ "$WP_TESTS_DIR/data"
 fi
 
-cp "$WP_TESTS_DIR/includes/wp-tests-config-sample.php" "$WP_TESTS_DIR/wp-tests-config.php"
+SAMPLE_CONFIG="$WP_TESTS_DIR/includes/wp-tests-config-sample.php"
+if [ ! -f "$SAMPLE_CONFIG" ]; then
+  SAMPLE_CONFIG="$WP_TESTS_DIR/wp-tests-config-sample.php"
+  if [ ! -f "$SAMPLE_CONFIG" ]; then
+    curl -L -o "$SAMPLE_CONFIG" https://develop.svn.wordpress.org/trunk/wp-tests-config-sample.php
+  fi
+fi
+
+cp "$SAMPLE_CONFIG" "$WP_TESTS_DIR/wp-tests-config.php"
 
 sed -i "s/youremptytestdbnamehere/$DB_NAME/" "$WP_TESTS_DIR/wp-tests-config.php"
 sed -i "s/yourusernamehere/$DB_USER/" "$WP_TESTS_DIR/wp-tests-config.php"

@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Render {
+class HSP_Smart_Cache_Render {
     public static function init() {
         add_filter( 'script_loader_tag', array( __CLASS__, 'filter_script_tag' ), 10, 3 );
         add_action( 'wp_head', array( __CLASS__, 'output_preconnects' ), 1 );

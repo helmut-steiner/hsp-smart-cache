@@ -8,8 +8,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 function hsp_smart_cache_uninstall() {
     delete_option( 'hsp_cache_settings' );
 
-    if ( ! defined( 'HSP_CACHE_PATH' ) ) {
-        define( 'HSP_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
+    if ( ! defined( 'HSP_SMART_CACHE_PATH' ) ) {
+        define( 'HSP_SMART_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
     }
 
     if ( ! function_exists( 'WP_Filesystem' ) ) {
@@ -26,9 +26,9 @@ function hsp_smart_cache_uninstall() {
             $fs->delete( $object_dropin );
         }
 
-        hsp_smart_cache_delete_dir_contents( HSP_CACHE_PATH, $fs );
-        if ( $fs->is_dir( HSP_CACHE_PATH ) ) {
-            $fs->rmdir( HSP_CACHE_PATH, false );
+        hsp_smart_cache_delete_dir_contents( HSP_SMART_CACHE_PATH, $fs );
+        if ( $fs->is_dir( HSP_SMART_CACHE_PATH ) ) {
+            $fs->rmdir( HSP_SMART_CACHE_PATH, false );
         }
 
         $htaccess = ABSPATH . '.htaccess';

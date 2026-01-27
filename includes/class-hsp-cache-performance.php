@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Performance {
+class HSP_Smart_Cache_Performance {
     public static function init() {
         add_filter( 'wp_lazy_loading_enabled', array( __CLASS__, 'filter_lazy_loading' ), 10, 2 );
         add_filter( 'wp_get_attachment_image_attributes', array( __CLASS__, 'filter_image_attributes' ), 10, 3 );

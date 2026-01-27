@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Tests {
+class HSP_Smart_Cache_Tests {
     public static function run() {
         $results = array();
 
@@ -18,8 +18,8 @@ class HSP_Cache_Tests {
     }
 
     protected static function test_cache_dirs() {
-        HSP_Cache_Utils::ensure_cache_dirs();
-        $ok = is_dir( HSP_CACHE_PATH . '/pages' ) && is_dir( HSP_CACHE_PATH . '/assets' ) && is_dir( HSP_CACHE_PATH . '/object' );
+        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        $ok = is_dir( HSP_SMART_CACHE_PATH . '/pages' ) && is_dir( HSP_SMART_CACHE_PATH . '/assets' ) && is_dir( HSP_SMART_CACHE_PATH . '/object' );
         return array(
             'label'  => 'Cache directories exist',
             'status' => $ok,
@@ -29,7 +29,7 @@ class HSP_Cache_Tests {
 
     protected static function test_minify_html() {
         $input  = "<div>  Test </div>\n<!-- comment -->";
-        $output = HSP_Cache_Minify::minify_html( $input );
+        $output = HSP_Smart_Cache_Minify::minify_html( $input );
         $ok = strpos( $output, 'comment' ) === false && strpos( $output, "\n" ) === false;
         return array(
             'label'  => 'HTML minification works',
@@ -41,8 +41,8 @@ class HSP_Cache_Tests {
     protected static function test_asset_minify() {
         $css = "body { color: red; }";
         $js  = "function t(){ return 1; }";
-        $min_css = HSP_Cache_Minify::minify_css( $css );
-        $min_js  = HSP_Cache_Minify::minify_js( $js );
+        $min_css = HSP_Smart_Cache_Minify::minify_css( $css );
+        $min_js  = HSP_Smart_Cache_Minify::minify_js( $js );
         $ok = strlen( $min_css ) <= strlen( $css ) && strlen( $min_js ) <= strlen( $js );
         return array(
             'label'  => 'CSS/JS minification works',
@@ -52,8 +52,8 @@ class HSP_Cache_Tests {
     }
 
     protected static function test_page_cache_file_write() {
-        HSP_Cache_Utils::ensure_cache_dirs();
-        $file = HSP_CACHE_PATH . '/pages/test-cache.html';
+        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        $file = HSP_SMART_CACHE_PATH . '/pages/test-cache.html';
         $data = '<html>ok</html>';
         $ok = (bool) file_put_contents( $file, $data );
         if ( $ok ) {
@@ -67,7 +67,7 @@ class HSP_Cache_Tests {
     }
 
     protected static function test_object_cache_dropin() {
-        $enabled = HSP_Cache_Settings::get( 'object_cache' );
+        $enabled = HSP_Smart_Cache_Settings::get( 'object_cache' );
         $exists  = file_exists( WP_CONTENT_DIR . '/object-cache.php' );
         $ok = $enabled ? $exists : true;
         return array(

@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Preload {
+class HSP_Smart_Cache_Preload {
     public static function run() {
         if ( ! HSP_Cache_Settings::get( 'preload_enabled' ) ) {
             return array( 'ok' => false, 'count' => 0 );

@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_CDN {
+class HSP_Smart_Cache_CDN {
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );
         add_filter( 'script_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );

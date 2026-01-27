@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Minify {
+class HSP_Smart_Cache_Minify {
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'filter_style_src' ), 20, 2 );
         add_filter( 'script_loader_src', array( __CLASS__, 'filter_script_src' ), 20, 2 );
@@ -50,7 +50,7 @@ class HSP_Cache_Minify {
         $mtime    = filemtime( $file_path );
         $hash     = md5( $file_path . '|' . $mtime );
         $filename = $hash . '.min.' . $type;
-        $target   = HSP_CACHE_PATH . '/assets/' . $filename;
+        $target   = HSP_SMART_CACHE_PATH . '/assets/' . $filename;
 
         if ( ! file_exists( $target ) ) {
             HSP_Cache_Utils::ensure_cache_dirs();
@@ -62,7 +62,7 @@ class HSP_Cache_Minify {
             file_put_contents( $target, $minified );
         }
 
-        return HSP_CACHE_URL . '/assets/' . $filename;
+        return HSP_SMART_CACHE_URL . '/assets/' . $filename;
     }
 
     public static function maybe_send_asset_headers() {
@@ -108,6 +108,6 @@ class HSP_Cache_Minify {
     }
 
     public static function clear_cache() {
-        HSP_Cache_Utils::delete_dir_contents( HSP_CACHE_PATH . '/assets' );
+        HSP_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/assets' );
     }
 }

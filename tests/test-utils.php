@@ -4,9 +4,9 @@ class HSP_Cache_Utils_Test extends WP_UnitTestCase {
     public function test_cache_dirs_can_be_created() {
         HSP_Cache_Utils::ensure_cache_dirs();
 
-        $this->assertDirectoryExists( HSP_CACHE_PATH . '/pages' );
-        $this->assertDirectoryExists( HSP_CACHE_PATH . '/assets' );
-        $this->assertDirectoryExists( HSP_CACHE_PATH . '/object' );
+        $this->assertDirectoryExists( HSP_SMART_CACHE_PATH . '/pages' );
+        $this->assertDirectoryExists( HSP_SMART_CACHE_PATH . '/assets' );
+        $this->assertDirectoryExists( HSP_SMART_CACHE_PATH . '/object' );
     }
 
     public function test_normalize_url_path() {

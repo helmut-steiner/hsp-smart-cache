@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Utils {
+class HSP_Smart_Cache_Utils {
     public static function get_filesystem() {
         global $wp_filesystem;
 
@@ -18,10 +18,10 @@ class HSP_Cache_Utils {
 
     public static function ensure_cache_dirs() {
         $paths = array(
-            HSP_CACHE_PATH,
-            HSP_CACHE_PATH . '/pages',
-            HSP_CACHE_PATH . '/assets',
-            HSP_CACHE_PATH . '/object',
+            HSP_SMART_CACHE_PATH,
+            HSP_SMART_CACHE_PATH . '/pages',
+            HSP_SMART_CACHE_PATH . '/assets',
+            HSP_SMART_CACHE_PATH . '/object',
         );
 
         foreach ( $paths as $path ) {
@@ -35,7 +35,7 @@ class HSP_Cache_Utils {
         if ( ! $public ) {
             return $output;
         }
-        if ( ! HSP_Cache_Settings::get( 'robots_disallow_ai' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'robots_disallow_ai' ) ) {
             return $output;
         }
 
@@ -116,7 +116,7 @@ class HSP_Cache_Utils {
         if ( is_admin() ) {
             return false;
         }
-        if ( is_user_logged_in() && ! HSP_Cache_Settings::get( 'cache_logged_in' ) ) {
+        if ( is_user_logged_in() && ! HSP_Smart_Cache_Settings::get( 'cache_logged_in' ) ) {
             return false;
         }
         if ( defined( 'DONOTCACHEPAGE' ) && DONOTCACHEPAGE ) {

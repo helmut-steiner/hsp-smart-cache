@@ -4,12 +4,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Static_Assets {
+class HSP_Smart_Cache_Static_Assets {
     const HTACCESS_BEGIN = '# BEGIN HSP Smart Cache';
     const HTACCESS_END   = '# END HSP Smart Cache';
 
     public static function init() {
-        add_action( 'update_option_' . HSP_Cache_Settings::OPTION_KEY, array( __CLASS__, 'apply_rules' ), 20, 2 );
+        add_action( 'update_option_' . HSP_Smart_Cache_Settings::OPTION_KEY, array( __CLASS__, 'apply_rules' ), 20, 2 );
         add_action( 'admin_init', array( __CLASS__, 'maybe_apply_on_admin_init' ) );
     }
 
@@ -27,7 +27,7 @@ class HSP_Cache_Static_Assets {
             if ( ! $nonce || ! wp_verify_nonce( sanitize_text_field( $nonce ), 'hsp_apply_static_rules' ) ) {
                 return;
             }
-            self::apply_rules( null, get_option( HSP_Cache_Settings::OPTION_KEY, HSP_Cache_Settings::defaults() ) );
+            self::apply_rules( null, get_option( HSP_Smart_Cache_Settings::OPTION_KEY, HSP_Smart_Cache_Settings::defaults() ) );
         }
     }
 
@@ -42,7 +42,7 @@ class HSP_Cache_Static_Assets {
             return;
         }
 
-        $fs = HSP_Cache_Utils::get_filesystem();
+        $fs = HSP_Smart_Cache_Utils::get_filesystem();
         if ( ! $fs ) {
             return;
         }
@@ -83,7 +83,7 @@ class HSP_Cache_Static_Assets {
     }
 
     protected static function update_htaccess_block( $htaccess, $rules ) {
-        $fs = HSP_Cache_Utils::get_filesystem();
+        $fs = HSP_Smart_Cache_Utils::get_filesystem();
         if ( ! $fs ) {
             return;
         }

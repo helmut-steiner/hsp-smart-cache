@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Page {
+class HSP_Smart_Cache_Page {
     protected static $buffer_started = false;
 
     public static function init() {
@@ -136,7 +136,7 @@ class HSP_Cache_Page {
         if ( ! $key ) {
             return null;
         }
-        return HSP_CACHE_PATH . '/pages/' . $key . '.html';
+        return HSP_SMART_CACHE_PATH . '/pages/' . $key . '.html';
     }
 
     protected static function get_cache_file_path_for_url( $url ) {
@@ -148,11 +148,11 @@ class HSP_Cache_Page {
         $path   = isset( $parts['path'] ) ? $parts['path'] : '/';
         $query  = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
         $key    = md5( $scheme . '://' . $parts['host'] . $path . $query );
-        return HSP_CACHE_PATH . '/pages/' . $key . '.html';
+        return HSP_SMART_CACHE_PATH . '/pages/' . $key . '.html';
     }
 
     public static function clear_cache() {
-        HSP_Cache_Utils::delete_dir_contents( HSP_CACHE_PATH . '/pages' );
+        HSP_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/pages' );
     }
 
     public static function clear_cache_for_url( $url ) {

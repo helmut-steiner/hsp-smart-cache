@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Maintenance {
+class HSP_Smart_Cache_Maintenance {
     public static function run_db_cleanup() {
         global $wpdb;
 

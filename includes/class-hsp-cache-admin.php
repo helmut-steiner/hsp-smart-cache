@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Admin {
+class HSP_Smart_Cache_Admin {
     public static function init() {
         add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
         add_action( 'admin_post_hsp_cache_clear', array( __CLASS__, 'handle_clear_cache' ) );

@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Object {
+class HSP_Smart_Cache_Object {
     public static function init() {
         // No runtime hooks needed yet.
     }
@@ -37,6 +37,6 @@ class HSP_Cache_Object {
         if ( function_exists( 'wp_cache_flush' ) ) {
             wp_cache_flush();
         }
-        HSP_Cache_Utils::delete_dir_contents( HSP_CACHE_PATH . '/object' );
+        HSP_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/object' );
     }
 }

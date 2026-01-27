@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Cache_Settings {
+class HSP_Smart_Cache_Settings {
     const OPTION_KEY = 'hsp_cache_settings';
 
     public static function init() {

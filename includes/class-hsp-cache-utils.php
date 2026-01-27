@@ -31,6 +31,61 @@ class HSP_Cache_Utils {
         }
     }
 
+    public static function apply_robots_rules( $output, $public ) {
+        if ( ! $public ) {
+            return $output;
+        }
+        if ( ! HSP_Cache_Settings::get( 'robots_disallow_ai' ) ) {
+            return $output;
+        }
+
+        $output = trim( (string) $output );
+        if ( $output !== '' ) {
+            $output .= "\n";
+        }
+
+        $output .= implode( "\n", self::get_ai_robots_lines() );
+
+        return $output . "\n";
+    }
+
+    protected static function get_ai_robots_lines() {
+        return array(
+            'User-agent: GPTBot',
+            'Disallow: /',
+            '',
+            'User-agent: ChatGPT-User',
+            'Disallow: /',
+            '',
+            'User-agent: CCBot',
+            'Disallow: /',
+            '',
+            'User-agent: ClaudeBot',
+            'Disallow: /',
+            '',
+            'User-agent: Claude-Web',
+            'Disallow: /',
+            '',
+            'User-agent: Applebot',
+            'Disallow: /',
+            '',
+            'User-agent: Google-Extended',
+            'Disallow: /',
+            '',
+            'User-agent: PerplexityBot',
+            'Disallow: /',
+            '',
+            'User-agent: YouBot',
+            'Disallow: /',
+            '',
+            'User-agent: Bytespider',
+            'Disallow: /',
+            '',
+            'User-agent: Amazonbot',
+            'Disallow: /',
+        );
+    }
+
     public static function delete_dir_contents( $dir ) {
         $fs = self::get_filesystem();
         if ( ! $fs ) {

@@ -312,6 +312,18 @@ class HSP_Cache_Admin {
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><?php echo esc_html__( 'Robots.txt', 'hsp-smart-cache' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="<?php echo esc_attr( HSP_Cache_Settings::OPTION_KEY ); ?>[robots_disallow_ai]" value="1" <?php checked( $options['robots_disallow_ai'] ); ?> title="<?php echo esc_attr__( 'Add disallow rules for known AI crawlers.', 'hsp-smart-cache' ); ?>" />
+                                <?php echo esc_html__( 'Disallow common AI crawlers', 'hsp-smart-cache' ); ?>
+                            </label>
+                            <p class="description">
+                                <?php echo esc_html__( 'Adds rules via WordPress robots.txt output (no file write).', 'hsp-smart-cache' ); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><?php echo esc_html__( 'Browser Cache Headers', 'hsp-smart-cache' ); ?></th>
                         <td>
                             <label>

@@ -17,32 +17,14 @@ if ( ! class_exists( 'HSP_Smart_Cache_File_Object_Cache' ) ) {
         protected $cache_dir;
 
         protected function get_filesystem() {
-            global $wp_filesystem;
-
-            if ( $wp_filesystem ) {
-                return $wp_filesystem;
-            }
-
-            if ( function_exists( 'WP_Filesystem' ) ) {
-                WP_Filesystem();
-            }
-
-            return $wp_filesystem;
+            return null;
         }
 
         protected function fs_is_dir( $path ) {
-            $fs = $this->get_filesystem();
-            if ( $fs ) {
-                return $fs->is_dir( $path );
-            }
             return is_dir( $path );
         }
 
         protected function fs_mkdir( $path, $mode = 0755, $recursive = true ) {
-            $fs = $this->get_filesystem();
-            if ( $fs ) {
-                return $fs->mkdir( $path, $mode, $recursive );
-            }
             if ( $recursive ) {
                 return wp_mkdir_p( $path );
             }
@@ -50,43 +32,22 @@ if ( ! class_exists( 'HSP_Smart_Cache_File_Object_Cache' ) ) {
         }
 
         protected function fs_put_contents( $path, $contents ) {
-            $fs = $this->get_filesystem();
-            if ( $fs ) {
-                $chmod = defined( 'FS_CHMOD_FILE' ) ? FS_CHMOD_FILE : 0644;
-                return (bool) $fs->put_contents( $path, $contents, $chmod );
-            }
             return file_put_contents( $path, $contents ) !== false;
         }
 
         protected function fs_exists( $path ) {
-            $fs = $this->get_filesystem();
-            if ( $fs ) {
-                return $fs->exists( $path );
-            }
             return file_exists( $path );
         }
 
         protected function fs_get_contents( $path ) {
-            $fs = $this->get_filesystem();
-            if ( $fs ) {
-                return $fs->get_contents( $path );
-            }
             return file_get_contents( $path );
         }
 
         protected function fs_delete( $path ) {
-            $fs = $this->get_filesystem();
-            if ( $fs ) {
-                return $fs->delete( $path );
-            }
             return ! file_exists( $path ) || unlink( $path );
         }
 
         protected function fs_rmdir( $path, $recursive = false ) {
-            $fs = $this->get_filesystem();
-            if ( $fs ) {
-                return $fs->rmdir( $path, $recursive );
-            }
             return rmdir( $path );
         }
 

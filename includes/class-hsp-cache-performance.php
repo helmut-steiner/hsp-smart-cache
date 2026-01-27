@@ -19,10 +19,10 @@ class HSP_Smart_Cache_Performance {
             return $default;
         }
         if ( $tag_name === 'img' ) {
-            return HSP_Cache_Settings::get( 'perf_lazy_images', true );
+            return HSP_Smart_Cache_Settings::get( 'perf_lazy_images', true );
         }
         if ( $tag_name === 'iframe' ) {
-            return HSP_Cache_Settings::get( 'perf_lazy_iframes', true );
+            return HSP_Smart_Cache_Settings::get( 'perf_lazy_iframes', true );
         }
         return $default;
     }
@@ -31,7 +31,7 @@ class HSP_Smart_Cache_Performance {
         if ( is_admin() ) {
             return $attr;
         }
-        if ( HSP_Cache_Settings::get( 'perf_decoding_async', true ) && empty( $attr['decoding'] ) ) {
+        if ( HSP_Smart_Cache_Settings::get( 'perf_decoding_async', true ) && empty( $attr['decoding'] ) ) {
             $attr['decoding'] = 'async';
         }
         return $attr;
@@ -41,7 +41,7 @@ class HSP_Smart_Cache_Performance {
         if ( $relation_type !== 'dns-prefetch' ) {
             return $hints;
         }
-        $list = self::parse_list( HSP_Cache_Settings::get( 'perf_dns_prefetch_urls', '' ) );
+        $list = self::parse_list( HSP_Smart_Cache_Settings::get( 'perf_dns_prefetch_urls', '' ) );
         foreach ( $list as $url ) {
             $hints[] = $url;
         }
@@ -49,7 +49,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_emojis() {
-        if ( ! HSP_Cache_Settings::get( 'perf_disable_emojis' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_emojis' ) ) {
             return;
         }
         remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
@@ -80,7 +80,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_embeds() {
-        if ( ! HSP_Cache_Settings::get( 'perf_disable_embeds' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_embeds' ) ) {
             return;
         }
         remove_action( 'wp_head', 'wp_oembed_add_discovery_links' );
@@ -91,7 +91,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_dashicons() {
-        if ( ! HSP_Cache_Settings::get( 'perf_disable_dashicons' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_dashicons' ) ) {
             return;
         }
         if ( is_user_logged_in() ) {

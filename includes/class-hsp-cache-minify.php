@@ -11,14 +11,14 @@ class HSP_Smart_Cache_Minify {
     }
 
     public static function filter_style_src( $src, $handle ) {
-        if ( ! HSP_Cache_Settings::get( 'minify_css' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'minify_css' ) ) {
             return $src;
         }
         return self::maybe_minify_asset( $src, 'css' );
     }
 
     public static function filter_script_src( $src, $handle ) {
-        if ( ! HSP_Cache_Settings::get( 'minify_js' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'minify_js' ) ) {
             return $src;
         }
         return self::maybe_minify_asset( $src, 'js' );
@@ -33,7 +33,7 @@ class HSP_Smart_Cache_Minify {
             return $src;
         }
 
-        $path = HSP_Cache_Utils::normalize_url_path( $src );
+        $path = HSP_Smart_Cache_Utils::normalize_url_path( $src );
         if ( ! $path ) {
             return $src;
         }
@@ -53,7 +53,7 @@ class HSP_Smart_Cache_Minify {
         $target   = HSP_SMART_CACHE_PATH . '/assets/' . $filename;
 
         if ( ! file_exists( $target ) ) {
-            HSP_Cache_Utils::ensure_cache_dirs();
+            HSP_Smart_Cache_Utils::ensure_cache_dirs();
             $contents = file_get_contents( $file_path );
             if ( $contents === false ) {
                 return $src;
@@ -69,7 +69,7 @@ class HSP_Smart_Cache_Minify {
         if ( is_admin() ) {
             return;
         }
-        if ( ! HSP_Cache_Settings::get( 'browser_cache' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'browser_cache' ) ) {
             return;
         }
         if ( headers_sent() ) {
@@ -81,14 +81,97 @@ class HSP_Smart_Cache_Minify {
             return;
         }
 
-        $ttl = intval( HSP_Cache_Settings::get( 'browser_cache_asset_ttl', 604800 ) );
+        $ttl = intval( HSP_Smart_Cache_Settings::get( 'browser_cache_asset_ttl', 604800 ) );
         header( 'Cache-Control: public, max-age=' . $ttl . ', immutable' );
     }
 
     public static function minify_html( $html ) {
+        if ( HSP_Smart_Cache_Settings::get( 'minify_css' ) ) {
+            $html = preg_replace_callback(
+                '/<style\b([^>]*)>([\s\S]*?)<\/style>/i',
+                function( $matches ) {
+                    $attrs   = $matches[1];
+                    $content = $matches[2];
+
+                    if ( ! self::is_inline_style_minifiable( $attrs ) ) {
+                        return $matches[0];
+                    }
+
+                    return '<style' . $attrs . '>' . self::minify_css( $content ) . '</style>';
+                },
+                $html
+            );
+        }
+
+        if ( HSP_Smart_Cache_Settings::get( 'minify_js' ) ) {
+            $html = preg_replace_callback(
+                '/<script\b([^>]*)>([\s\S]*?)<\/script>/i',
+                function( $matches ) {
+                    $attrs   = $matches[1];
+                    $content = $matches[2];
+
+                    if ( ! self::is_inline_script_minifiable( $attrs ) ) {
+                        return $matches[0];
+                    }
+
+                    return '<script' . $attrs . '>' . self::minify_js( $content ) . '</script>';
+                },
+                $html
+            );
+        }
+
         $html = preg_replace( '/<!--[\s\S]*?-->/', '', $html );
         $html = preg_replace( '/>\s+</', '><', $html );
         return trim( $html );
+    }
+
+    protected static function is_inline_style_minifiable( $attrs ) {
+        $type = self::get_tag_attribute( $attrs, 'type' );
+        if ( ! $type ) {
+            return true;
+        }
+
+        $type = strtolower( trim( explode( ';', $type )[0] ) );
+        return ( $type === 'text/css' || $type === 'css' || strpos( $type, 'css' ) !== false );
+    }
+
+    protected static function is_inline_script_minifiable( $attrs ) {
+        if ( preg_match( '/\ssrc\s*=\s*/i', $attrs ) ) {
+            return false;
+        }
+
+        $type = self::get_tag_attribute( $attrs, 'type' );
+        if ( ! $type ) {
+            return true;
+        }
+
+        $type = strtolower( trim( explode( ';', $type )[0] ) );
+        $allowed = array(
+            'text/javascript',
+            'application/javascript',
+            'application/x-javascript',
+            'text/ecmascript',
+            'application/ecmascript',
+            'module',
+        );
+
+        return in_array( $type, $allowed, true );
+    }
+
+    protected static function get_tag_attribute( $attrs, $name ) {
+        if ( preg_match( '/\s' . preg_quote( $name, '/' ) . '\s*=\s*("([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $attrs, $matches ) ) {
+            if ( ! empty( $matches[2] ) ) {
+                return $matches[2];
+            }
+            if ( ! empty( $matches[3] ) ) {
+                return $matches[3];
+            }
+            if ( ! empty( $matches[4] ) ) {
+                return $matches[4];
+            }
+        }
+
+        return '';
     }
 
     public static function minify_css( $css ) {
@@ -108,6 +191,6 @@ class HSP_Smart_Cache_Minify {
     }
 
     public static function clear_cache() {
-        HSP_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/assets' );
+        HSP_Smart_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/assets' );
     }
 }

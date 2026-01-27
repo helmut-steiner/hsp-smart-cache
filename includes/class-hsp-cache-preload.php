@@ -6,22 +6,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class HSP_Smart_Cache_Preload {
     public static function run() {
-        if ( ! HSP_Cache_Settings::get( 'preload_enabled' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'preload_enabled' ) ) {
             return array( 'ok' => false, 'count' => 0 );
         }
 
-        $sitemap = HSP_Cache_Settings::get( 'preload_sitemap_url' );
+        $sitemap = HSP_Smart_Cache_Settings::get( 'preload_sitemap_url' );
         if ( empty( $sitemap ) ) {
             $sitemap = home_url( '/sitemap.xml' );
         }
 
-        $limit = intval( HSP_Cache_Settings::get( 'preload_limit', 50 ) );
-        $timeout = intval( HSP_Cache_Settings::get( 'preload_timeout', 8 ) );
+        $limit = intval( HSP_Smart_Cache_Settings::get( 'preload_limit', 50 ) );
+        $timeout = intval( HSP_Smart_Cache_Settings::get( 'preload_timeout', 8 ) );
 
         $urls = self::fetch_sitemap_urls( $sitemap, $limit );
         $count = 0;
         foreach ( $urls as $url ) {
-            HSP_Cache_Page::warm_url_with_timeout( $url, $timeout );
+            HSP_Smart_Cache_Page::warm_url_with_timeout( $url, $timeout );
             $count++;
         }
 

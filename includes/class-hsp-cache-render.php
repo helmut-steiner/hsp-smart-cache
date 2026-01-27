@@ -17,15 +17,15 @@ class HSP_Smart_Cache_Render {
             return $tag;
         }
 
-        $defer = HSP_Cache_Settings::get( 'render_defer_js' );
-        $async = HSP_Cache_Settings::get( 'render_async_js' );
+        $defer = HSP_Smart_Cache_Settings::get( 'render_defer_js' );
+        $async = HSP_Smart_Cache_Settings::get( 'render_async_js' );
 
         if ( ! $defer && ! $async ) {
             return $tag;
         }
 
-        $defer_exclusions = self::parse_list( HSP_Cache_Settings::get( 'render_defer_exclusions', '' ) );
-        $async_exclusions = self::parse_list( HSP_Cache_Settings::get( 'render_async_exclusions', '' ) );
+        $defer_exclusions = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_defer_exclusions', '' ) );
+        $async_exclusions = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_async_exclusions', '' ) );
 
         if ( in_array( $handle, $defer_exclusions, true ) || in_array( $handle, $async_exclusions, true ) ) {
             return $tag;
@@ -44,7 +44,7 @@ class HSP_Smart_Cache_Render {
         if ( is_admin() ) {
             return;
         }
-        $urls = self::parse_list( HSP_Cache_Settings::get( 'render_preconnect_urls', '' ) );
+        $urls = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preconnect_urls', '' ) );
         foreach ( $urls as $url ) {
             $href = esc_url( $url );
             if ( $href ) {
@@ -57,7 +57,7 @@ class HSP_Smart_Cache_Render {
         if ( is_admin() ) {
             return;
         }
-        $fonts = self::parse_list( HSP_Cache_Settings::get( 'render_preload_fonts', '' ) );
+        $fonts = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preload_fonts', '' ) );
         foreach ( $fonts as $font ) {
             $href = esc_url( $font );
             if ( $href ) {
@@ -66,7 +66,7 @@ class HSP_Smart_Cache_Render {
             }
         }
 
-        $styles = self::parse_list( HSP_Cache_Settings::get( 'render_preload_css', '' ) );
+        $styles = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preload_css', '' ) );
         foreach ( $styles as $style ) {
             $href = esc_url( $style );
             if ( $href ) {
@@ -79,7 +79,7 @@ class HSP_Smart_Cache_Render {
         if ( is_admin() ) {
             return;
         }
-        $css = HSP_Cache_Settings::get( 'render_critical_css', '' );
+        $css = HSP_Smart_Cache_Settings::get( 'render_critical_css', '' );
         if ( empty( $css ) ) {
             return;
         }

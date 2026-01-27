@@ -14,10 +14,10 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function maybe_serve_cache() {
-        if ( ! HSP_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
             return;
         }
-        if ( ! HSP_Cache_Utils::is_request_cacheable() ) {
+        if ( ! HSP_Smart_Cache_Utils::is_request_cacheable() ) {
             return;
         }
 
@@ -26,13 +26,13 @@ class HSP_Smart_Cache_Page {
             return;
         }
 
-        $ttl = intval( HSP_Cache_Settings::get( 'page_cache_ttl', 3600 ) );
+        $ttl = intval( HSP_Smart_Cache_Settings::get( 'page_cache_ttl', 3600 ) );
         if ( file_exists( $cache_file ) ) {
             $age = time() - filemtime( $cache_file );
             if ( $age <= $ttl ) {
                 self::send_browser_cache_headers( $cache_file );
                 header( 'X-HSP-Cache: HIT' );
-                $fs = HSP_Cache_Utils::get_filesystem();
+                $fs = HSP_Smart_Cache_Utils::get_filesystem();
                 if ( $fs ) {
                     $contents = $fs->get_contents( $cache_file );
                     if ( $contents !== false ) {
@@ -52,10 +52,10 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function start_buffer() {
-        if ( ! HSP_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
             return;
         }
-        if ( ! HSP_Cache_Utils::is_request_cacheable() ) {
+        if ( ! HSP_Smart_Cache_Utils::is_request_cacheable() ) {
             return;
         }
 
@@ -75,13 +75,13 @@ class HSP_Smart_Cache_Page {
             return;
         }
 
-        if ( HSP_Cache_Settings::get( 'minify_html' ) ) {
-            $html = HSP_Cache_Minify::minify_html( $html );
+        if ( HSP_Smart_Cache_Settings::get( 'minify_html' ) ) {
+            $html = HSP_Smart_Cache_Minify::minify_html( $html );
         }
 
         $cache_file = self::get_cache_file_path();
         if ( $cache_file ) {
-            HSP_Cache_Utils::ensure_cache_dirs();
+            HSP_Smart_Cache_Utils::ensure_cache_dirs();
             file_put_contents( $cache_file, $html );
             self::send_browser_cache_headers( $cache_file, true );
             header( 'X-HSP-Cache: MISS' );
@@ -94,14 +94,14 @@ class HSP_Smart_Cache_Page {
         if ( headers_sent() ) {
             return;
         }
-        if ( ! HSP_Cache_Settings::get( 'browser_cache' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'browser_cache' ) ) {
             return;
         }
 
-        $ttl = intval( HSP_Cache_Settings::get( 'browser_cache_html_ttl', 600 ) );
+        $ttl = intval( HSP_Smart_Cache_Settings::get( 'browser_cache_html_ttl', 600 ) );
         $is_logged_in = is_user_logged_in();
 
-        if ( $is_logged_in && ! HSP_Cache_Settings::get( 'cache_logged_in' ) ) {
+        if ( $is_logged_in && ! HSP_Smart_Cache_Settings::get( 'cache_logged_in' ) ) {
             return;
         }
 
@@ -152,13 +152,13 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function clear_cache() {
-        HSP_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/pages' );
+        HSP_Smart_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/pages' );
     }
 
     public static function clear_cache_for_url( $url ) {
         $file = self::get_cache_file_path_for_url( $url );
         if ( $file && file_exists( $file ) ) {
-            $fs = HSP_Cache_Utils::get_filesystem();
+            $fs = HSP_Smart_Cache_Utils::get_filesystem();
             if ( $fs ) {
                 $fs->delete( $file );
             } else {
@@ -198,7 +198,7 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function warm_url( $url ) {
-        if ( ! HSP_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
             return;
         }
         wp_remote_get(
@@ -211,7 +211,7 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function warm_url_with_timeout( $url, $timeout ) {
-        if ( ! HSP_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
             return;
         }
         wp_remote_get(

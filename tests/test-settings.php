@@ -1,8 +1,8 @@
 <?php
 
-class HSP_Cache_Settings_Test extends WP_UnitTestCase {
+class HSP_Smart_Cache_Settings_Test extends WP_UnitTestCase {
     public function test_defaults_are_present() {
-        $defaults = HSP_Cache_Settings::defaults();
+        $defaults = HSP_Smart_Cache_Settings::defaults();
 
         $this->assertArrayHasKey( 'page_cache', $defaults );
         $this->assertArrayHasKey( 'page_cache_ttl', $defaults );
@@ -39,7 +39,7 @@ class HSP_Cache_Settings_Test extends WP_UnitTestCase {
             'cdn_url'        => 'https://cdn.example.com',
         );
 
-        $sanitized = HSP_Cache_Settings::sanitize( $input );
+        $sanitized = HSP_Smart_Cache_Settings::sanitize( $input );
 
         $this->assertTrue( $sanitized['page_cache'] );
         $this->assertGreaterThanOrEqual( 60, $sanitized['page_cache_ttl'] );
@@ -48,7 +48,7 @@ class HSP_Cache_Settings_Test extends WP_UnitTestCase {
     }
 
     public function test_static_asset_rules_generation() {
-        $rules = HSP_Cache_Static_Assets::get_htaccess_rules( 600, true, true );
+        $rules = HSP_Smart_Cache_Static_Assets::get_htaccess_rules( 600, true, true );
         $this->assertStringContainsString( 'Cache-Control', $rules );
         $this->assertStringContainsString( 'max-age=600', $rules );
         $this->assertStringContainsString( 'immutable', $rules );

@@ -31,29 +31,6 @@ require_once __DIR__ . '/includes/class-hsp-cache-performance.php';
 require_once __DIR__ . '/includes/class-hsp-cache-maintenance.php';
 require_once __DIR__ . '/includes/class-hsp-cache-preload.php';
 
-$hsp_smart_cache_aliases = array(
-    'HSP_Cache_Settings'      => 'HSP_Smart_Cache_Settings',
-    'HSP_Cache_Utils'         => 'HSP_Smart_Cache_Utils',
-    'HSP_Cache_Admin'         => 'HSP_Smart_Cache_Admin',
-    'HSP_Cache_Minify'        => 'HSP_Smart_Cache_Minify',
-    'HSP_Cache_Page'          => 'HSP_Smart_Cache_Page',
-    'HSP_Cache_CDN'           => 'HSP_Smart_Cache_CDN',
-    'HSP_Cache_Object'        => 'HSP_Smart_Cache_Object',
-    'HSP_Cache_Tests'         => 'HSP_Smart_Cache_Tests',
-    'HSP_Cache_Static_Assets' => 'HSP_Smart_Cache_Static_Assets',
-    'HSP_Cache_Render'        => 'HSP_Smart_Cache_Render',
-    'HSP_Cache_Performance'   => 'HSP_Smart_Cache_Performance',
-    'HSP_Cache_Maintenance'   => 'HSP_Smart_Cache_Maintenance',
-    'HSP_Cache_Preload'       => 'HSP_Smart_Cache_Preload',
-    'HSP_Cache_Plugin'        => 'HSP_Smart_Cache_Plugin',
-);
-
-foreach ( $hsp_smart_cache_aliases as $alias => $class ) {
-    if ( ! class_exists( $alias ) && class_exists( $class ) ) {
-        class_alias( $class, $alias );
-    }
-}
-
 class HSP_Smart_Cache_Plugin {
     public static function init() {
         HSP_Smart_Cache_Settings::init();

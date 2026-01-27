@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Maintenance and security fixes.
+
 ## 0.1.2
 
 - Maintenance and security fixes.

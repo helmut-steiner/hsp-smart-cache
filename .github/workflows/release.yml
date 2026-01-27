@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build plugin zip
+        id: build_zip
+        run: |
+          PLUGIN_SLUG="hsp-smart-cache"
+          ZIP_NAME="${PLUGIN_SLUG}-${GITHUB_REF_NAME}.zip"
+          mkdir -p dist/${PLUGIN_SLUG}
+
+          rsync -a --delete ./ dist/${PLUGIN_SLUG}/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'bin/' \
+            --exclude 'tests/' \
+            --exclude 'node_modules/' \
+            --exclude '*.sh' \
+            --exclude '*.xml' \
+            --exclude '*.md' \
+            --exclude '*.yml' \
+            --exclude '*.yaml' \
+            --exclude '*.json' \
+            --exclude '*.lock'
+
+          (cd dist && zip -r "../${ZIP_NAME}" "${PLUGIN_SLUG}")
+          echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Upload release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.build_zip.outputs.zip_name }}

@@ -75,6 +75,11 @@ class HSP_Smart_Cache_Page {
             return;
         }
 
+        if ( ! self::should_cache_response() ) {
+            ob_end_flush();
+            return;
+        }
+
         if ( HSP_Smart_Cache_Settings::get( 'minify_html' ) ) {
             $html = HSP_Smart_Cache_Minify::minify_html( $html );
         }
@@ -88,6 +93,21 @@ class HSP_Smart_Cache_Page {
         }
 
         ob_end_flush();
+    }
+
+    protected static function should_cache_response() {
+        $status = function_exists( 'http_response_code' ) ? http_response_code() : 200;
+        if ( $status >= 300 && $status < 400 ) {
+            return false;
+        }
+
+        foreach ( headers_list() as $header ) {
+            if ( stripos( $header, 'Location:' ) === 0 ) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected static function send_browser_cache_headers( $cache_file = null, $is_miss = false ) {

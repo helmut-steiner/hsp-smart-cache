@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Avoid caching redirect responses to prevent blank cached pages.
+
 ## 0.1.6
 
 - Avoid WP_Filesystem usage in object cache to prevent early-load errors and chown warnings.

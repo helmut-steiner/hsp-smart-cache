@@ -2,7 +2,7 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.1.7
+ * Version: 0.1.8
  * Author: Helmut Steiner
  * License: MIT
  * License URI: https://opensource.org/licenses/MIT
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSP_SMART_CACHE_VERSION', '0.1.7' );
+define( 'HSP_SMART_CACHE_VERSION', '0.1.8' );
 define( 'HSP_SMART_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
 define( 'HSP_SMART_CACHE_URL', content_url( '/cache/hsp-cache' ) );
 
@@ -56,6 +56,8 @@ class HSP_Smart_Cache_Plugin {
         add_action( 'deleted_comment', array( __CLASS__, 'handle_comment_change' ) );
         add_action( 'switch_theme', array( __CLASS__, 'flush_all_caches' ) );
         add_action( 'customize_save_after', array( __CLASS__, 'flush_all_caches' ) );
+        add_action( 'upgrader_process_complete', array( __CLASS__, 'handle_upgrader_process_complete' ), 10, 2 );
+        add_action( 'core_updated_successfully', array( __CLASS__, 'flush_all_caches' ) );
     }
 
     public static function activate() {
@@ -101,6 +103,23 @@ class HSP_Smart_Cache_Plugin {
 
     public static function filter_robots_txt( $output, $public ) {
         return HSP_Smart_Cache_Utils::apply_robots_rules( $output, (bool) $public );
+    }
+
+    public static function handle_upgrader_process_complete( $upgrader, $hook_extra ) {
+        if ( ! is_array( $hook_extra ) ) {
+            return;
+        }
+
+        $action = isset( $hook_extra['action'] ) ? (string) $hook_extra['action'] : '';
+        $type   = isset( $hook_extra['type'] ) ? (string) $hook_extra['type'] : '';
+
+        if ( $action !== 'update' ) {
+            return;
+        }
+
+        if ( in_array( $type, array( 'plugin', 'theme', 'core' ), true ) ) {
+            self::flush_all_caches();
+        }
     }
 }
 

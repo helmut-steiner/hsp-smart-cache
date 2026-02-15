@@ -13,7 +13,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function filter_script_tag( $tag, $handle, $src ) {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return $tag;
         }
 
@@ -41,7 +41,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_preconnects() {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return;
         }
         $urls = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preconnect_urls', '' ) );
@@ -54,7 +54,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_preloads() {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return;
         }
         $fonts = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preload_fonts', '' ) );
@@ -76,7 +76,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_critical_css() {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return;
         }
         $css = HSP_Smart_Cache_Settings::get( 'render_critical_css', '' );

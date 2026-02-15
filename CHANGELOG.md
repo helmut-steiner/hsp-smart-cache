@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8
+
+- Never cache backend and login requests (`/wp-admin/`, `wp-login.php`, `wp-register.php`, AJAX).
+- Clear all cache layers after WordPress core, plugin, and theme updates.
+
 ## 0.1.7
 
 - Avoid caching redirect responses to prevent blank cached pages.

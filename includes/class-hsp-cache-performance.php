@@ -15,7 +15,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function filter_lazy_loading( $default, $tag_name ) {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return $default;
         }
         if ( $tag_name === 'img' ) {
@@ -28,7 +28,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function filter_image_attributes( $attr, $attachment, $size ) {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return $attr;
         }
         if ( HSP_Smart_Cache_Settings::get( 'perf_decoding_async', true ) && empty( $attr['decoding'] ) ) {

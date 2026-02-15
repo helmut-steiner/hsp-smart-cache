@@ -25,7 +25,7 @@ class HSP_Smart_Cache_Minify {
     }
 
     protected static function maybe_minify_asset( $src, $type ) {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return $src;
         }
 
@@ -66,7 +66,7 @@ class HSP_Smart_Cache_Minify {
     }
 
     public static function maybe_send_asset_headers() {
-        if ( is_admin() ) {
+        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
             return;
         }
         if ( ! HSP_Smart_Cache_Settings::get( 'browser_cache' ) ) {

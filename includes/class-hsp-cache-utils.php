@@ -113,7 +113,7 @@ class HSP_Smart_Cache_Utils {
     }
 
     public static function is_request_cacheable() {
-        if ( is_admin() ) {
+        if ( self::is_backend_or_login_request() ) {
             return false;
         }
         if ( is_user_logged_in() && ! HSP_Smart_Cache_Settings::get( 'cache_logged_in' ) ) {
@@ -130,6 +130,30 @@ class HSP_Smart_Cache_Utils {
             return false;
         }
         return true;
+    }
+
+    public static function is_backend_or_login_request() {
+        if ( is_admin() ) {
+            return true;
+        }
+
+        if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+            return true;
+        }
+
+        $pagenow = isset( $GLOBALS['pagenow'] ) ? (string) $GLOBALS['pagenow'] : '';
+        if ( $pagenow === 'wp-login.php' || $pagenow === 'wp-register.php' ) {
+            return true;
+        }
+
+        $uri = isset( $_SERVER['REQUEST_URI'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) ) : '';
+        if ( $uri === '' ) {
+            return false;
+        }
+
+        return strpos( $uri, '/wp-login.php' ) !== false
+            || strpos( $uri, '/wp-register.php' ) !== false
+            || strpos( $uri, '/wp-admin/' ) !== false;
     }
 
     public static function normalize_url_path( $url ) {

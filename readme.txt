@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -28,6 +28,11 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+= 0.2.1 =
+* Add native WordPress plugin update integration via GitHub Releases.
+* Show release details/changelog in the plugin update modal.
+* Handle GitHub ZIP extraction folder renaming during update installs.
+
 = 0.2.0 =
 * Disable frontend optimizations for logged-in users by default.
 * Add new option to allow frontend optimizations for logged-in users.

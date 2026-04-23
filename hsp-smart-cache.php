@@ -2,7 +2,8 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.2.0
+ * Version: 0.2.1
+ * Update URI: https://github.com/helmut-steiner/hsp-smart-cache
  * Author: Helmut Steiner
  * License: MIT
  * License URI: https://opensource.org/licenses/MIT
@@ -13,7 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSP_SMART_CACHE_VERSION', '0.2.0' );
+define( 'HSP_SMART_CACHE_VERSION', '0.2.1' );
+define( 'HSP_SMART_CACHE_BASENAME', plugin_basename( __FILE__ ) );
 define( 'HSP_SMART_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
 define( 'HSP_SMART_CACHE_URL', content_url( '/cache/hsp-cache' ) );
 
@@ -30,6 +32,7 @@ require_once __DIR__ . '/includes/class-hsp-cache-render.php';
 require_once __DIR__ . '/includes/class-hsp-cache-performance.php';
 require_once __DIR__ . '/includes/class-hsp-cache-maintenance.php';
 require_once __DIR__ . '/includes/class-hsp-cache-preload.php';
+require_once __DIR__ . '/includes/class-hsp-cache-updater.php';
 
 class HSP_Smart_Cache_Plugin {
     public static function init() {
@@ -42,6 +45,7 @@ class HSP_Smart_Cache_Plugin {
         HSP_Smart_Cache_Static_Assets::init();
         HSP_Smart_Cache_Render::init();
         HSP_Smart_Cache_Performance::init();
+        HSP_Smart_Cache_Updater::init();
 
         add_action( 'send_headers', array( 'HSP_Smart_Cache_Minify', 'maybe_send_asset_headers' ), 0 );
         add_filter( 'robots_txt', array( __CLASS__, 'filter_robots_txt' ), 10, 2 );

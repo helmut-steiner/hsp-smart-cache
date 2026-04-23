@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Add native WordPress plugin update integration via GitHub Releases.
+- Show release details and changelog in the plugin update modal.
+- Handle GitHub ZIP extraction folder renaming during update installs.
+
 ## 0.2.0
 
 - Disable frontend optimizations for logged-in users by default.

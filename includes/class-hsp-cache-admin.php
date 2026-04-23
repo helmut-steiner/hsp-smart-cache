@@ -309,6 +309,13 @@ class HSP_Smart_Cache_Admin {
                             <p class="description" style="color:#b32d2e;">
                                 <?php echo esc_html__( 'Warning: Can serve private data if enabled on sites with personalized content.', 'hsp-smart-cache' ); ?>
                             </p>
+                            <label>
+                                <input type="checkbox" name="<?php echo esc_attr( HSP_Smart_Cache_Settings::OPTION_KEY ); ?>[optimize_logged_in]" value="1" <?php checked( $options['optimize_logged_in'] ); ?> title="<?php echo esc_attr__( 'Apply frontend optimizations for logged-in users.', 'hsp-smart-cache' ); ?>" />
+                                <?php echo esc_html__( 'Allow frontend optimizations for logged-in users', 'hsp-smart-cache' ); ?>
+                            </label>
+                            <p class="description">
+                                <?php echo esc_html__( 'Recommended off for editors/builders. Controls minify, script defer/async, and frontend performance tweaks.', 'hsp-smart-cache' ); ?>
+                            </p>
                         </td>
                     </tr>
                     <tr>

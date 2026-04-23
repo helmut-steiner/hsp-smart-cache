@@ -12,6 +12,10 @@ class HSP_Smart_Cache_CDN {
     }
 
     public static function rewrite_url( $url ) {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+            return $url;
+        }
+
         if ( ! HSP_Smart_Cache_Settings::get( 'cdn_enabled' ) ) {
             return $url;
         }

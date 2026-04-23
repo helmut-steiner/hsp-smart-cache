@@ -80,7 +80,7 @@ class HSP_Smart_Cache_Page {
             return;
         }
 
-        if ( HSP_Smart_Cache_Settings::get( 'minify_html' ) ) {
+        if ( HSP_Smart_Cache_Settings::get( 'minify_html' ) && HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
             $html = HSP_Smart_Cache_Minify::minify_html( $html );
         }
 

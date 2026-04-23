@@ -160,6 +160,18 @@ class HSP_Smart_Cache_Utils {
             || strpos( $uri, '/wp-admin/' ) !== false;
     }
 
+    public static function should_apply_frontend_optimizations() {
+        if ( self::is_backend_or_login_request() ) {
+            return false;
+        }
+
+        if ( is_user_logged_in() && ! HSP_Smart_Cache_Settings::get( 'optimize_logged_in', false ) ) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static function is_editor_or_builder_request() {
         $uri = isset( $_SERVER['REQUEST_URI'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) ) : '';
         $query = isset( $_SERVER['QUERY_STRING'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['QUERY_STRING'] ) ) ) : '';

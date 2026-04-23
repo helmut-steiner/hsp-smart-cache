@@ -13,7 +13,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function filter_script_tag( $tag, $handle, $src ) {
-        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
             return $tag;
         }
 
@@ -62,7 +62,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_preconnects() {
-        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
         $urls = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preconnect_urls', '' ) );
@@ -75,7 +75,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_preloads() {
-        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
         $fonts = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preload_fonts', '' ) );
@@ -97,7 +97,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_critical_css() {
-        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
         $css = HSP_Smart_Cache_Settings::get( 'render_critical_css', '' );

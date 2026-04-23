@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Disable frontend optimizations for logged-in users by default.
+- Add new option to allow frontend optimizations for logged-in users.
+- Apply logged-in optimization guard consistently across minify, render, CDN rewrite, and performance tweaks.
+
 ## 0.1.9
 
 - Skip cache/minify/render optimizations on Bricks builder and preview requests.

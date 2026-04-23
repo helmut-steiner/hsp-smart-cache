@@ -15,7 +15,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function filter_lazy_loading( $default, $tag_name ) {
-        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
             return $default;
         }
         if ( $tag_name === 'img' ) {
@@ -28,7 +28,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function filter_image_attributes( $attr, $attachment, $size ) {
-        if ( HSP_Smart_Cache_Utils::is_backend_or_login_request() ) {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
             return $attr;
         }
         if ( HSP_Smart_Cache_Settings::get( 'perf_decoding_async', true ) && empty( $attr['decoding'] ) ) {
@@ -49,6 +49,10 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_emojis() {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+            return;
+        }
+
         if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_emojis' ) ) {
             return;
         }
@@ -80,6 +84,10 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_embeds() {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+            return;
+        }
+
         if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_embeds' ) ) {
             return;
         }
@@ -91,6 +99,10 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_dashicons() {
+        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+            return;
+        }
+
         if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_dashicons' ) ) {
             return;
         }

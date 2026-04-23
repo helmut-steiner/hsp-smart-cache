@@ -16,6 +16,7 @@ class HSP_Smart_Cache_Settings {
             'page_cache'     => true,
             'page_cache_ttl' => 3600,
             'cache_logged_in' => false,
+            'optimize_logged_in' => false,
             'robots_disallow_ai' => false,
             'browser_cache'  => true,
             'browser_cache_ttl' => 600,
@@ -89,6 +90,7 @@ class HSP_Smart_Cache_Settings {
         $output['page_cache']     = ! empty( $input['page_cache'] );
         $output['page_cache_ttl'] = isset( $input['page_cache_ttl'] ) ? max( 60, intval( $input['page_cache_ttl'] ) ) : $defaults['page_cache_ttl'];
         $output['cache_logged_in'] = ! empty( $input['cache_logged_in'] );
+        $output['optimize_logged_in'] = ! empty( $input['optimize_logged_in'] );
         $output['robots_disallow_ai'] = ! empty( $input['robots_disallow_ai'] );
         $output['browser_cache']  = ! empty( $input['browser_cache'] );
         $legacy_ttl = isset( $input['browser_cache_ttl'] ) ? max( 60, intval( $input['browser_cache_ttl'] ) ) : $defaults['browser_cache_ttl'];

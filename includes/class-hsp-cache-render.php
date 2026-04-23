@@ -17,6 +17,10 @@ class HSP_Smart_Cache_Render {
             return $tag;
         }
 
+        if ( self::script_has_inline_extras( $handle ) ) {
+            return $tag;
+        }
+
         $defer = HSP_Smart_Cache_Settings::get( 'render_defer_js' );
         $async = HSP_Smart_Cache_Settings::get( 'render_async_js' );
 
@@ -38,6 +42,23 @@ class HSP_Smart_Cache_Render {
         }
 
         return $tag;
+    }
+
+    protected static function script_has_inline_extras( $handle ) {
+        global $wp_scripts;
+
+        if ( ! ( $wp_scripts instanceof WP_Scripts ) ) {
+            return false;
+        }
+
+        if ( empty( $wp_scripts->registered[ $handle ] ) ) {
+            return false;
+        }
+
+        $registered = $wp_scripts->registered[ $handle ];
+        $extra = isset( $registered->extra ) && is_array( $registered->extra ) ? $registered->extra : array();
+
+        return ! empty( $extra['before'] ) || ! empty( $extra['after'] ) || ! empty( $extra['data'] );
     }
 
     public static function output_preconnects() {

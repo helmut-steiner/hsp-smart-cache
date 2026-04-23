@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9
+
+- Skip cache/minify/render optimizations on Bricks builder and preview requests.
+- Avoid adding defer/async to scripts with inline before/after/data extras to prevent editor JS errors.
+
 ## 0.1.8
 
 - Never cache backend and login requests (`/wp-admin/`, `wp-login.php`, `wp-register.php`, AJAX).

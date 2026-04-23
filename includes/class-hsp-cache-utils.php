@@ -146,6 +146,10 @@ class HSP_Smart_Cache_Utils {
             return true;
         }
 
+        if ( self::is_editor_or_builder_request() ) {
+            return true;
+        }
+
         $uri = isset( $_SERVER['REQUEST_URI'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) ) : '';
         if ( $uri === '' ) {
             return false;
@@ -154,6 +158,29 @@ class HSP_Smart_Cache_Utils {
         return strpos( $uri, '/wp-login.php' ) !== false
             || strpos( $uri, '/wp-register.php' ) !== false
             || strpos( $uri, '/wp-admin/' ) !== false;
+    }
+
+    public static function is_editor_or_builder_request() {
+        $uri = isset( $_SERVER['REQUEST_URI'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) ) : '';
+        $query = isset( $_SERVER['QUERY_STRING'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['QUERY_STRING'] ) ) ) : '';
+
+        if ( strpos( $uri, 'bricks=run' ) !== false || strpos( $query, 'bricks=run' ) !== false ) {
+            return true;
+        }
+
+        if ( strpos( $uri, 'bricks=preview' ) !== false || strpos( $query, 'bricks=preview' ) !== false ) {
+            return true;
+        }
+
+        if ( strpos( $uri, 'kspreview=true' ) !== false || strpos( $query, 'kspreview=true' ) !== false ) {
+            return true;
+        }
+
+        if ( isset( $_GET['customize_changeset_uuid'] ) ) {
+            return true;
+        }
+
+        return false;
     }
 
     public static function normalize_url_path( $url ) {

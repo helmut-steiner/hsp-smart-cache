@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.1.8
+Stable tag: 0.1.9
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -28,6 +28,10 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+= 0.1.9 =
+* Skip cache/minify/render optimizations on Bricks builder and preview requests.
+* Avoid adding defer/async to scripts with inline before/after/data extras to prevent editor JS errors.
+
 = 0.1.8 =
 * Never cache backend and login requests (`/wp-admin/`, `wp-login.php`, `wp-register.php`, AJAX).
 * Clear all cache layers after WordPress core, plugin, and theme updates.

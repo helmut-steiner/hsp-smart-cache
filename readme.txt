@@ -4,13 +4,32 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.3.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
 
 == Description ==
-HSP Smart Cache provides page caching, HTML/CSS/JS minification, CDN rewriting, and a file-based persistent object cache with a simple settings UI.
+HSP Smart Cache is an all-in-one performance plugin for WordPress with practical controls for caching, frontend optimization, and maintenance.
+
+It includes the following functionality:
+
+* **Page caching** with configurable TTL and optional caching for logged-in users.
+* **Automatic cache invalidation** when posts, comments, terms, themes, customizer settings, plugins, or core updates change site output.
+* **HTML/CSS/JS minification**, including inline CSS/JS minification in HTML output.
+* **Asset minification cache** with generated minified files served from the plugin cache directory.
+* **CDN URL rewriting** for static assets (CSS, JS, images, fonts).
+* **File-based object cache drop-in** with automatic install/remove syncing based on settings.
+* **Browser cache headers** for pages and assets with configurable TTL values.
+* **Static asset caching rules** for Apache (.htaccess), including optional immutable directives and gzip/deflate compression.
+* **Render-blocking optimization** controls: defer/async for scripts, handle exclusions, preconnect hints, preload for fonts/CSS, and inline critical CSS.
+* **Additional frontend performance controls**: lazy loading for images/iframes, decoding=async for images, disable emojis/embeds/dashicons-for-guests, and custom DNS prefetch hints.
+* **Cache preload** from sitemap URLs with configurable max URLs and per-request timeout.
+* **Built-in cache diagnostics** from the settings page.
+* **Database maintenance tools**: cleanup (revisions, trashed content, expired transients), optimization analysis summary, table optimization, automatic timestamped backup before optimization, and backup management (list, restore, delete).
+* **GitHub release updater integration** for plugin update checks and release changelog display.
+
+The settings page groups these features into clear sections and provides one-click maintenance actions for day-to-day operations.
 
 == Installation ==
 1. Upload the `hsp-smart-cache` folder to the `/wp-content/plugins/` directory.
@@ -28,6 +47,12 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+= 0.3.0 =
+* Add database optimization analysis summary before running optimize.
+* Create automatic timestamped database backups before optimization.
+* Add backup management in settings: list, restore, and delete backups.
+* Expand automated test coverage across maintenance/admin flows and core feature modules.
+
 = 0.2.1 =
 * Add native WordPress plugin update integration via GitHub Releases.
 * Show release details/changelog in the plugin update modal.

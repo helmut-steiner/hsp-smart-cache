@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Add database optimization analysis summary before running optimize.
+- Create automatic timestamped database backups before optimization.
+- Add backup management in settings: list, restore, and delete backups.
+- Expand automated test coverage across maintenance/admin flows and core feature modules.
+
 ## 0.2.1
 
 - Add native WordPress plugin update integration via GitHub Releases.

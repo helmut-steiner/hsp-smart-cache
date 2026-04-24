@@ -31,4 +31,39 @@ class HSP_Smart_Cache_Performance_Test extends WP_UnitTestCase {
         $this->assertContains( '//example.com', $hints );
         $this->assertContains( '//cdn.example.com', $hints );
     }
+
+    public function test_maybe_disable_emojis_adds_filters_and_removes_wpemoji_plugin() {
+        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array_merge( HSP_Smart_Cache_Settings::defaults(), array(
+            'perf_disable_emojis' => true,
+        ) ) );
+
+        HSP_Smart_Cache_Performance::maybe_disable_emojis();
+
+        $plugins = apply_filters( 'tiny_mce_plugins', array( 'wpemoji', 'lists' ) );
+        $this->assertNotContains( 'wpemoji', $plugins );
+    }
+
+    public function test_maybe_disable_embeds_adds_embed_discover_filter() {
+        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array_merge( HSP_Smart_Cache_Settings::defaults(), array(
+            'perf_disable_embeds' => true,
+        ) ) );
+
+        HSP_Smart_Cache_Performance::maybe_disable_embeds();
+
+        $this->assertNotFalse( has_filter( 'embed_oembed_discover', '__return_false' ) );
+    }
+
+    public function test_maybe_disable_dashicons_dequeues_for_guests() {
+        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array_merge( HSP_Smart_Cache_Settings::defaults(), array(
+            'perf_disable_dashicons' => true,
+        ) ) );
+
+        wp_set_current_user( 0 );
+        wp_enqueue_style( 'dashicons', '/wp-includes/css/dashicons.css', array(), '1.0' );
+        $this->assertTrue( wp_style_is( 'dashicons', 'enqueued' ) );
+
+        HSP_Smart_Cache_Performance::maybe_disable_dashicons();
+
+        $this->assertFalse( wp_style_is( 'dashicons', 'enqueued' ) );
+    }
 }

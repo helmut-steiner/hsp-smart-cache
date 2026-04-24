@@ -65,4 +65,68 @@ class HSP_Smart_Cache_Utils_Test extends WP_UnitTestCase {
             $_SERVER['REQUEST_METHOD'] = $original_method;
         }
     }
+
+    public function test_apply_robots_rules_appends_ai_block_when_enabled() {
+        update_option(
+            HSP_Smart_Cache_Settings::OPTION_KEY,
+            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'robots_disallow_ai' => true ) )
+        );
+
+        $output = HSP_Smart_Cache_Utils::apply_robots_rules( "User-agent: *\nDisallow:", true );
+
+        $this->assertStringContainsString( 'User-agent: GPTBot', $output );
+        $this->assertStringContainsString( 'User-agent: Amazonbot', $output );
+    }
+
+    public function test_is_editor_or_builder_request_detects_builder_query() {
+        $original_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : null;
+        $original_query = isset( $_SERVER['QUERY_STRING'] ) ? $_SERVER['QUERY_STRING'] : null;
+
+        $_SERVER['REQUEST_URI'] = '/?bricks=run';
+        $_SERVER['QUERY_STRING'] = 'bricks=run';
+
+        $this->assertTrue( HSP_Smart_Cache_Utils::is_editor_or_builder_request() );
+
+        if ( null === $original_uri ) {
+            unset( $_SERVER['REQUEST_URI'] );
+        } else {
+            $_SERVER['REQUEST_URI'] = $original_uri;
+        }
+
+        if ( null === $original_query ) {
+            unset( $_SERVER['QUERY_STRING'] );
+        } else {
+            $_SERVER['QUERY_STRING'] = $original_query;
+        }
+    }
+
+    public function test_should_apply_frontend_optimizations_is_false_for_logged_in_when_disabled() {
+        $user_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+        wp_set_current_user( $user_id );
+
+        update_option(
+            HSP_Smart_Cache_Settings::OPTION_KEY,
+            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'optimize_logged_in' => false ) )
+        );
+
+        $this->assertFalse( HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() );
+
+        wp_set_current_user( 0 );
+    }
+
+    public function test_delete_dir_contents_removes_nested_files() {
+        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+
+        $root = HSP_SMART_CACHE_PATH . '/pages/delete-test';
+        $nested = $root . '/nested';
+        wp_mkdir_p( $nested );
+        file_put_contents( $root . '/a.txt', 'a' );
+        file_put_contents( $nested . '/b.txt', 'b' );
+
+        HSP_Smart_Cache_Utils::delete_dir_contents( $root );
+
+        $this->assertDirectoryExists( $root );
+        $this->assertFileDoesNotExist( $root . '/a.txt' );
+        $this->assertFileDoesNotExist( $nested . '/b.txt' );
+    }
 }

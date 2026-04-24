@@ -54,4 +54,20 @@ class HSP_Smart_Cache_Settings_Test extends WP_UnitTestCase {
         $this->assertStringContainsString( 'immutable', $rules );
         $this->assertStringContainsString( 'DEFLATE', $rules );
     }
+
+    public function test_ensure_defaults_merges_missing_keys() {
+        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array( 'page_cache' => false ) );
+
+        HSP_Smart_Cache_Settings::ensure_defaults();
+
+        $options = get_option( HSP_Smart_Cache_Settings::OPTION_KEY );
+        $this->assertIsArray( $options );
+        $this->assertArrayHasKey( 'minify_html', $options );
+        $this->assertFalse( $options['page_cache'] );
+    }
+
+    public function test_get_returns_default_for_unknown_key() {
+        $value = HSP_Smart_Cache_Settings::get( 'nonexistent_key', 'fallback' );
+        $this->assertSame( 'fallback', $value );
+    }
 }

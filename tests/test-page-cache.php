@@ -35,4 +35,64 @@ class HSP_Smart_Cache_Page_Test extends WP_UnitTestCase {
         HSP_Smart_Cache_Page::clear_cache_for_post( $post_id );
         $this->assertFileDoesNotExist( $file );
     }
+
+    public function test_warm_url_with_timeout_issues_request_when_page_cache_enabled() {
+        update_option(
+            HSP_Smart_Cache_Settings::OPTION_KEY,
+            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'page_cache' => true ) )
+        );
+
+        $captured = array();
+        $mock_http = static function( $preempt, $args, $url ) use ( &$captured ) {
+            $captured[] = array( 'url' => $url, 'args' => $args );
+            return array(
+                'headers'  => array(),
+                'body'     => 'ok',
+                'response' => array( 'code' => 200, 'message' => 'OK' ),
+                'cookies'  => array(),
+                'filename' => null,
+            );
+        };
+
+        add_filter( 'pre_http_request', $mock_http, 10, 3 );
+        try {
+            HSP_Smart_Cache_Page::warm_url_with_timeout( home_url( '/warm-me/' ), 4 );
+        } finally {
+            remove_filter( 'pre_http_request', $mock_http, 10 );
+        }
+
+        $this->assertCount( 1, $captured );
+        $this->assertSame( home_url( '/warm-me/' ), $captured[0]['url'] );
+        $this->assertSame( 4, $captured[0]['args']['timeout'] );
+    }
+
+    public function test_warm_urls_calls_remote_get_for_each_url() {
+        update_option(
+            HSP_Smart_Cache_Settings::OPTION_KEY,
+            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'page_cache' => true ) )
+        );
+
+        $urls = array( home_url( '/a/' ), home_url( '/b/' ) );
+        $captured = array();
+        $mock_http = static function( $preempt, $args, $url ) use ( &$captured ) {
+            $captured[] = $url;
+            return array(
+                'headers'  => array(),
+                'body'     => 'ok',
+                'response' => array( 'code' => 200, 'message' => 'OK' ),
+                'cookies'  => array(),
+                'filename' => null,
+            );
+        };
+
+        add_filter( 'pre_http_request', $mock_http, 10, 3 );
+        try {
+            HSP_Smart_Cache_Page::warm_urls( $urls );
+        } finally {
+            remove_filter( 'pre_http_request', $mock_http, 10 );
+        }
+
+        $this->assertCount( 2, $captured );
+        $this->assertSame( $urls, $captured );
+    }
 }

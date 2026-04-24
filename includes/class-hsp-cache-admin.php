@@ -33,12 +33,11 @@ class HSP_Smart_Cache_Admin {
 
     public static function handle_clear_cache() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+            self::deny_access();
         }
         check_admin_referer( 'hsp_cache_clear' );
         HSP_Smart_Cache_Plugin::flush_all_caches();
-        wp_safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&cache=cleared' ) );
-        exit;
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&cache=cleared' ) );
     }
 
     public static function handle_clear_current() {
@@ -159,70 +158,80 @@ class HSP_Smart_Cache_Admin {
 
     protected static function redirect_back() {
         $url = self::get_target_url();
-        wp_safe_redirect( $url );
-        exit;
+        self::safe_redirect( $url );
     }
 
     protected static function ensure_admin_bar_access( $nonce_action ) {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+            self::deny_access();
         }
         check_admin_referer( $nonce_action );
     }
 
     public static function handle_run_tests() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+            self::deny_access();
         }
         check_admin_referer( 'hsp_cache_run_tests' );
         $results = HSP_Smart_Cache_Tests::run();
         set_transient( 'hsp_cache_test_results', $results, 300 );
-        wp_safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&tests=done' ) );
-        exit;
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&tests=done' ) );
     }
 
     public static function handle_restore_defaults() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+            self::deny_access();
         }
         check_admin_referer( 'hsp_cache_restore_defaults' );
         update_option( HSP_Smart_Cache_Settings::OPTION_KEY, HSP_Smart_Cache_Settings::defaults() );
         HSP_Smart_Cache_Object::sync_dropin();
         HSP_Smart_Cache_Page::clear_cache();
         HSP_Smart_Cache_Minify::clear_cache();
-        wp_safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=restored' ) );
-        exit;
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=restored' ) );
     }
 
     public static function handle_run_preload() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+            self::deny_access();
         }
         check_admin_referer( 'hsp_cache_run_preload' );
         $result = HSP_Smart_Cache_Preload::run();
         set_transient( 'hsp_cache_preload_result', $result, 300 );
-        wp_safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&preload=done' ) );
-        exit;
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&preload=done' ) );
     }
 
     public static function handle_run_db_cleanup() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+            self::deny_access();
         }
         check_admin_referer( 'hsp_cache_run_db_cleanup' );
         HSP_Smart_Cache_Maintenance::run_db_cleanup();
-        wp_safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=cleaned' ) );
-        exit;
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=cleaned' ) );
     }
 
     public static function handle_optimize_db() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+            self::deny_access();
         }
         check_admin_referer( 'hsp_cache_optimize_db' );
         HSP_Smart_Cache_Maintenance::optimize_tables();
-        wp_safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=optimized' ) );
-        exit;
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=optimized' ) );
+    }
+
+    protected static function deny_access() {
+        wp_die( esc_html__( 'Unauthorized', 'hsp-smart-cache' ) );
+    }
+
+    protected static function safe_redirect( $url ) {
+        wp_safe_redirect( $url );
+
+        if ( ! self::should_skip_exit() ) {
+            exit;
+        }
+    }
+
+    protected static function should_skip_exit() {
+        return (bool) apply_filters( 'hsp_smart_cache_skip_admin_exit', false );
     }
 
     public static function handle_settings_update( $old_value, $new_value ) {

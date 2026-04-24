@@ -36,4 +36,46 @@ class HSP_Smart_Cache_Render_Test extends WP_UnitTestCase {
         $filtered = HSP_Smart_Cache_Render::filter_script_tag( $tag, 'wp-embed', '/wp-includes/js/wp-embed.js' );
         $this->assertStringContainsString( 'async', $filtered );
     }
+
+    public function test_output_preconnects_prints_link_tags() {
+        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array_merge( HSP_Smart_Cache_Settings::defaults(), array(
+            'render_preconnect_urls' => "https://fonts.gstatic.com\nhttps://cdn.example.com",
+        ) ) );
+
+        ob_start();
+        HSP_Smart_Cache_Render::output_preconnects();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString( 'rel="preconnect"', $output );
+        $this->assertStringContainsString( 'https://fonts.gstatic.com', $output );
+        $this->assertStringContainsString( 'https://cdn.example.com', $output );
+    }
+
+    public function test_output_preloads_prints_font_and_style_links() {
+        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array_merge( HSP_Smart_Cache_Settings::defaults(), array(
+            'render_preload_fonts' => 'https://example.com/fonts/site.woff2',
+            'render_preload_css'   => 'https://example.com/theme.css',
+        ) ) );
+
+        ob_start();
+        HSP_Smart_Cache_Render::output_preloads();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString( 'as="font"', $output );
+        $this->assertStringContainsString( 'font/woff2', $output );
+        $this->assertStringContainsString( 'as="style"', $output );
+    }
+
+    public function test_output_critical_css_prints_inline_style() {
+        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array_merge( HSP_Smart_Cache_Settings::defaults(), array(
+            'render_critical_css' => 'body{opacity:1}',
+        ) ) );
+
+        ob_start();
+        HSP_Smart_Cache_Render::output_critical_css();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString( '<style id="hsp-critical-css">', $output );
+        $this->assertStringContainsString( 'body{opacity:1}', $output );
+    }
 }

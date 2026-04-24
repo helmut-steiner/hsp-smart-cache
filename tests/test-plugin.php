@@ -62,4 +62,14 @@ class HSP_Smart_Cache_Plugin_Test extends WP_UnitTestCase {
 
         wp_delete_file( $page_file );
     }
+
+    public function test_init_registers_expected_hooks() {
+        HSP_Smart_Cache_Plugin::init();
+
+        $this->assertNotFalse( has_action( 'send_headers', array( 'HSP_Smart_Cache_Minify', 'maybe_send_asset_headers' ) ) );
+        $this->assertNotFalse( has_filter( 'robots_txt', array( 'HSP_Smart_Cache_Plugin', 'filter_robots_txt' ) ) );
+        $this->assertNotFalse( has_action( 'save_post', array( 'HSP_Smart_Cache_Plugin', 'handle_post_change' ) ) );
+        $this->assertNotFalse( has_action( 'deleted_post', array( 'HSP_Smart_Cache_Plugin', 'handle_post_delete' ) ) );
+        $this->assertNotFalse( has_action( 'comment_post', array( 'HSP_Smart_Cache_Plugin', 'handle_comment_change' ) ) );
+    }
 }

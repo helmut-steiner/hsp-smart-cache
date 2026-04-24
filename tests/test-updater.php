@@ -39,6 +39,7 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
         global $wp_filesystem;
         $wp_filesystem = $this->original_wp_filesystem;
         delete_site_transient( HSPSC_Updater::RELEASE_TRANSIENT );
+        delete_site_transient( HSPSC_Updater::README_TRANSIENT );
         parent::tear_down();
     }
 
@@ -84,6 +85,33 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
         $this->assertSame( HSPSC_VERSION, $result->no_update[ HSPSC_BASENAME ]->new_version );
     }
 
+    public function test_filter_update_transient_clears_stale_response_for_same_version() {
+        set_site_transient(
+            HSPSC_Updater::RELEASE_TRANSIENT,
+            array(
+                'tag_name'    => 'v' . HSPSC_VERSION,
+                'zipball_url' => 'https://example.com/releases/current.zip',
+            )
+        );
+
+        $transient = (object) array(
+            'checked'  => array(
+                HSPSC_BASENAME => HSPSC_VERSION,
+            ),
+            'response' => array(
+                HSPSC_BASENAME => (object) array(
+                    'plugin'      => HSPSC_BASENAME,
+                    'new_version' => HSPSC_VERSION,
+                ),
+            ),
+        );
+
+        $result = HSPSC_Updater::filter_update_transient( $transient );
+
+        $this->assertArrayNotHasKey( HSPSC_BASENAME, $result->response );
+        $this->assertNotEmpty( $result->no_update[ HSPSC_BASENAME ] );
+    }
+
     public function test_filter_plugins_api_returns_plugin_information() {
         set_site_transient(
             HSPSC_Updater::RELEASE_TRANSIENT,
@@ -96,6 +124,12 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
                 ),
             )
         );
+        set_site_transient(
+            HSPSC_Updater::README_TRANSIENT,
+            array(
+                '1.2.3' => "=== HSP Smart Cache ===\n\n== Description ==\nRemote GitHub release description.\n\n== Changelog ==\n= 1.2.3 =\n* Remote GitHub changelog entry.\n",
+            )
+        );
 
         $args = (object) array( 'slug' => HSPSC_Updater::SLUG );
 
@@ -105,7 +139,9 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
         $this->assertSame( HSPSC_Updater::SLUG, $result->slug );
         $this->assertSame( '1.2.3', $result->version );
         $this->assertSame( 'https://example.com/plugin-1.2.3.zip', $result->download_link );
-        $this->assertStringContainsString( 'Line 1', $result->sections['changelog'] );
+        $this->assertStringContainsString( 'Remote GitHub release description', $result->sections['description'] );
+        $this->assertStringContainsString( '1.2.3', $result->sections['changelog'] );
+        $this->assertStringContainsString( 'Remote GitHub changelog entry', $result->sections['changelog'] );
     }
 
     public function test_filter_upgrader_source_selection_moves_release_folder() {

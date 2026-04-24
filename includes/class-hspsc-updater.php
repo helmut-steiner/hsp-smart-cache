@@ -9,6 +9,7 @@ class HSPSC_Updater {
     const REPO = 'hsp-smart-cache';
     const SLUG = 'hsp-smart-cache';
     const RELEASE_TRANSIENT = 'hspsc_github_release';
+    const README_TRANSIENT = 'hspsc_github_readme';
 
     public static function init() {
         add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'filter_update_transient' ) );
@@ -38,7 +39,18 @@ class HSPSC_Updater {
 
         $package_url = self::resolve_package_url( $release );
 
-        if ( version_compare( $latest_version, HSPSC_VERSION, '>' ) ) {
+        $installed_version = isset( $transient->checked[ $plugin_file ] ) ? (string) $transient->checked[ $plugin_file ] : HSPSC_VERSION;
+
+        if ( ! isset( $transient->response ) || ! is_array( $transient->response ) ) {
+            $transient->response = array();
+        }
+
+        if ( ! isset( $transient->no_update ) || ! is_array( $transient->no_update ) ) {
+            $transient->no_update = array();
+        }
+
+        if ( version_compare( $latest_version, $installed_version, '>' ) ) {
+            unset( $transient->no_update[ $plugin_file ] );
             $transient->response[ $plugin_file ] = (object) array(
                 'id'           => self::repo_url(),
                 'slug'         => self::SLUG,
@@ -51,6 +63,7 @@ class HSPSC_Updater {
                 'requires_php' => '7.4',
             );
         } else {
+            unset( $transient->response[ $plugin_file ] );
             $transient->no_update[ $plugin_file ] = (object) array(
                 'id'           => self::repo_url(),
                 'slug'         => self::SLUG,
@@ -80,6 +93,17 @@ class HSPSC_Updater {
         $version = self::normalize_version( isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '' );
         $body = isset( $release['body'] ) ? (string) $release['body'] : '';
         $published_at = isset( $release['published_at'] ) ? (string) $release['published_at'] : '';
+        $remote_readme = $version !== '' ? self::get_release_readme( $version ) : '';
+        $description = self::read_readme_description( $remote_readme );
+        $changelog = self::read_readme_changelog( $remote_readme );
+
+        if ( $description === '' ) {
+            $description = self::read_readme_description( self::read_plugin_file( 'readme.txt' ) );
+        }
+
+        if ( $changelog === '' ) {
+            $changelog = self::read_readme_changelog( self::read_plugin_file( 'readme.txt' ) );
+        }
 
         return (object) array(
             'name'          => 'HSP Smart Cache',
@@ -94,8 +118,10 @@ class HSPSC_Updater {
             'homepage'      => self::repo_url(),
             'download_link' => self::resolve_package_url( $release ),
             'sections'      => array(
-                'description' => wp_kses_post( '<p>Page caching, minification, CDN rewriting, and file-based object caching with settings UI.</p>' ),
-                'changelog'   => wp_kses_post( nl2br( esc_html( $body ) ) ),
+                'description' => self::format_plugin_info_section(
+                    $description !== '' ? $description : 'Page caching, minification, CDN rewriting, and file-based object caching with settings UI.'
+                ),
+                'changelog'   => self::format_plugin_info_section( $changelog !== '' ? $changelog : $body ),
             ),
         );
     }
@@ -194,6 +220,144 @@ class HSPSC_Updater {
         return ltrim( trim( $version ), "vV" );
     }
 
+    protected static function get_release_readme( $version ) {
+        $version = self::normalize_version( $version );
+        if ( $version === '' ) {
+            return '';
+        }
+
+        $cached = get_site_transient( self::README_TRANSIENT );
+        if ( is_array( $cached ) && isset( $cached[ $version ] ) ) {
+            return (string) $cached[ $version ];
+        }
+
+        $response = wp_remote_get(
+            self::raw_readme_url( $version ),
+            array(
+                'timeout' => 15,
+                'headers' => self::request_headers(),
+            )
+        );
+
+        if ( is_wp_error( $response ) ) {
+            return '';
+        }
+
+        $code = (int) wp_remote_retrieve_response_code( $response );
+        if ( $code !== 200 ) {
+            return '';
+        }
+
+        $readme = wp_remote_retrieve_body( $response );
+        if ( ! is_string( $readme ) || trim( $readme ) === '' ) {
+            return '';
+        }
+
+        if ( ! is_array( $cached ) ) {
+            $cached = array();
+        }
+
+        $cached[ $version ] = $readme;
+        set_site_transient( self::README_TRANSIENT, $cached, HOUR_IN_SECONDS );
+
+        return $readme;
+    }
+
+    protected static function read_readme_description( $readme ) {
+        if ( $readme === '' ) {
+            return '';
+        }
+
+        if ( preg_match( '/^== Description ==\s*(.*?)(?=^==\s)/ms', $readme, $matches ) ) {
+            return trim( $matches[1] );
+        }
+
+        return '';
+    }
+
+    protected static function read_readme_changelog( $readme ) {
+        if ( $readme === '' ) {
+            return '';
+        }
+
+        if ( preg_match( '/^== Changelog ==\s*(.*)$/ms', $readme, $matches ) ) {
+            return trim( $matches[1] );
+        }
+
+        return '';
+    }
+
+    protected static function read_plugin_file( $filename ) {
+        $path = dirname( __DIR__ ) . '/' . ltrim( $filename, '/\\' );
+        if ( ! is_readable( $path ) ) {
+            return '';
+        }
+
+        $contents = file_get_contents( $path );
+        return is_string( $contents ) ? $contents : '';
+    }
+
+    protected static function format_plugin_info_section( $text ) {
+        $text = trim( str_replace( array( "\r\n", "\r" ), "\n", (string) $text ) );
+        if ( $text === '' ) {
+            return '';
+        }
+
+        $html = '';
+        $in_list = false;
+        $lines = preg_split( '/\n/', $text );
+
+        foreach ( $lines as $line ) {
+            $line = trim( $line );
+
+            if ( $line === '' ) {
+                if ( $in_list ) {
+                    $html .= '</ul>';
+                    $in_list = false;
+                }
+                continue;
+            }
+
+            if ( preg_match( '/^(?:#{2,4}\s+|=\s*)(.+?)(?:\s*=)?$/', $line, $matches ) ) {
+                if ( $in_list ) {
+                    $html .= '</ul>';
+                    $in_list = false;
+                }
+                $html .= '<h4>' . self::format_inline_text( $matches[1] ) . '</h4>';
+                continue;
+            }
+
+            if ( preg_match( '/^[*-]\s+(.+)$/', $line, $matches ) ) {
+                if ( ! $in_list ) {
+                    $html .= '<ul>';
+                    $in_list = true;
+                }
+                $html .= '<li>' . self::format_inline_text( $matches[1] ) . '</li>';
+                continue;
+            }
+
+            if ( $in_list ) {
+                $html .= '</ul>';
+                $in_list = false;
+            }
+
+            $html .= '<p>' . self::format_inline_text( $line ) . '</p>';
+        }
+
+        if ( $in_list ) {
+            $html .= '</ul>';
+        }
+
+        return wp_kses_post( $html );
+    }
+
+    protected static function format_inline_text( $text ) {
+        $text = esc_html( (string) $text );
+        $text = preg_replace( '/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text );
+
+        return $text;
+    }
+
     protected static function request_headers() {
         $headers = array(
             'Accept' => 'application/vnd.github+json',
@@ -220,5 +384,9 @@ class HSPSC_Updater {
 
     protected static function api_url() {
         return 'https://api.github.com/repos/' . self::OWNER . '/' . self::REPO . '/releases/latest';
+    }
+
+    protected static function raw_readme_url( $version ) {
+        return 'https://raw.githubusercontent.com/' . self::OWNER . '/' . self::REPO . '/v' . rawurlencode( $version ) . '/readme.txt';
     }
 }

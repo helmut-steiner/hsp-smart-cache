@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+
+- Clear stale plugin update responses when the installed version already matches the latest GitHub release.
+- Load plugin update details from the GitHub release readme so the modal shows the release description and full changelog.
+
 ## 0.3.2
 
 - Rename internal PHP prefixes, hooks, actions, options, transients, and cache paths to the HSPSC prefix.

@@ -4,6 +4,9 @@
   "devDependencies": {
     "@wordpress/env": "^10.0.0"
   },
+  "overrides": {
+    "ajv": "^8.18.0"
+  },
   "scripts": {
     "wp-env:start": "wp-env start",
     "wp-env:stop": "wp-env stop",

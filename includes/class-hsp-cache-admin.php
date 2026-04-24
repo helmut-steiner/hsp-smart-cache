@@ -296,7 +296,8 @@ class HSP_Smart_Cache_Admin {
     }
 
     protected static function should_skip_exit() {
-        return (bool) apply_filters( 'hsp_smart_cache_skip_admin_exit', false );
+        $skip = apply_filters( 'hspsc_skip_admin_exit', false );
+        return (bool) apply_filters( 'hsp_smart_cache_skip_admin_exit', $skip );
     }
 
     public static function handle_settings_update( $old_value, $new_value ) {

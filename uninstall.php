@@ -5,7 +5,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
-function hsp_smart_cache_uninstall() {
+function hspsc_uninstall() {
     delete_option( 'hsp_cache_settings' );
 
     if ( ! defined( 'HSP_SMART_CACHE_PATH' ) ) {
@@ -26,7 +26,7 @@ function hsp_smart_cache_uninstall() {
             $fs->delete( $object_dropin );
         }
 
-        hsp_smart_cache_delete_dir_contents( HSP_SMART_CACHE_PATH, $fs );
+        hspsc_delete_dir_contents( HSP_SMART_CACHE_PATH, $fs );
         if ( $fs->is_dir( HSP_SMART_CACHE_PATH ) ) {
             $fs->rmdir( HSP_SMART_CACHE_PATH, false );
         }
@@ -44,7 +44,7 @@ function hsp_smart_cache_uninstall() {
 }
 
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
-function hsp_smart_cache_delete_dir_contents( $dir, $fs ) {
+function hspsc_delete_dir_contents( $dir, $fs ) {
     if ( ! $fs || ! is_dir( $dir ) ) {
         return;
     }
@@ -58,7 +58,7 @@ function hsp_smart_cache_delete_dir_contents( $dir, $fs ) {
         }
         $path = $dir . '/' . $item;
         if ( is_dir( $path ) ) {
-            hsp_smart_cache_delete_dir_contents( $path, $fs );
+            hspsc_delete_dir_contents( $path, $fs );
             $fs->rmdir( $path, false );
         } else {
             $fs->delete( $path );
@@ -66,4 +66,4 @@ function hsp_smart_cache_delete_dir_contents( $dir, $fs ) {
     }
 }
 
-hsp_smart_cache_uninstall();
+hspsc_uninstall();

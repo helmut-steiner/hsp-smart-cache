@@ -211,6 +211,7 @@ class HSP_Smart_Cache_Updater {
     protected static function github_token() {
         $token = defined( 'HSP_SMART_CACHE_GITHUB_TOKEN' ) ? (string) HSP_SMART_CACHE_GITHUB_TOKEN : '';
 
+        $token = apply_filters( 'hspsc_github_token', $token );
         return trim( (string) apply_filters( 'hsp_smart_cache_github_token', $token ) );
     }
 

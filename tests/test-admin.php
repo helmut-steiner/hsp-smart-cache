@@ -13,11 +13,11 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         $this->original_get = $_GET;
         $this->original_request = $_REQUEST;
 
-        add_filter( 'hsp_smart_cache_skip_admin_exit', '__return_true' );
+        add_filter( 'hspsc_skip_admin_exit', '__return_true' );
     }
 
     public function tear_down(): void {
-        remove_filter( 'hsp_smart_cache_skip_admin_exit', '__return_true' );
+        remove_filter( 'hspsc_skip_admin_exit', '__return_true' );
 
         $_GET = $this->original_get;
         $_REQUEST = $this->original_request;

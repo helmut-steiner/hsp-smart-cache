@@ -20,10 +20,10 @@ if ( file_exists( $hsp_smart_cache_autoload ) ) {
 require_once $hsp_smart_cache_tests_dir . '/includes/functions.php';
 
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
-function hsp_smart_cache_manually_load() {
+function hspsc_manually_load() {
     require dirname( __DIR__ ) . '/hsp-smart-cache.php';
 }
 
-tests_add_filter( 'muplugins_loaded', 'hsp_smart_cache_manually_load' );
+tests_add_filter( 'muplugins_loaded', 'hspsc_manually_load' );
 
 require $hsp_smart_cache_tests_dir . '/includes/bootstrap.php';

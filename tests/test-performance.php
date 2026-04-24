@@ -58,12 +58,16 @@ class HSP_Smart_Cache_Performance_Test extends WP_UnitTestCase {
             'perf_disable_dashicons' => true,
         ) ) );
 
+        $this->go_to( home_url( '/' ) );
         wp_set_current_user( 0 );
+        wp_dequeue_style( 'dashicons' );
+        wp_deregister_style( 'dashicons' );
         wp_enqueue_style( 'dashicons', '/wp-includes/css/dashicons.css', array(), '1.0' );
         $this->assertTrue( wp_style_is( 'dashicons', 'enqueued' ) );
 
         HSP_Smart_Cache_Performance::maybe_disable_dashicons();
 
-        $this->assertFalse( wp_style_is( 'dashicons', 'enqueued' ) );
+        global $wp_styles;
+        $this->assertNotContains( 'dashicons', $wp_styles->queue );
     }
 }

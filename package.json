@@ -8,6 +8,6 @@
     "wp-env:start": "wp-env start",
     "wp-env:stop": "wp-env stop",
     "wp-env:destroy": "wp-env destroy",
-    "wp-env:tests": "wp-env run tests-cli phpunit"
+    "wp-env:tests": "wp-env run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache vendor/bin/phpunit --configuration=phpunit.xml.dist"
   }
 }

@@ -20,6 +20,14 @@ class HSP_Smart_Cache_Maintenance_WPDB_Mock {
         return addcslashes( $text, '_%\\' );
     }
 
+    public function _escape( $data ) {
+        if ( is_array( $data ) ) {
+            return array_map( array( $this, '_escape' ), $data );
+        }
+
+        return addslashes( (string) $data );
+    }
+
     public function prepare( $query, ...$args ) {
         $parts = explode( '%', $query );
         $built = array_shift( $parts );
@@ -82,6 +90,10 @@ class HSP_Smart_Cache_Maintenance_WPDB_Mock {
 
         $this->inserted[ $table ][] = $data;
         return true;
+    }
+
+    public function suppress_errors( $suppress = null ) {
+        return false;
     }
 }
 

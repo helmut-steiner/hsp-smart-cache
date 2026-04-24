@@ -1,5 +1,7 @@
 <?php
 
+require_once ABSPATH . WPINC . '/class-wp-admin-bar.php';
+
 class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
     private $original_get;
     private $original_request;
@@ -82,7 +84,7 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         $redirect_to = '';
         $capture_redirect = static function( $location ) use ( &$redirect_to ) {
             $redirect_to = $location;
-            return $location;
+            return false;
         };
         add_filter( 'wp_redirect', $capture_redirect );
 
@@ -114,7 +116,16 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         $_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
         $_GET['hsp_return'] = rawurlencode( $target_url );
 
-        HSP_Smart_Cache_Admin::handle_clear_current();
+        $capture_redirect = static function() {
+            return false;
+        };
+        add_filter( 'wp_redirect', $capture_redirect );
+
+        try {
+            HSP_Smart_Cache_Admin::handle_clear_current();
+        } finally {
+            remove_filter( 'wp_redirect', $capture_redirect );
+        }
 
         $this->assertFileDoesNotExist( $cache_file );
         wp_set_current_user( 0 );
@@ -162,10 +173,16 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         };
 
         add_filter( 'pre_http_request', $mock_http, 10, 3 );
+        $capture_redirect = static function() {
+            return false;
+        };
+        add_filter( 'wp_redirect', $capture_redirect );
+
         try {
             HSP_Smart_Cache_Admin::handle_run_preload();
         } finally {
             remove_filter( 'pre_http_request', $mock_http, 10 );
+            remove_filter( 'wp_redirect', $capture_redirect );
         }
 
         $result = get_transient( 'hsp_cache_preload_result' );

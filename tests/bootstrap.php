@@ -1,13 +1,5 @@
 <?php
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
-if ( ! getenv( 'WP_TESTS_DIR' ) ) {
-    exit;
-}
-
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
 $hsp_smart_cache_tests_dir = getenv( 'WP_TESTS_DIR' );
 if ( ! $hsp_smart_cache_tests_dir ) {
@@ -18,6 +10,11 @@ if ( ! $hsp_smart_cache_tests_dir ) {
 if ( ! file_exists( $hsp_smart_cache_tests_dir . '/includes/functions.php' ) ) {
     echo "WP_TESTS_DIR not found. Please install the WordPress test suite.\n";
     exit( 1 );
+}
+
+$hsp_smart_cache_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
+if ( file_exists( $hsp_smart_cache_autoload ) ) {
+    require_once $hsp_smart_cache_autoload;
 }
 
 require_once $hsp_smart_cache_tests_dir . '/includes/functions.php';

@@ -48,11 +48,39 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'Docker CLI was not found. Install Docker Desktop or add docker.exe to PATH.'
 }
 
+$npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if (-not $npmCommand) {
+    $npmCommand = Get-Command npm -ErrorAction Stop
+}
+
+$npxCommand = Get-Command npx.cmd -ErrorAction SilentlyContinue
+if (-not $npxCommand) {
+    $npxCommand = Get-Command npx -ErrorAction Stop
+}
+
+function Invoke-CheckedCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
+
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
+    }
+}
+
 # Start wp-env unless explicitly skipped.
 if (-not $SkipStart) {
     Write-Host 'Starting wp-env...'
-    npm run wp-env:start
+    Invoke-CheckedCommand $npmCommand.Source run wp-env:start
 }
+
+Write-Host 'Installing Composer test dependencies...'
+Invoke-CheckedCommand $npxCommand.Source wp-env run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache composer install --no-interaction --prefer-dist
 
 # Build the wp-env command for tests-cli using plugin-relative cwd.
 $baseCommand = @(
@@ -60,7 +88,7 @@ $baseCommand = @(
     'run',
     'tests-cli',
     '--env-cwd=wp-content/plugins/hsp-smart-cache',
-    'phpunit',
+    'vendor/bin/phpunit',
     '--configuration=phpunit.xml.dist'
 )
 
@@ -70,4 +98,4 @@ if ($PhpUnitArgs -and $PhpUnitArgs.Count -gt 0) {
 }
 
 Write-Host 'Running PHPUnit in wp-env...'
-& npx @baseCommand
+Invoke-CheckedCommand $npxCommand.Source @baseCommand

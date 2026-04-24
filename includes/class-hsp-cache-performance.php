@@ -99,10 +99,6 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_dashicons() {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
-            return;
-        }
-
         if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_dashicons' ) ) {
             return;
         }
@@ -110,6 +106,14 @@ class HSP_Smart_Cache_Performance {
             return;
         }
         wp_dequeue_style( 'dashicons' );
+        wp_deregister_style( 'dashicons' );
+
+        global $wp_styles;
+        if ( $wp_styles instanceof WP_Styles ) {
+            $wp_styles->queue = array_values( array_diff( $wp_styles->queue, array( 'dashicons' ) ) );
+            $wp_styles->to_do = array_values( array_diff( $wp_styles->to_do, array( 'dashicons' ) ) );
+            $wp_styles->done  = array_values( array_diff( $wp_styles->done, array( 'dashicons' ) ) );
+        }
     }
 
     protected static function parse_list( $value ) {

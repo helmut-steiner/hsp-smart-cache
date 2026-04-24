@@ -1,7 +1,7 @@
 <?php
 
 class HSP_Smart_Cache_Plugin_Test extends WP_UnitTestCase {
-    protected function set_up(): void {
+    public function set_up(): void {
         parent::set_up();
         HSP_Smart_Cache_Utils::ensure_cache_dirs();
     }

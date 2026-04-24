@@ -148,6 +148,9 @@ class HSP_Smart_Cache_Admin {
 
     protected static function get_target_url() {
         $return = filter_input( INPUT_GET, 'hsp_return', FILTER_UNSAFE_RAW );
+        if ( $return === null && isset( $_GET['hsp_return'] ) ) {
+            $return = wp_unslash( $_GET['hsp_return'] );
+        }
         if ( ! empty( $return ) ) {
             $return = rawurldecode( $return );
             return esc_url_raw( $return );

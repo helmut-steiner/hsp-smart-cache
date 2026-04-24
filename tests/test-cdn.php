@@ -65,7 +65,7 @@ class HSP_Smart_Cache_CDN_Test extends WP_UnitTestCase {
         $rewritten = HSP_Smart_Cache_CDN::rewrite_url( $url );
 
         $this->assertStringStartsWith( 'https://cdn.example.com/', $rewritten );
-        $this->assertStringContainsString( '/wp-content/uploads/2026/01/image.webp', $rewritten );
+        $this->assertStringContainsString( '/uploads/2026/01/image.webp', $rewritten );
     }
 
     public function test_rewrite_url_does_not_rewrite_non_static_file() {

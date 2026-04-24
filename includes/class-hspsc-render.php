@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_Render {
+class HSPSC_Render {
     public static function init() {
         add_filter( 'script_loader_tag', array( __CLASS__, 'filter_script_tag' ), 10, 3 );
         add_action( 'wp_head', array( __CLASS__, 'output_preconnects' ), 1 );
@@ -13,7 +13,7 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function filter_script_tag( $tag, $handle, $src ) {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return $tag;
         }
 
@@ -21,15 +21,15 @@ class HSP_Smart_Cache_Render {
             return $tag;
         }
 
-        $defer = HSP_Smart_Cache_Settings::get( 'render_defer_js' );
-        $async = HSP_Smart_Cache_Settings::get( 'render_async_js' );
+        $defer = HSPSC_Settings::get( 'render_defer_js' );
+        $async = HSPSC_Settings::get( 'render_async_js' );
 
         if ( ! $defer && ! $async ) {
             return $tag;
         }
 
-        $defer_exclusions = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_defer_exclusions', '' ) );
-        $async_exclusions = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_async_exclusions', '' ) );
+        $defer_exclusions = self::parse_list( HSPSC_Settings::get( 'render_defer_exclusions', '' ) );
+        $async_exclusions = self::parse_list( HSPSC_Settings::get( 'render_async_exclusions', '' ) );
 
         if ( in_array( $handle, $defer_exclusions, true ) || in_array( $handle, $async_exclusions, true ) ) {
             return $tag;
@@ -62,10 +62,10 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_preconnects() {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
-        $urls = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preconnect_urls', '' ) );
+        $urls = self::parse_list( HSPSC_Settings::get( 'render_preconnect_urls', '' ) );
         foreach ( $urls as $url ) {
             $href = esc_url( $url );
             if ( $href ) {
@@ -75,10 +75,10 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_preloads() {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
-        $fonts = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preload_fonts', '' ) );
+        $fonts = self::parse_list( HSPSC_Settings::get( 'render_preload_fonts', '' ) );
         foreach ( $fonts as $font ) {
             $href = esc_url( $font );
             if ( $href ) {
@@ -87,7 +87,7 @@ class HSP_Smart_Cache_Render {
             }
         }
 
-        $styles = self::parse_list( HSP_Smart_Cache_Settings::get( 'render_preload_css', '' ) );
+        $styles = self::parse_list( HSPSC_Settings::get( 'render_preload_css', '' ) );
         foreach ( $styles as $style ) {
             $href = esc_url( $style );
             if ( $href ) {
@@ -97,10 +97,10 @@ class HSP_Smart_Cache_Render {
     }
 
     public static function output_critical_css() {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
-        $css = HSP_Smart_Cache_Settings::get( 'render_critical_css', '' );
+        $css = HSPSC_Settings::get( 'render_critical_css', '' );
         if ( empty( $css ) ) {
             return;
         }

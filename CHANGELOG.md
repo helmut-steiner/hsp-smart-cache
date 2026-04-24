@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.2
+
+- Rename internal PHP prefixes, hooks, actions, options, transients, and cache paths to the HSPSC prefix.
+- Rename include files to use the HSPSC prefix.
+- Update tests for the HSPSC prefix rename.
+
+## 0.3.1
+
+- Fixed test pipeline
+- Fixed npm security vulnerabilities
+
 ## 0.3.0
 
 - Add database optimization analysis summary before running optimize.

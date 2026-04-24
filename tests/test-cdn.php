@@ -1,6 +1,6 @@
 <?php
 
-class HSP_Smart_Cache_CDN_Test extends WP_UnitTestCase {
+class HSPSC_CDN_Test extends WP_UnitTestCase {
     private $original_request_uri;
     private $original_request_method;
     private $original_pagenow;
@@ -17,9 +17,9 @@ class HSP_Smart_Cache_CDN_Test extends WP_UnitTestCase {
         unset( $GLOBALS['pagenow'] );
 
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
+            HSPSC_Settings::OPTION_KEY,
             array_merge(
-                HSP_Smart_Cache_Settings::defaults(),
+                HSPSC_Settings::defaults(),
                 array(
                     'cdn_enabled' => true,
                     'cdn_url'     => 'https://cdn.example.com',
@@ -53,7 +53,7 @@ class HSP_Smart_Cache_CDN_Test extends WP_UnitTestCase {
     public function test_rewrite_url_rewrites_content_asset_to_cdn() {
         $url = content_url( '/themes/twentytwenty/style.css?ver=1.0' );
 
-        $rewritten = HSP_Smart_Cache_CDN::rewrite_url( $url );
+        $rewritten = HSPSC_CDN::rewrite_url( $url );
 
         $this->assertStringStartsWith( 'https://cdn.example.com/', $rewritten );
         $this->assertStringContainsString( '/themes/twentytwenty/style.css', $rewritten );
@@ -62,7 +62,7 @@ class HSP_Smart_Cache_CDN_Test extends WP_UnitTestCase {
     public function test_rewrite_url_rewrites_site_asset_to_cdn() {
         $url = site_url( '/wp-content/uploads/2026/01/image.webp' );
 
-        $rewritten = HSP_Smart_Cache_CDN::rewrite_url( $url );
+        $rewritten = HSPSC_CDN::rewrite_url( $url );
 
         $this->assertStringStartsWith( 'https://cdn.example.com/', $rewritten );
         $this->assertStringContainsString( '/uploads/2026/01/image.webp', $rewritten );
@@ -71,7 +71,7 @@ class HSP_Smart_Cache_CDN_Test extends WP_UnitTestCase {
     public function test_rewrite_url_does_not_rewrite_non_static_file() {
         $url = content_url( '/api/data.json' );
 
-        $rewritten = HSP_Smart_Cache_CDN::rewrite_url( $url );
+        $rewritten = HSPSC_CDN::rewrite_url( $url );
 
         $this->assertSame( $url, $rewritten );
     }

@@ -1,8 +1,8 @@
 <?php
 
-class HSP_Smart_Cache_Plugin_Handlers_Test extends WP_UnitTestCase {
+class HSPSC_Plugin_Handlers_Test extends WP_UnitTestCase {
     protected function get_cache_path_for_url( $url ) {
-        $ref = new ReflectionClass( 'HSP_Smart_Cache_Page' );
+        $ref = new ReflectionClass( 'HSPSC_Page' );
         $method = $ref->getMethod( 'get_cache_file_path_for_url' );
         $method->setAccessible( true );
         return $method->invoke( null, $url );
@@ -10,16 +10,16 @@ class HSP_Smart_Cache_Plugin_Handlers_Test extends WP_UnitTestCase {
 
     public function set_up(): void {
         parent::set_up();
-        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        HSPSC_Utils::ensure_cache_dirs();
     }
 
     public function test_filter_robots_txt_appends_ai_rules_when_enabled() {
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'robots_disallow_ai' => true ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'robots_disallow_ai' => true ) )
         );
 
-        $output = HSP_Smart_Cache_Plugin::filter_robots_txt( "User-agent: *\nDisallow:", true );
+        $output = HSPSC_Plugin::filter_robots_txt( "User-agent: *\nDisallow:", true );
 
         $this->assertStringContainsString( 'User-agent: GPTBot', $output );
         $this->assertStringContainsString( 'User-agent: ClaudeBot', $output );
@@ -40,7 +40,7 @@ class HSP_Smart_Cache_Plugin_Handlers_Test extends WP_UnitTestCase {
         file_put_contents( $file, '<html>cached</html>' );
         $this->assertFileExists( $file );
 
-        HSP_Smart_Cache_Plugin::handle_post_change( $post_id, $post, true );
+        HSPSC_Plugin::handle_post_change( $post_id, $post, true );
 
         $this->assertFileDoesNotExist( $file );
     }
@@ -59,7 +59,7 @@ class HSP_Smart_Cache_Plugin_Handlers_Test extends WP_UnitTestCase {
         file_put_contents( $file, '<html>cached</html>' );
         $this->assertFileExists( $file );
 
-        HSP_Smart_Cache_Plugin::handle_post_delete( $post_id );
+        HSPSC_Plugin::handle_post_delete( $post_id );
 
         $this->assertFileDoesNotExist( $file );
     }
@@ -84,7 +84,7 @@ class HSP_Smart_Cache_Plugin_Handlers_Test extends WP_UnitTestCase {
         file_put_contents( $file, '<html>cached</html>' );
         $this->assertFileExists( $file );
 
-        HSP_Smart_Cache_Plugin::handle_comment_change( $comment_id );
+        HSPSC_Plugin::handle_comment_change( $comment_id );
 
         $this->assertFileDoesNotExist( $file );
     }

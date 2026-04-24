@@ -2,13 +2,13 @@
 
 require_once ABSPATH . WPINC . '/class-wp-admin-bar.php';
 
-class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
+class HSPSC_Admin_Test extends WP_UnitTestCase {
     private $original_get;
     private $original_request;
 
     public function set_up(): void {
         parent::set_up();
-        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        HSPSC_Utils::ensure_cache_dirs();
 
         $this->original_get = $_GET;
         $this->original_request = $_REQUEST;
@@ -26,15 +26,15 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
     }
 
     public function test_init_registers_admin_hooks() {
-        HSP_Smart_Cache_Admin::init();
+        HSPSC_Admin::init();
 
-        $this->assertNotFalse( has_action( 'admin_menu', array( 'HSP_Smart_Cache_Admin', 'register_menu' ) ) );
-        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_clear', array( 'HSP_Smart_Cache_Admin', 'handle_clear_cache' ) ) );
-        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_run_tests', array( 'HSP_Smart_Cache_Admin', 'handle_run_tests' ) ) );
-        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_analyze_db', array( 'HSP_Smart_Cache_Admin', 'handle_analyze_db' ) ) );
-        $this->assertNotFalse( has_action( 'admin_bar_menu', array( 'HSP_Smart_Cache_Admin', 'register_admin_bar' ) ) );
-        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_restore_db_backup', array( 'HSP_Smart_Cache_Admin', 'handle_restore_db_backup' ) ) );
-        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_delete_db_backup', array( 'HSP_Smart_Cache_Admin', 'handle_delete_db_backup' ) ) );
+        $this->assertNotFalse( has_action( 'admin_menu', array( 'HSPSC_Admin', 'register_menu' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hspsc_clear', array( 'HSPSC_Admin', 'handle_clear_cache' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hspsc_run_tests', array( 'HSPSC_Admin', 'handle_run_tests' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hspsc_analyze_db', array( 'HSPSC_Admin', 'handle_analyze_db' ) ) );
+        $this->assertNotFalse( has_action( 'admin_bar_menu', array( 'HSPSC_Admin', 'register_admin_bar' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hspsc_restore_db_backup', array( 'HSPSC_Admin', 'handle_restore_db_backup' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hspsc_delete_db_backup', array( 'HSPSC_Admin', 'handle_delete_db_backup' ) ) );
     }
 
     public function test_register_admin_bar_adds_main_cache_node_for_admin_user() {
@@ -44,17 +44,17 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         $bar = new WP_Admin_Bar();
         $bar->initialize();
 
-        HSP_Smart_Cache_Admin::register_admin_bar( $bar );
+        HSPSC_Admin::register_admin_bar( $bar );
 
-        $this->assertNotNull( $bar->get_node( 'hsp-cache' ) );
-        $this->assertNotNull( $bar->get_node( 'hsp-cache-clear-all' ) );
+        $this->assertNotNull( $bar->get_node( 'hspsc' ) );
+        $this->assertNotNull( $bar->get_node( 'hspsc-clear-all' ) );
 
         wp_set_current_user( 0 );
     }
 
     public function test_handle_settings_update_clears_page_and_asset_caches() {
-        $page_file  = HSP_SMART_CACHE_PATH . '/pages/admin-test-page.html';
-        $asset_file = HSP_SMART_CACHE_PATH . '/assets/admin-test.min.js';
+        $page_file  = HSPSC_PATH . '/pages/admin-test-page.html';
+        $asset_file = HSPSC_PATH . '/assets/admin-test.min.js';
 
         file_put_contents( $page_file, 'page' );
         file_put_contents( $asset_file, 'asset' );
@@ -62,8 +62,8 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         $this->assertFileExists( $page_file );
         $this->assertFileExists( $asset_file );
 
-        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, HSP_Smart_Cache_Settings::defaults() );
-        HSP_Smart_Cache_Admin::handle_settings_update( array(), array() );
+        update_option( HSPSC_Settings::OPTION_KEY, HSPSC_Settings::defaults() );
+        HSPSC_Admin::handle_settings_update( array(), array() );
 
         $this->assertFileDoesNotExist( $page_file );
         $this->assertFileDoesNotExist( $asset_file );
@@ -73,13 +73,13 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
         wp_set_current_user( $admin_id );
 
-        $page_file = HSP_SMART_CACHE_PATH . '/pages/admin-clear-all-test.html';
+        $page_file = HSPSC_PATH . '/pages/admin-clear-all-test.html';
         file_put_contents( $page_file, 'cached page' );
         $this->assertFileExists( $page_file );
 
-        $_GET['_wpnonce'] = wp_create_nonce( 'hsp_cache_clear_all' );
+        $_GET['_wpnonce'] = wp_create_nonce( 'hspsc_clear_all' );
         $_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
-        $_GET['hsp_return'] = rawurlencode( home_url( '/return-clear-all/' ) );
+        $_GET['hspsc_return'] = rawurlencode( home_url( '/return-clear-all/' ) );
 
         $redirect_to = '';
         $capture_redirect = static function( $location ) use ( &$redirect_to ) {
@@ -89,7 +89,7 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         add_filter( 'wp_redirect', $capture_redirect );
 
         try {
-            HSP_Smart_Cache_Admin::handle_clear_all();
+            HSPSC_Admin::handle_clear_all();
         } finally {
             remove_filter( 'wp_redirect', $capture_redirect );
         }
@@ -105,16 +105,16 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         wp_set_current_user( $admin_id );
 
         $target_url = home_url( '/clear-current-target/' );
-        $ref = new ReflectionClass( 'HSP_Smart_Cache_Page' );
+        $ref = new ReflectionClass( 'HSPSC_Page' );
         $method = $ref->getMethod( 'get_cache_file_path_for_url' );
         $method->setAccessible( true );
         $cache_file = $method->invoke( null, $target_url );
         file_put_contents( $cache_file, 'cached' );
         $this->assertFileExists( $cache_file );
 
-        $_GET['_wpnonce'] = wp_create_nonce( 'hsp_cache_clear_current' );
+        $_GET['_wpnonce'] = wp_create_nonce( 'hspsc_clear_current' );
         $_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
-        $_GET['hsp_return'] = rawurlencode( $target_url );
+        $_GET['hspsc_return'] = rawurlencode( $target_url );
 
         $capture_redirect = static function() {
             return false;
@@ -122,7 +122,7 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         add_filter( 'wp_redirect', $capture_redirect );
 
         try {
-            HSP_Smart_Cache_Admin::handle_clear_current();
+            HSPSC_Admin::handle_clear_current();
         } finally {
             remove_filter( 'wp_redirect', $capture_redirect );
         }
@@ -137,9 +137,9 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
 
         $sitemap_url = home_url( '/admin-preload-sitemap.xml' );
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
+            HSPSC_Settings::OPTION_KEY,
             array_merge(
-                HSP_Smart_Cache_Settings::defaults(),
+                HSPSC_Settings::defaults(),
                 array(
                     'page_cache'          => true,
                     'preload_enabled'     => true,
@@ -149,7 +149,7 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
             )
         );
 
-        $_GET['_wpnonce'] = wp_create_nonce( 'hsp_cache_run_preload' );
+        $_GET['_wpnonce'] = wp_create_nonce( 'hspsc_run_preload' );
         $_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
 
         $mock_http = static function( $preempt, $args, $url ) use ( $sitemap_url ) {
@@ -179,13 +179,13 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         add_filter( 'wp_redirect', $capture_redirect );
 
         try {
-            HSP_Smart_Cache_Admin::handle_run_preload();
+            HSPSC_Admin::handle_run_preload();
         } finally {
             remove_filter( 'pre_http_request', $mock_http, 10 );
             remove_filter( 'wp_redirect', $capture_redirect );
         }
 
-        $result = get_transient( 'hsp_cache_preload_result' );
+        $result = get_transient( 'hspsc_preload_result' );
         $this->assertIsArray( $result );
         $this->assertArrayHasKey( 'ok', $result );
         $this->assertArrayHasKey( 'count', $result );

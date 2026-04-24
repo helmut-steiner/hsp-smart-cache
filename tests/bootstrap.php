@@ -1,23 +1,23 @@
 <?php
 
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
-$hsp_smart_cache_tests_dir = getenv( 'WP_TESTS_DIR' );
-if ( ! $hsp_smart_cache_tests_dir ) {
+$hspsc_tests_dir = getenv( 'WP_TESTS_DIR' );
+if ( ! $hspsc_tests_dir ) {
     // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
-    $hsp_smart_cache_tests_dir = rtrim( sys_get_temp_dir(), '/\\' ) . '/wordpress-tests-lib';
+    $hspsc_tests_dir = rtrim( sys_get_temp_dir(), '/\\' ) . '/wordpress-tests-lib';
 }
 
-if ( ! file_exists( $hsp_smart_cache_tests_dir . '/includes/functions.php' ) ) {
+if ( ! file_exists( $hspsc_tests_dir . '/includes/functions.php' ) ) {
     echo "WP_TESTS_DIR not found. Please install the WordPress test suite.\n";
     exit( 1 );
 }
 
-$hsp_smart_cache_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
-if ( file_exists( $hsp_smart_cache_autoload ) ) {
-    require_once $hsp_smart_cache_autoload;
+$hspsc_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
+if ( file_exists( $hspsc_autoload ) ) {
+    require_once $hspsc_autoload;
 }
 
-require_once $hsp_smart_cache_tests_dir . '/includes/functions.php';
+require_once $hspsc_tests_dir . '/includes/functions.php';
 
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 function hspsc_manually_load() {
@@ -26,4 +26,4 @@ function hspsc_manually_load() {
 
 tests_add_filter( 'muplugins_loaded', 'hspsc_manually_load' );
 
-require $hsp_smart_cache_tests_dir . '/includes/bootstrap.php';
+require $hspsc_tests_dir . '/includes/bootstrap.php';

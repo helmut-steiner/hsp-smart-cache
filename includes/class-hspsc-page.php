@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_Page {
+class HSPSC_Page {
     protected static $buffer_started = false;
 
     public static function init() {
@@ -14,10 +14,10 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function maybe_serve_cache() {
-        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
             return;
         }
-        if ( ! HSP_Smart_Cache_Utils::is_request_cacheable() ) {
+        if ( ! HSPSC_Utils::is_request_cacheable() ) {
             return;
         }
 
@@ -26,13 +26,13 @@ class HSP_Smart_Cache_Page {
             return;
         }
 
-        $ttl = intval( HSP_Smart_Cache_Settings::get( 'page_cache_ttl', 3600 ) );
+        $ttl = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
         if ( file_exists( $cache_file ) ) {
             $age = time() - filemtime( $cache_file );
             if ( $age <= $ttl ) {
                 self::send_browser_cache_headers( $cache_file );
-                header( 'X-HSP-Cache: HIT' );
-                $fs = HSP_Smart_Cache_Utils::get_filesystem();
+                header( 'X-HSPSC-Cache: HIT' );
+                $fs = HSPSC_Utils::get_filesystem();
                 if ( $fs ) {
                     $contents = $fs->get_contents( $cache_file );
                     if ( $contents !== false ) {
@@ -52,10 +52,10 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function start_buffer() {
-        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
             return;
         }
-        if ( ! HSP_Smart_Cache_Utils::is_request_cacheable() ) {
+        if ( ! HSPSC_Utils::is_request_cacheable() ) {
             return;
         }
 
@@ -80,16 +80,16 @@ class HSP_Smart_Cache_Page {
             return;
         }
 
-        if ( HSP_Smart_Cache_Settings::get( 'minify_html' ) && HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
-            $html = HSP_Smart_Cache_Minify::minify_html( $html );
+        if ( HSPSC_Settings::get( 'minify_html' ) && HSPSC_Utils::should_apply_frontend_optimizations() ) {
+            $html = HSPSC_Minify::minify_html( $html );
         }
 
         $cache_file = self::get_cache_file_path();
         if ( $cache_file ) {
-            HSP_Smart_Cache_Utils::ensure_cache_dirs();
+            HSPSC_Utils::ensure_cache_dirs();
             file_put_contents( $cache_file, $html );
             self::send_browser_cache_headers( $cache_file, true );
-            header( 'X-HSP-Cache: MISS' );
+            header( 'X-HSPSC-Cache: MISS' );
         }
 
         ob_end_flush();
@@ -114,14 +114,14 @@ class HSP_Smart_Cache_Page {
         if ( headers_sent() ) {
             return;
         }
-        if ( ! HSP_Smart_Cache_Settings::get( 'browser_cache' ) ) {
+        if ( ! HSPSC_Settings::get( 'browser_cache' ) ) {
             return;
         }
 
-        $ttl = intval( HSP_Smart_Cache_Settings::get( 'browser_cache_html_ttl', 600 ) );
+        $ttl = intval( HSPSC_Settings::get( 'browser_cache_html_ttl', 600 ) );
         $is_logged_in = is_user_logged_in();
 
-        if ( $is_logged_in && ! HSP_Smart_Cache_Settings::get( 'cache_logged_in' ) ) {
+        if ( $is_logged_in && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
             return;
         }
 
@@ -156,7 +156,7 @@ class HSP_Smart_Cache_Page {
         if ( ! $key ) {
             return null;
         }
-        return HSP_SMART_CACHE_PATH . '/pages/' . $key . '.html';
+        return HSPSC_PATH . '/pages/' . $key . '.html';
     }
 
     protected static function get_cache_file_path_for_url( $url ) {
@@ -168,17 +168,17 @@ class HSP_Smart_Cache_Page {
         $path   = isset( $parts['path'] ) ? $parts['path'] : '/';
         $query  = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
         $key    = md5( $scheme . '://' . $parts['host'] . $path . $query );
-        return HSP_SMART_CACHE_PATH . '/pages/' . $key . '.html';
+        return HSPSC_PATH . '/pages/' . $key . '.html';
     }
 
     public static function clear_cache() {
-        HSP_Smart_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/pages' );
+        HSPSC_Utils::delete_dir_contents( HSPSC_PATH . '/pages' );
     }
 
     public static function clear_cache_for_url( $url ) {
         $file = self::get_cache_file_path_for_url( $url );
         if ( $file && file_exists( $file ) ) {
-            $fs = HSP_Smart_Cache_Utils::get_filesystem();
+            $fs = HSPSC_Utils::get_filesystem();
             if ( $fs ) {
                 $fs->delete( $file );
             } else {
@@ -218,7 +218,7 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function warm_url( $url ) {
-        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
             return;
         }
         wp_remote_get(
@@ -231,7 +231,7 @@ class HSP_Smart_Cache_Page {
     }
 
     public static function warm_url_with_timeout( $url, $timeout ) {
-        if ( ! HSP_Smart_Cache_Settings::get( 'page_cache' ) ) {
+        if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
             return;
         }
         wp_remote_get(

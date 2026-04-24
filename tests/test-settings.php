@@ -1,8 +1,8 @@
 <?php
 
-class HSP_Smart_Cache_Settings_Test extends WP_UnitTestCase {
+class HSPSC_Settings_Test extends WP_UnitTestCase {
     public function test_defaults_are_present() {
-        $defaults = HSP_Smart_Cache_Settings::defaults();
+        $defaults = HSPSC_Settings::defaults();
 
         $this->assertArrayHasKey( 'page_cache', $defaults );
         $this->assertArrayHasKey( 'page_cache_ttl', $defaults );
@@ -39,7 +39,7 @@ class HSP_Smart_Cache_Settings_Test extends WP_UnitTestCase {
             'cdn_url'        => 'https://cdn.example.com',
         );
 
-        $sanitized = HSP_Smart_Cache_Settings::sanitize( $input );
+        $sanitized = HSPSC_Settings::sanitize( $input );
 
         $this->assertTrue( $sanitized['page_cache'] );
         $this->assertGreaterThanOrEqual( 60, $sanitized['page_cache_ttl'] );
@@ -48,7 +48,7 @@ class HSP_Smart_Cache_Settings_Test extends WP_UnitTestCase {
     }
 
     public function test_static_asset_rules_generation() {
-        $rules = HSP_Smart_Cache_Static_Assets::get_htaccess_rules( 600, true, true );
+        $rules = HSPSC_Static_Assets::get_htaccess_rules( 600, true, true );
         $this->assertStringContainsString( 'Cache-Control', $rules );
         $this->assertStringContainsString( 'max-age=600', $rules );
         $this->assertStringContainsString( 'immutable', $rules );
@@ -56,18 +56,18 @@ class HSP_Smart_Cache_Settings_Test extends WP_UnitTestCase {
     }
 
     public function test_ensure_defaults_merges_missing_keys() {
-        update_option( HSP_Smart_Cache_Settings::OPTION_KEY, array( 'page_cache' => false ) );
+        update_option( HSPSC_Settings::OPTION_KEY, array( 'page_cache' => false ) );
 
-        HSP_Smart_Cache_Settings::ensure_defaults();
+        HSPSC_Settings::ensure_defaults();
 
-        $options = get_option( HSP_Smart_Cache_Settings::OPTION_KEY );
+        $options = get_option( HSPSC_Settings::OPTION_KEY );
         $this->assertIsArray( $options );
         $this->assertArrayHasKey( 'minify_html', $options );
         $this->assertFalse( $options['page_cache'] );
     }
 
     public function test_get_returns_default_for_unknown_key() {
-        $value = HSP_Smart_Cache_Settings::get( 'nonexistent_key', 'fallback' );
+        $value = HSPSC_Settings::get( 'nonexistent_key', 'fallback' );
         $this->assertSame( 'fallback', $value );
     }
 }

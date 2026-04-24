@@ -4,28 +4,28 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_Minify {
+class HSPSC_Minify {
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'filter_style_src' ), 20, 2 );
         add_filter( 'script_loader_src', array( __CLASS__, 'filter_script_src' ), 20, 2 );
     }
 
     public static function filter_style_src( $src, $handle ) {
-        if ( ! HSP_Smart_Cache_Settings::get( 'minify_css' ) ) {
+        if ( ! HSPSC_Settings::get( 'minify_css' ) ) {
             return $src;
         }
         return self::maybe_minify_asset( $src, 'css' );
     }
 
     public static function filter_script_src( $src, $handle ) {
-        if ( ! HSP_Smart_Cache_Settings::get( 'minify_js' ) ) {
+        if ( ! HSPSC_Settings::get( 'minify_js' ) ) {
             return $src;
         }
         return self::maybe_minify_asset( $src, 'js' );
     }
 
     protected static function maybe_minify_asset( $src, $type ) {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return $src;
         }
 
@@ -33,7 +33,7 @@ class HSP_Smart_Cache_Minify {
             return $src;
         }
 
-        $path = HSP_Smart_Cache_Utils::normalize_url_path( $src );
+        $path = HSPSC_Utils::normalize_url_path( $src );
         if ( ! $path ) {
             return $src;
         }
@@ -50,10 +50,10 @@ class HSP_Smart_Cache_Minify {
         $mtime    = filemtime( $file_path );
         $hash     = md5( $file_path . '|' . $mtime );
         $filename = $hash . '.min.' . $type;
-        $target   = HSP_SMART_CACHE_PATH . '/assets/' . $filename;
+        $target   = HSPSC_PATH . '/assets/' . $filename;
 
         if ( ! file_exists( $target ) ) {
-            HSP_Smart_Cache_Utils::ensure_cache_dirs();
+            HSPSC_Utils::ensure_cache_dirs();
             $contents = file_get_contents( $file_path );
             if ( $contents === false ) {
                 return $src;
@@ -62,14 +62,14 @@ class HSP_Smart_Cache_Minify {
             file_put_contents( $target, $minified );
         }
 
-        return HSP_SMART_CACHE_URL . '/assets/' . $filename;
+        return HSPSC_URL . '/assets/' . $filename;
     }
 
     public static function maybe_send_asset_headers() {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
-        if ( ! HSP_Smart_Cache_Settings::get( 'browser_cache' ) ) {
+        if ( ! HSPSC_Settings::get( 'browser_cache' ) ) {
             return;
         }
         if ( headers_sent() ) {
@@ -77,16 +77,16 @@ class HSP_Smart_Cache_Minify {
         }
 
         $path = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
-        if ( strpos( $path, '/wp-content/cache/hsp-cache/assets/' ) === false ) {
+        if ( strpos( $path, '/wp-content/cache/hspsc/assets/' ) === false ) {
             return;
         }
 
-        $ttl = intval( HSP_Smart_Cache_Settings::get( 'browser_cache_asset_ttl', 604800 ) );
+        $ttl = intval( HSPSC_Settings::get( 'browser_cache_asset_ttl', 604800 ) );
         header( 'Cache-Control: public, max-age=' . $ttl . ', immutable' );
     }
 
     public static function minify_html( $html ) {
-        if ( HSP_Smart_Cache_Settings::get( 'minify_css' ) ) {
+        if ( HSPSC_Settings::get( 'minify_css' ) ) {
             $html = preg_replace_callback(
                 '/<style\b([^>]*)>([\s\S]*?)<\/style>/i',
                 function( $matches ) {
@@ -103,7 +103,7 @@ class HSP_Smart_Cache_Minify {
             );
         }
 
-        if ( HSP_Smart_Cache_Settings::get( 'minify_js' ) ) {
+        if ( HSPSC_Settings::get( 'minify_js' ) ) {
             $html = preg_replace_callback(
                 '/<script\b([^>]*)>([\s\S]*?)<\/script>/i',
                 function( $matches ) {
@@ -191,6 +191,6 @@ class HSP_Smart_Cache_Minify {
     }
 
     public static function clear_cache() {
-        HSP_Smart_Cache_Utils::delete_dir_contents( HSP_SMART_CACHE_PATH . '/assets' );
+        HSPSC_Utils::delete_dir_contents( HSPSC_PATH . '/assets' );
     }
 }

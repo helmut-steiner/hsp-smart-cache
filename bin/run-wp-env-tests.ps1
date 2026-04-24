@@ -13,7 +13,7 @@ wp-env state.
 
 .PARAMETER PhpUnitArgs
 Optional extra arguments forwarded to PHPUnit.
-Examples: @('--testdox'), @('--filter', 'HSP_Smart_Cache_Page_Test')
+Examples: @('--testdox'), @('--filter', 'HSPSC_Page_Test')
 
 .EXAMPLE
 .\bin\run-wp-env-tests.ps1

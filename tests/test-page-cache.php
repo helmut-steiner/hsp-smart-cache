@@ -1,22 +1,22 @@
 <?php
 
-class HSP_Smart_Cache_Page_Test extends WP_UnitTestCase {
+class HSPSC_Page_Test extends WP_UnitTestCase {
     protected function get_cache_path_for_url( $url ) {
-        $ref = new ReflectionClass( 'HSP_Smart_Cache_Page' );
+        $ref = new ReflectionClass( 'HSPSC_Page' );
         $method = $ref->getMethod( 'get_cache_file_path_for_url' );
         $method->setAccessible( true );
         return $method->invoke( null, $url );
     }
 
     public function test_clear_cache_for_url_removes_file() {
-        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        HSPSC_Utils::ensure_cache_dirs();
         $url = home_url( '/sample-page/' );
         $file = $this->get_cache_path_for_url( $url );
 
         file_put_contents( $file, '<html>cached</html>' );
         $this->assertFileExists( $file );
 
-        HSP_Smart_Cache_Page::clear_cache_for_url( $url );
+        HSPSC_Page::clear_cache_for_url( $url );
         $this->assertFileDoesNotExist( $file );
     }
 
@@ -28,18 +28,18 @@ class HSP_Smart_Cache_Page_Test extends WP_UnitTestCase {
         $url = get_permalink( $post_id );
         $file = $this->get_cache_path_for_url( $url );
 
-        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        HSPSC_Utils::ensure_cache_dirs();
         file_put_contents( $file, '<html>cached</html>' );
         $this->assertFileExists( $file );
 
-        HSP_Smart_Cache_Page::clear_cache_for_post( $post_id );
+        HSPSC_Page::clear_cache_for_post( $post_id );
         $this->assertFileDoesNotExist( $file );
     }
 
     public function test_warm_url_with_timeout_issues_request_when_page_cache_enabled() {
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'page_cache' => true ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'page_cache' => true ) )
         );
 
         $captured = array();
@@ -56,7 +56,7 @@ class HSP_Smart_Cache_Page_Test extends WP_UnitTestCase {
 
         add_filter( 'pre_http_request', $mock_http, 10, 3 );
         try {
-            HSP_Smart_Cache_Page::warm_url_with_timeout( home_url( '/warm-me/' ), 4 );
+            HSPSC_Page::warm_url_with_timeout( home_url( '/warm-me/' ), 4 );
         } finally {
             remove_filter( 'pre_http_request', $mock_http, 10 );
         }
@@ -68,8 +68,8 @@ class HSP_Smart_Cache_Page_Test extends WP_UnitTestCase {
 
     public function test_warm_urls_calls_remote_get_for_each_url() {
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'page_cache' => true ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'page_cache' => true ) )
         );
 
         $urls = array( home_url( '/a/' ), home_url( '/b/' ) );
@@ -87,7 +87,7 @@ class HSP_Smart_Cache_Page_Test extends WP_UnitTestCase {
 
         add_filter( 'pre_http_request', $mock_http, 10, 3 );
         try {
-            HSP_Smart_Cache_Page::warm_urls( $urls );
+            HSPSC_Page::warm_urls( $urls );
         } finally {
             remove_filter( 'pre_http_request', $mock_http, 10 );
         }

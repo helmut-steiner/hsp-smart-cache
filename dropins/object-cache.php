@@ -8,9 +8,9 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-if ( ! class_exists( 'HSP_Smart_Cache_File_Object_Cache' ) ) {
+if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
     // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound
-    class HSP_Smart_Cache_File_Object_Cache {
+    class HSPSC_File_Object_Cache {
         protected $cache = array();
         protected $global_groups = array();
         protected $non_persistent_groups = array();
@@ -52,7 +52,7 @@ if ( ! class_exists( 'HSP_Smart_Cache_File_Object_Cache' ) ) {
         }
 
         public function __construct() {
-            $this->cache_dir = WP_CONTENT_DIR . '/cache/hsp-cache/object';
+            $this->cache_dir = WP_CONTENT_DIR . '/cache/hspsc/object';
             if ( ! $this->fs_is_dir( $this->cache_dir ) ) {
                 $this->fs_mkdir( $this->cache_dir, 0755, true );
             }
@@ -241,7 +241,7 @@ global $wp_object_cache;
 
 function wp_cache_init() {
     global $wp_object_cache;
-    $wp_object_cache = new HSP_Smart_Cache_File_Object_Cache();
+    $wp_object_cache = new HSPSC_File_Object_Cache();
 }
 
 function wp_cache_add( $key, $data, $group = '', $expire = 0 ) {

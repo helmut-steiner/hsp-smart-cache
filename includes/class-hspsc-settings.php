@@ -4,8 +4,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_Settings {
-    const OPTION_KEY = 'hsp_cache_settings';
+class HSPSC_Settings {
+    const OPTION_KEY = 'hspsc_settings';
 
     public static function init() {
         add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
@@ -80,7 +80,7 @@ class HSP_Smart_Cache_Settings {
     }
 
     public static function register_settings() {
-        register_setting( 'hsp_cache_settings_group', self::OPTION_KEY, array( __CLASS__, 'sanitize' ) );
+        register_setting( 'hspsc_settings_group', self::OPTION_KEY, array( __CLASS__, 'sanitize' ) );
     }
 
     public static function sanitize( $input ) {

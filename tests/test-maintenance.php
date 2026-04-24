@@ -1,6 +1,6 @@
 <?php
 
-class HSP_Smart_Cache_Maintenance_WPDB_Mock {
+class HSPSC_Maintenance_WPDB_Mock {
     public $posts = 'wp_posts';
     public $comments = 'wp_comments';
     public $options = 'wp_options';
@@ -97,7 +97,7 @@ class HSP_Smart_Cache_Maintenance_WPDB_Mock {
     }
 }
 
-class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
+class HSPSC_Maintenance_Test extends WP_UnitTestCase {
     private $wpdb_original;
     private $backup_dir;
 
@@ -105,7 +105,7 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
         parent::set_up();
         global $wpdb;
         $this->wpdb_original = $wpdb;
-        $this->backup_dir = HSP_SMART_CACHE_PATH . '/db-backups';
+        $this->backup_dir = HSPSC_PATH . '/db-backups';
 
         $this->delete_dir_recursively( $this->backup_dir );
     }
@@ -121,9 +121,9 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
 
     public function test_run_db_cleanup_executes_expected_cleanup_queries() {
         global $wpdb;
-        $wpdb = new HSP_Smart_Cache_Maintenance_WPDB_Mock();
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
 
-        $result = HSP_Smart_Cache_Maintenance::run_db_cleanup();
+        $result = HSPSC_Maintenance::run_db_cleanup();
 
         $this->assertTrue( $result );
         $this->assertGreaterThanOrEqual( 6, count( $wpdb->queries ) );
@@ -133,10 +133,10 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
 
     public function test_optimize_tables_returns_true_and_runs_optimize_per_table() {
         global $wpdb;
-        $wpdb = new HSP_Smart_Cache_Maintenance_WPDB_Mock();
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
         $wpdb->tables = array( 'wp_posts', 'wp_options' );
 
-        $result = HSP_Smart_Cache_Maintenance::optimize_tables();
+        $result = HSPSC_Maintenance::optimize_tables();
 
         $this->assertTrue( $result );
         $this->assertContains( 'OPTIMIZE TABLE wp_posts', $wpdb->queries );
@@ -145,17 +145,17 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
 
     public function test_optimize_tables_returns_false_when_no_tables_found() {
         global $wpdb;
-        $wpdb = new HSP_Smart_Cache_Maintenance_WPDB_Mock();
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
         $wpdb->tables = array();
 
-        $result = HSP_Smart_Cache_Maintenance::optimize_tables();
+        $result = HSPSC_Maintenance::optimize_tables();
 
         $this->assertFalse( $result );
     }
 
     public function test_analyze_optimization_returns_summary() {
         global $wpdb;
-        $wpdb = new HSP_Smart_Cache_Maintenance_WPDB_Mock();
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
         $wpdb->status_rows = array(
             array(
                 'Name' => 'wp_posts',
@@ -173,7 +173,7 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
             ),
         );
 
-        $analysis = HSP_Smart_Cache_Maintenance::analyze_optimization();
+        $analysis = HSPSC_Maintenance::analyze_optimization();
 
         $this->assertTrue( $analysis['ok'] );
         $this->assertSame( 2, $analysis['table_count'] );
@@ -184,7 +184,7 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
 
     public function test_create_backup_generates_timestamped_file() {
         global $wpdb;
-        $wpdb = new HSP_Smart_Cache_Maintenance_WPDB_Mock();
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
         $wpdb->tables = array( 'wp_posts' );
         $wpdb->table_rows = array(
             'wp_posts' => array(
@@ -195,7 +195,7 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
             'wp_posts' => 'CREATE TABLE `wp_posts` (`ID` int(11) NOT NULL, `post_title` text)',
         );
 
-        $backup = HSP_Smart_Cache_Maintenance::create_backup();
+        $backup = HSPSC_Maintenance::create_backup();
 
         $this->assertTrue( $backup['ok'] );
         $this->assertMatchesRegularExpression( '/^hsp-db-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.json$/', $backup['file'] );
@@ -204,7 +204,7 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
 
     public function test_restore_backup_reinserts_rows() {
         global $wpdb;
-        $wpdb = new HSP_Smart_Cache_Maintenance_WPDB_Mock();
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
         $wpdb->tables = array( 'wp_posts' );
         $wpdb->table_rows = array(
             'wp_posts' => array(
@@ -216,10 +216,10 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
             'wp_posts' => 'CREATE TABLE `wp_posts` (`ID` int(11) NOT NULL, `post_title` text)',
         );
 
-        $backup = HSP_Smart_Cache_Maintenance::create_backup();
+        $backup = HSPSC_Maintenance::create_backup();
         $this->assertTrue( $backup['ok'] );
 
-        $restore = HSP_Smart_Cache_Maintenance::restore_backup( $backup['file'] );
+        $restore = HSPSC_Maintenance::restore_backup( $backup['file'] );
 
         $this->assertTrue( $restore['ok'] );
         $this->assertArrayHasKey( 'wp_posts', $wpdb->inserted );
@@ -228,19 +228,19 @@ class HSP_Smart_Cache_Maintenance_Test extends WP_UnitTestCase {
 
     public function test_list_and_delete_backups_work() {
         global $wpdb;
-        $wpdb = new HSP_Smart_Cache_Maintenance_WPDB_Mock();
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
         $wpdb->tables = array( 'wp_options' );
         $wpdb->table_rows = array( 'wp_options' => array() );
         $wpdb->create_sql = array( 'wp_options' => 'CREATE TABLE `wp_options` (`option_id` int(11) NOT NULL)' );
 
-        $backup = HSP_Smart_Cache_Maintenance::create_backup();
+        $backup = HSPSC_Maintenance::create_backup();
         $this->assertTrue( $backup['ok'] );
 
-        $backups = HSP_Smart_Cache_Maintenance::list_backups();
+        $backups = HSPSC_Maintenance::list_backups();
         $this->assertNotEmpty( $backups );
         $this->assertSame( $backup['file'], $backups[0]['file'] );
 
-        $deleted = HSP_Smart_Cache_Maintenance::delete_backup( $backup['file'] );
+        $deleted = HSPSC_Maintenance::delete_backup( $backup['file'] );
         $this->assertTrue( $deleted );
         $this->assertFileDoesNotExist( $backup['path'] );
     }

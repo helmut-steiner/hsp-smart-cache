@@ -4,11 +4,11 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_Updater {
+class HSPSC_Updater {
     const OWNER = 'helmut-steiner';
     const REPO = 'hsp-smart-cache';
     const SLUG = 'hsp-smart-cache';
-    const RELEASE_TRANSIENT = 'hsp_smart_cache_github_release';
+    const RELEASE_TRANSIENT = 'hspsc_github_release';
 
     public static function init() {
         add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'filter_update_transient' ) );
@@ -21,7 +21,7 @@ class HSP_Smart_Cache_Updater {
             return $transient;
         }
 
-        $plugin_file = HSP_SMART_CACHE_BASENAME;
+        $plugin_file = HSPSC_BASENAME;
         if ( ! isset( $transient->checked[ $plugin_file ] ) ) {
             return $transient;
         }
@@ -38,7 +38,7 @@ class HSP_Smart_Cache_Updater {
 
         $package_url = self::resolve_package_url( $release );
 
-        if ( version_compare( $latest_version, HSP_SMART_CACHE_VERSION, '>' ) ) {
+        if ( version_compare( $latest_version, HSPSC_VERSION, '>' ) ) {
             $transient->response[ $plugin_file ] = (object) array(
                 'id'           => self::repo_url(),
                 'slug'         => self::SLUG,
@@ -55,7 +55,7 @@ class HSP_Smart_Cache_Updater {
                 'id'           => self::repo_url(),
                 'slug'         => self::SLUG,
                 'plugin'       => $plugin_file,
-                'new_version'  => HSP_SMART_CACHE_VERSION,
+                'new_version'  => HSPSC_VERSION,
                 'url'          => self::repo_url(),
                 'package'      => '',
                 'requires'     => '6.0',
@@ -84,7 +84,7 @@ class HSP_Smart_Cache_Updater {
         return (object) array(
             'name'          => 'HSP Smart Cache',
             'slug'          => self::SLUG,
-            'version'       => $version !== '' ? $version : HSP_SMART_CACHE_VERSION,
+            'version'       => $version !== '' ? $version : HSPSC_VERSION,
             'author'        => '<a href="https://github.com/' . esc_attr( self::OWNER ) . '">Helmut Steiner</a>',
             'author_profile'=> 'https://github.com/' . self::OWNER,
             'requires'      => '6.0',
@@ -109,7 +109,7 @@ class HSP_Smart_Cache_Updater {
         $type = isset( $hook_extra['type'] ) ? (string) $hook_extra['type'] : '';
         $plugins = isset( $hook_extra['plugins'] ) && is_array( $hook_extra['plugins'] ) ? $hook_extra['plugins'] : array();
 
-        if ( $action !== 'update' || $type !== 'plugin' || ! in_array( HSP_SMART_CACHE_BASENAME, $plugins, true ) ) {
+        if ( $action !== 'update' || $type !== 'plugin' || ! in_array( HSPSC_BASENAME, $plugins, true ) ) {
             return $source;
         }
 
@@ -130,7 +130,7 @@ class HSP_Smart_Cache_Updater {
 
         if ( ! $wp_filesystem->move( $source, $desired_source, true ) ) {
             return new WP_Error(
-                'hsp_smart_cache_updater_move_failed',
+                'hspsc_updater_move_failed',
                 __( 'Could not prepare the GitHub release package for installation.', 'hsp-smart-cache' )
             );
         }
@@ -209,10 +209,9 @@ class HSP_Smart_Cache_Updater {
     }
 
     protected static function github_token() {
-        $token = defined( 'HSP_SMART_CACHE_GITHUB_TOKEN' ) ? (string) HSP_SMART_CACHE_GITHUB_TOKEN : '';
+        $token = defined( 'HSPSC_GITHUB_TOKEN' ) ? (string) HSPSC_GITHUB_TOKEN : '';
 
-        $token = apply_filters( 'hspsc_github_token', $token );
-        return trim( (string) apply_filters( 'hsp_smart_cache_github_token', $token ) );
+        return trim( (string) apply_filters( 'hspsc_github_token', $token ) );
     }
 
     protected static function repo_url() {

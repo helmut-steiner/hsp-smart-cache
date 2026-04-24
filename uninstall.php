@@ -6,10 +6,10 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 function hspsc_uninstall() {
-    delete_option( 'hsp_cache_settings' );
+    delete_option( 'hspsc_settings' );
 
-    if ( ! defined( 'HSP_SMART_CACHE_PATH' ) ) {
-        define( 'HSP_SMART_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
+    if ( ! defined( 'HSPSC_PATH' ) ) {
+        define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );
     }
 
     if ( ! function_exists( 'WP_Filesystem' ) ) {
@@ -26,9 +26,9 @@ function hspsc_uninstall() {
             $fs->delete( $object_dropin );
         }
 
-        hspsc_delete_dir_contents( HSP_SMART_CACHE_PATH, $fs );
-        if ( $fs->is_dir( HSP_SMART_CACHE_PATH ) ) {
-            $fs->rmdir( HSP_SMART_CACHE_PATH, false );
+        hspsc_delete_dir_contents( HSPSC_PATH, $fs );
+        if ( $fs->is_dir( HSPSC_PATH ) ) {
+            $fs->rmdir( HSPSC_PATH, false );
         }
 
         $htaccess = ABSPATH . '.htaccess';

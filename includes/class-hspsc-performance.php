@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_Performance {
+class HSPSC_Performance {
     public static function init() {
         add_filter( 'wp_lazy_loading_enabled', array( __CLASS__, 'filter_lazy_loading' ), 10, 2 );
         add_filter( 'wp_get_attachment_image_attributes', array( __CLASS__, 'filter_image_attributes' ), 10, 3 );
@@ -15,23 +15,23 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function filter_lazy_loading( $default, $tag_name ) {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return $default;
         }
         if ( $tag_name === 'img' ) {
-            return HSP_Smart_Cache_Settings::get( 'perf_lazy_images', true );
+            return HSPSC_Settings::get( 'perf_lazy_images', true );
         }
         if ( $tag_name === 'iframe' ) {
-            return HSP_Smart_Cache_Settings::get( 'perf_lazy_iframes', true );
+            return HSPSC_Settings::get( 'perf_lazy_iframes', true );
         }
         return $default;
     }
 
     public static function filter_image_attributes( $attr, $attachment, $size ) {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return $attr;
         }
-        if ( HSP_Smart_Cache_Settings::get( 'perf_decoding_async', true ) && empty( $attr['decoding'] ) ) {
+        if ( HSPSC_Settings::get( 'perf_decoding_async', true ) && empty( $attr['decoding'] ) ) {
             $attr['decoding'] = 'async';
         }
         return $attr;
@@ -41,7 +41,7 @@ class HSP_Smart_Cache_Performance {
         if ( $relation_type !== 'dns-prefetch' ) {
             return $hints;
         }
-        $list = self::parse_list( HSP_Smart_Cache_Settings::get( 'perf_dns_prefetch_urls', '' ) );
+        $list = self::parse_list( HSPSC_Settings::get( 'perf_dns_prefetch_urls', '' ) );
         foreach ( $list as $url ) {
             $hints[] = $url;
         }
@@ -49,11 +49,11 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_emojis() {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
 
-        if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_emojis' ) ) {
+        if ( ! HSPSC_Settings::get( 'perf_disable_emojis' ) ) {
             return;
         }
         remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
@@ -84,11 +84,11 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_embeds() {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
 
-        if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_embeds' ) ) {
+        if ( ! HSPSC_Settings::get( 'perf_disable_embeds' ) ) {
             return;
         }
         remove_action( 'wp_head', 'wp_oembed_add_discovery_links' );
@@ -99,7 +99,7 @@ class HSP_Smart_Cache_Performance {
     }
 
     public static function maybe_disable_dashicons() {
-        if ( ! HSP_Smart_Cache_Settings::get( 'perf_disable_dashicons' ) ) {
+        if ( ! HSPSC_Settings::get( 'perf_disable_dashicons' ) ) {
             return;
         }
         if ( is_user_logged_in() ) {

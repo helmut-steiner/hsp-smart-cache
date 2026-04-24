@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.3.0
+Stable tag: 0.3.2
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -47,6 +47,16 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.3.2 =
+* Renamed internal PHP prefixes, hooks, actions, options, transients, and cache paths to the HSPSC prefix.
+* Renamed include files to use the HSPSC prefix.
+* Updated tests for the HSPSC prefix rename.
+
+= 0.3.1 =
+* Fixed test pipeline
+* Fixed npm security vulnerabilities
+
 = 0.3.0 =
 * Add database optimization analysis summary before running optimize.
 * Create automatic timestamped database backups before optimization.

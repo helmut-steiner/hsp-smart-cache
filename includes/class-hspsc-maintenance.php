@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_Maintenance {
+class HSPSC_Maintenance {
     const BACKUP_DIR = 'db-backups';
 
     public static function run_db_cleanup() {
@@ -309,7 +309,7 @@ class HSP_Smart_Cache_Maintenance {
     }
 
     protected static function get_backup_dir() {
-        return trailingslashit( HSP_SMART_CACHE_PATH ) . self::BACKUP_DIR;
+        return trailingslashit( HSPSC_PATH ) . self::BACKUP_DIR;
     }
 
     protected static function get_backup_file_path( $file ) {

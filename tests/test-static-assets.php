@@ -1,6 +1,6 @@
 <?php
 
-class HSP_Smart_Cache_Static_Assets_FS_Mock {
+class HSPSC_Static_Assets_FS_Mock {
     public $existing = array();
     public $writable = array();
     public $contents = array();
@@ -26,7 +26,7 @@ class HSP_Smart_Cache_Static_Assets_FS_Mock {
     }
 }
 
-class HSP_Smart_Cache_Static_Assets_Test extends WP_UnitTestCase {
+class HSPSC_Static_Assets_Test extends WP_UnitTestCase {
     private $original_wp_filesystem;
 
     public function set_up(): void {
@@ -43,12 +43,12 @@ class HSP_Smart_Cache_Static_Assets_Test extends WP_UnitTestCase {
 
     public function test_apply_rules_skips_when_auto_write_disabled() {
         global $wp_filesystem;
-        $wp_filesystem = new HSP_Smart_Cache_Static_Assets_FS_Mock();
+        $wp_filesystem = new HSPSC_Static_Assets_FS_Mock();
 
-        HSP_Smart_Cache_Static_Assets::apply_rules(
+        HSPSC_Static_Assets::apply_rules(
             null,
             array_merge(
-                HSP_Smart_Cache_Settings::defaults(),
+                HSPSC_Settings::defaults(),
                 array(
                     'static_asset_cache'      => true,
                     'static_asset_auto_write' => false,
@@ -61,16 +61,16 @@ class HSP_Smart_Cache_Static_Assets_Test extends WP_UnitTestCase {
 
     public function test_apply_rules_writes_htaccess_block_when_enabled() {
         global $wp_filesystem;
-        $wp_filesystem = new HSP_Smart_Cache_Static_Assets_FS_Mock();
+        $wp_filesystem = new HSPSC_Static_Assets_FS_Mock();
 
         $htaccess = ABSPATH . '.htaccess';
         $wp_filesystem->existing[ $htaccess ] = true;
         $wp_filesystem->contents[ $htaccess ] = '# Existing rules';
 
-        HSP_Smart_Cache_Static_Assets::apply_rules(
+        HSPSC_Static_Assets::apply_rules(
             null,
             array_merge(
-                HSP_Smart_Cache_Settings::defaults(),
+                HSPSC_Settings::defaults(),
                 array(
                     'static_asset_cache'       => true,
                     'static_asset_auto_write'  => true,
@@ -82,25 +82,25 @@ class HSP_Smart_Cache_Static_Assets_Test extends WP_UnitTestCase {
         );
 
         $this->assertCount( 1, $wp_filesystem->writes );
-        $this->assertStringContainsString( HSP_Smart_Cache_Static_Assets::HTACCESS_BEGIN, $wp_filesystem->writes[0]['contents'] );
+        $this->assertStringContainsString( HSPSC_Static_Assets::HTACCESS_BEGIN, $wp_filesystem->writes[0]['contents'] );
         $this->assertStringContainsString( 'max-age=1200', $wp_filesystem->writes[0]['contents'] );
     }
 
     public function test_apply_rules_removes_block_when_disabled() {
         global $wp_filesystem;
-        $wp_filesystem = new HSP_Smart_Cache_Static_Assets_FS_Mock();
+        $wp_filesystem = new HSPSC_Static_Assets_FS_Mock();
 
         $htaccess = ABSPATH . '.htaccess';
         $wp_filesystem->existing[ $htaccess ] = true;
         $wp_filesystem->contents[ $htaccess ] = "# Existing rules\n"
-            . HSP_Smart_Cache_Static_Assets::HTACCESS_BEGIN . "\n"
+            . HSPSC_Static_Assets::HTACCESS_BEGIN . "\n"
             . "Header set Cache-Control \"public, max-age=600\"\n"
-            . HSP_Smart_Cache_Static_Assets::HTACCESS_END . "\n";
+            . HSPSC_Static_Assets::HTACCESS_END . "\n";
 
-        HSP_Smart_Cache_Static_Assets::apply_rules(
+        HSPSC_Static_Assets::apply_rules(
             null,
             array_merge(
-                HSP_Smart_Cache_Settings::defaults(),
+                HSPSC_Settings::defaults(),
                 array(
                     'static_asset_cache'      => false,
                     'static_asset_auto_write' => true,
@@ -109,6 +109,6 @@ class HSP_Smart_Cache_Static_Assets_Test extends WP_UnitTestCase {
         );
 
         $this->assertCount( 1, $wp_filesystem->writes );
-        $this->assertStringNotContainsString( HSP_Smart_Cache_Static_Assets::HTACCESS_BEGIN, $wp_filesystem->writes[0]['contents'] );
+        $this->assertStringNotContainsString( HSPSC_Static_Assets::HTACCESS_BEGIN, $wp_filesystem->writes[0]['contents'] );
     }
 }

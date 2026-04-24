@@ -1,13 +1,13 @@
 <?php
 
-class HSP_Smart_Cache_Preload_Test extends WP_UnitTestCase {
+class HSPSC_Preload_Test extends WP_UnitTestCase {
     public function test_run_returns_not_ok_when_preload_disabled() {
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'preload_enabled' => false ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'preload_enabled' => false ) )
         );
 
-        $result = HSP_Smart_Cache_Preload::run();
+        $result = HSPSC_Preload::run();
 
         $this->assertFalse( $result['ok'] );
         $this->assertSame( 0, $result['count'] );
@@ -18,9 +18,9 @@ class HSP_Smart_Cache_Preload_Test extends WP_UnitTestCase {
         $warmed_urls = array();
 
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
+            HSPSC_Settings::OPTION_KEY,
             array_merge(
-                HSP_Smart_Cache_Settings::defaults(),
+                HSPSC_Settings::defaults(),
                 array(
                     'page_cache'         => true,
                     'preload_enabled'    => true,
@@ -56,7 +56,7 @@ class HSP_Smart_Cache_Preload_Test extends WP_UnitTestCase {
         add_filter( 'pre_http_request', $mock_http, 10, 3 );
 
         try {
-            $result = HSP_Smart_Cache_Preload::run();
+            $result = HSPSC_Preload::run();
         } finally {
             remove_filter( 'pre_http_request', $mock_http, 10 );
         }

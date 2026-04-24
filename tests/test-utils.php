@@ -1,16 +1,16 @@
 <?php
 
-class HSP_Smart_Cache_Utils_Test extends WP_UnitTestCase {
+class HSPSC_Utils_Test extends WP_UnitTestCase {
     public function test_cache_dirs_can_be_created() {
-        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        HSPSC_Utils::ensure_cache_dirs();
 
-        $this->assertDirectoryExists( HSP_SMART_CACHE_PATH . '/pages' );
-        $this->assertDirectoryExists( HSP_SMART_CACHE_PATH . '/assets' );
-        $this->assertDirectoryExists( HSP_SMART_CACHE_PATH . '/object' );
+        $this->assertDirectoryExists( HSPSC_PATH . '/pages' );
+        $this->assertDirectoryExists( HSPSC_PATH . '/assets' );
+        $this->assertDirectoryExists( HSPSC_PATH . '/object' );
     }
 
     public function test_normalize_url_path() {
-        $path = HSP_Smart_Cache_Utils::normalize_url_path( 'https://example.com/wp-content/style.css?ver=1' );
+        $path = HSPSC_Utils::normalize_url_path( 'https://example.com/wp-content/style.css?ver=1' );
         $this->assertSame( '/wp-content/style.css', $path );
     }
 
@@ -21,7 +21,7 @@ class HSP_Smart_Cache_Utils_Test extends WP_UnitTestCase {
         $GLOBALS['pagenow']    = 'wp-login.php';
         $_SERVER['REQUEST_URI'] = '/wp-login.php';
 
-        $this->assertTrue( HSP_Smart_Cache_Utils::is_backend_or_login_request() );
+        $this->assertTrue( HSPSC_Utils::is_backend_or_login_request() );
 
         if ( null === $original_pagenow ) {
             unset( $GLOBALS['pagenow'] );
@@ -45,7 +45,7 @@ class HSP_Smart_Cache_Utils_Test extends WP_UnitTestCase {
         $_SERVER['REQUEST_URI']  = '/wp-login.php';
         $_SERVER['REQUEST_METHOD'] = 'GET';
 
-        $this->assertFalse( HSP_Smart_Cache_Utils::is_request_cacheable() );
+        $this->assertFalse( HSPSC_Utils::is_request_cacheable() );
 
         if ( null === $original_pagenow ) {
             unset( $GLOBALS['pagenow'] );
@@ -68,11 +68,11 @@ class HSP_Smart_Cache_Utils_Test extends WP_UnitTestCase {
 
     public function test_apply_robots_rules_appends_ai_block_when_enabled() {
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'robots_disallow_ai' => true ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'robots_disallow_ai' => true ) )
         );
 
-        $output = HSP_Smart_Cache_Utils::apply_robots_rules( "User-agent: *\nDisallow:", true );
+        $output = HSPSC_Utils::apply_robots_rules( "User-agent: *\nDisallow:", true );
 
         $this->assertStringContainsString( 'User-agent: GPTBot', $output );
         $this->assertStringContainsString( 'User-agent: Amazonbot', $output );
@@ -85,7 +85,7 @@ class HSP_Smart_Cache_Utils_Test extends WP_UnitTestCase {
         $_SERVER['REQUEST_URI'] = '/?bricks=run';
         $_SERVER['QUERY_STRING'] = 'bricks=run';
 
-        $this->assertTrue( HSP_Smart_Cache_Utils::is_editor_or_builder_request() );
+        $this->assertTrue( HSPSC_Utils::is_editor_or_builder_request() );
 
         if ( null === $original_uri ) {
             unset( $_SERVER['REQUEST_URI'] );
@@ -105,25 +105,25 @@ class HSP_Smart_Cache_Utils_Test extends WP_UnitTestCase {
         wp_set_current_user( $user_id );
 
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'optimize_logged_in' => false ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'optimize_logged_in' => false ) )
         );
 
-        $this->assertFalse( HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() );
+        $this->assertFalse( HSPSC_Utils::should_apply_frontend_optimizations() );
 
         wp_set_current_user( 0 );
     }
 
     public function test_delete_dir_contents_removes_nested_files() {
-        HSP_Smart_Cache_Utils::ensure_cache_dirs();
+        HSPSC_Utils::ensure_cache_dirs();
 
-        $root = HSP_SMART_CACHE_PATH . '/pages/delete-test';
+        $root = HSPSC_PATH . '/pages/delete-test';
         $nested = $root . '/nested';
         wp_mkdir_p( $nested );
         file_put_contents( $root . '/a.txt', 'a' );
         file_put_contents( $nested . '/b.txt', 'b' );
 
-        HSP_Smart_Cache_Utils::delete_dir_contents( $root );
+        HSPSC_Utils::delete_dir_contents( $root );
 
         $this->assertDirectoryExists( $root );
         $this->assertFileDoesNotExist( $root . '/a.txt' );

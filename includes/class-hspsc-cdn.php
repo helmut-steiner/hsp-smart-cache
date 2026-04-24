@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class HSP_Smart_Cache_CDN {
+class HSPSC_CDN {
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );
         add_filter( 'script_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );
@@ -12,15 +12,15 @@ class HSP_Smart_Cache_CDN {
     }
 
     public static function rewrite_url( $url ) {
-        if ( ! HSP_Smart_Cache_Utils::should_apply_frontend_optimizations() ) {
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return $url;
         }
 
-        if ( ! HSP_Smart_Cache_Settings::get( 'cdn_enabled' ) ) {
+        if ( ! HSPSC_Settings::get( 'cdn_enabled' ) ) {
             return $url;
         }
 
-        $cdn = HSP_Smart_Cache_Settings::get( 'cdn_url' );
+        $cdn = HSPSC_Settings::get( 'cdn_url' );
         if ( empty( $cdn ) ) {
             return $url;
         }

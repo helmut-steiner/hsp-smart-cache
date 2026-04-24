@@ -1,6 +1,6 @@
 <?php
 
-class HSP_Smart_Cache_Updater_FS_Mock {
+class HSPSC_Updater_FS_Mock {
     public $dirs = array();
     public $deleted = array();
     public $moved = array();
@@ -26,7 +26,7 @@ class HSP_Smart_Cache_Updater_FS_Mock {
     }
 }
 
-class HSP_Smart_Cache_Updater_Test extends WP_UnitTestCase {
+class HSPSC_Updater_Test extends WP_UnitTestCase {
     private $original_wp_filesystem;
 
     public function set_up(): void {
@@ -38,13 +38,13 @@ class HSP_Smart_Cache_Updater_Test extends WP_UnitTestCase {
     public function tear_down(): void {
         global $wp_filesystem;
         $wp_filesystem = $this->original_wp_filesystem;
-        delete_site_transient( HSP_Smart_Cache_Updater::RELEASE_TRANSIENT );
+        delete_site_transient( HSPSC_Updater::RELEASE_TRANSIENT );
         parent::tear_down();
     }
 
     public function test_filter_update_transient_adds_response_for_newer_release() {
         set_site_transient(
-            HSP_Smart_Cache_Updater::RELEASE_TRANSIENT,
+            HSPSC_Updater::RELEASE_TRANSIENT,
             array(
                 'tag_name'    => 'v9.9.9',
                 'zipball_url' => 'https://example.com/releases/latest.zip',
@@ -53,40 +53,40 @@ class HSP_Smart_Cache_Updater_Test extends WP_UnitTestCase {
 
         $transient = (object) array(
             'checked' => array(
-                HSP_SMART_CACHE_BASENAME => HSP_SMART_CACHE_VERSION,
+                HSPSC_BASENAME => HSPSC_VERSION,
             ),
         );
 
-        $result = HSP_Smart_Cache_Updater::filter_update_transient( $transient );
+        $result = HSPSC_Updater::filter_update_transient( $transient );
 
-        $this->assertNotEmpty( $result->response[ HSP_SMART_CACHE_BASENAME ] );
-        $this->assertSame( '9.9.9', $result->response[ HSP_SMART_CACHE_BASENAME ]->new_version );
+        $this->assertNotEmpty( $result->response[ HSPSC_BASENAME ] );
+        $this->assertSame( '9.9.9', $result->response[ HSPSC_BASENAME ]->new_version );
     }
 
     public function test_filter_update_transient_adds_no_update_for_same_version() {
         set_site_transient(
-            HSP_Smart_Cache_Updater::RELEASE_TRANSIENT,
+            HSPSC_Updater::RELEASE_TRANSIENT,
             array(
-                'tag_name'    => 'v' . HSP_SMART_CACHE_VERSION,
+                'tag_name'    => 'v' . HSPSC_VERSION,
                 'zipball_url' => 'https://example.com/releases/current.zip',
             )
         );
 
         $transient = (object) array(
             'checked' => array(
-                HSP_SMART_CACHE_BASENAME => HSP_SMART_CACHE_VERSION,
+                HSPSC_BASENAME => HSPSC_VERSION,
             ),
         );
 
-        $result = HSP_Smart_Cache_Updater::filter_update_transient( $transient );
+        $result = HSPSC_Updater::filter_update_transient( $transient );
 
-        $this->assertNotEmpty( $result->no_update[ HSP_SMART_CACHE_BASENAME ] );
-        $this->assertSame( HSP_SMART_CACHE_VERSION, $result->no_update[ HSP_SMART_CACHE_BASENAME ]->new_version );
+        $this->assertNotEmpty( $result->no_update[ HSPSC_BASENAME ] );
+        $this->assertSame( HSPSC_VERSION, $result->no_update[ HSPSC_BASENAME ]->new_version );
     }
 
     public function test_filter_plugins_api_returns_plugin_information() {
         set_site_transient(
-            HSP_Smart_Cache_Updater::RELEASE_TRANSIENT,
+            HSPSC_Updater::RELEASE_TRANSIENT,
             array(
                 'tag_name'     => 'v1.2.3',
                 'body'         => "Line 1\nLine 2",
@@ -97,12 +97,12 @@ class HSP_Smart_Cache_Updater_Test extends WP_UnitTestCase {
             )
         );
 
-        $args = (object) array( 'slug' => HSP_Smart_Cache_Updater::SLUG );
+        $args = (object) array( 'slug' => HSPSC_Updater::SLUG );
 
-        $result = HSP_Smart_Cache_Updater::filter_plugins_api( false, 'plugin_information', $args );
+        $result = HSPSC_Updater::filter_plugins_api( false, 'plugin_information', $args );
 
         $this->assertIsObject( $result );
-        $this->assertSame( HSP_Smart_Cache_Updater::SLUG, $result->slug );
+        $this->assertSame( HSPSC_Updater::SLUG, $result->slug );
         $this->assertSame( '1.2.3', $result->version );
         $this->assertSame( 'https://example.com/plugin-1.2.3.zip', $result->download_link );
         $this->assertStringContainsString( 'Line 1', $result->sections['changelog'] );
@@ -110,21 +110,21 @@ class HSP_Smart_Cache_Updater_Test extends WP_UnitTestCase {
 
     public function test_filter_upgrader_source_selection_moves_release_folder() {
         global $wp_filesystem;
-        $wp_filesystem = new HSP_Smart_Cache_Updater_FS_Mock();
+        $wp_filesystem = new HSPSC_Updater_FS_Mock();
 
         $source = '/tmp/hsp-smart-cache-abcdef';
         $remote_source = '/tmp';
-        $desired = trailingslashit( $remote_source ) . HSP_Smart_Cache_Updater::SLUG;
+        $desired = trailingslashit( $remote_source ) . HSPSC_Updater::SLUG;
         $wp_filesystem->dirs[ $desired ] = true;
 
-        $result = HSP_Smart_Cache_Updater::filter_upgrader_source_selection(
+        $result = HSPSC_Updater::filter_upgrader_source_selection(
             $source,
             $remote_source,
             null,
             array(
                 'action'  => 'update',
                 'type'    => 'plugin',
-                'plugins' => array( HSP_SMART_CACHE_BASENAME ),
+                'plugins' => array( HSPSC_BASENAME ),
             )
         );
 

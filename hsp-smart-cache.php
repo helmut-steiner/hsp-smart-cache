@@ -2,7 +2,7 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.3.0
+ * Version: 0.3.2
  * Update URI: https://github.com/helmut-steiner/hsp-smart-cache
  * Author: Helmut Steiner
  * License: MIT
@@ -14,40 +14,40 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSP_SMART_CACHE_VERSION', '0.3.0' );
-define( 'HSP_SMART_CACHE_BASENAME', plugin_basename( __FILE__ ) );
-define( 'HSP_SMART_CACHE_PATH', WP_CONTENT_DIR . '/cache/hsp-cache' );
-define( 'HSP_SMART_CACHE_URL', content_url( '/cache/hsp-cache' ) );
+define( 'HSPSC_VERSION', '0.3.2' );
+define( 'HSPSC_BASENAME', plugin_basename( __FILE__ ) );
+define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );
+define( 'HSPSC_URL', content_url( '/cache/hspsc' ) );
 
-require_once __DIR__ . '/includes/class-hsp-cache-settings.php';
-require_once __DIR__ . '/includes/class-hsp-cache-utils.php';
-require_once __DIR__ . '/includes/class-hsp-cache-admin.php';
-require_once __DIR__ . '/includes/class-hsp-cache-minify.php';
-require_once __DIR__ . '/includes/class-hsp-cache-page.php';
-require_once __DIR__ . '/includes/class-hsp-cache-cdn.php';
-require_once __DIR__ . '/includes/class-hsp-cache-object.php';
-require_once __DIR__ . '/includes/class-hsp-cache-tests.php';
-require_once __DIR__ . '/includes/class-hsp-cache-static-assets.php';
-require_once __DIR__ . '/includes/class-hsp-cache-render.php';
-require_once __DIR__ . '/includes/class-hsp-cache-performance.php';
-require_once __DIR__ . '/includes/class-hsp-cache-maintenance.php';
-require_once __DIR__ . '/includes/class-hsp-cache-preload.php';
-require_once __DIR__ . '/includes/class-hsp-cache-updater.php';
+require_once __DIR__ . '/includes/class-hspsc-settings.php';
+require_once __DIR__ . '/includes/class-hspsc-utils.php';
+require_once __DIR__ . '/includes/class-hspsc-admin.php';
+require_once __DIR__ . '/includes/class-hspsc-minify.php';
+require_once __DIR__ . '/includes/class-hspsc-page.php';
+require_once __DIR__ . '/includes/class-hspsc-cdn.php';
+require_once __DIR__ . '/includes/class-hspsc-object.php';
+require_once __DIR__ . '/includes/class-hspsc-tests.php';
+require_once __DIR__ . '/includes/class-hspsc-static-assets.php';
+require_once __DIR__ . '/includes/class-hspsc-render.php';
+require_once __DIR__ . '/includes/class-hspsc-performance.php';
+require_once __DIR__ . '/includes/class-hspsc-maintenance.php';
+require_once __DIR__ . '/includes/class-hspsc-preload.php';
+require_once __DIR__ . '/includes/class-hspsc-updater.php';
 
-class HSP_Smart_Cache_Plugin {
+class HSPSC_Plugin {
     public static function init() {
-        HSP_Smart_Cache_Settings::init();
-        HSP_Smart_Cache_Admin::init();
-        HSP_Smart_Cache_Minify::init();
-        HSP_Smart_Cache_Page::init();
-        HSP_Smart_Cache_CDN::init();
-        HSP_Smart_Cache_Object::init();
-        HSP_Smart_Cache_Static_Assets::init();
-        HSP_Smart_Cache_Render::init();
-        HSP_Smart_Cache_Performance::init();
-        HSP_Smart_Cache_Updater::init();
+        HSPSC_Settings::init();
+        HSPSC_Admin::init();
+        HSPSC_Minify::init();
+        HSPSC_Page::init();
+        HSPSC_CDN::init();
+        HSPSC_Object::init();
+        HSPSC_Static_Assets::init();
+        HSPSC_Render::init();
+        HSPSC_Performance::init();
+        HSPSC_Updater::init();
 
-        add_action( 'send_headers', array( 'HSP_Smart_Cache_Minify', 'maybe_send_asset_headers' ), 0 );
+        add_action( 'send_headers', array( 'HSPSC_Minify', 'maybe_send_asset_headers' ), 0 );
         add_filter( 'robots_txt', array( __CLASS__, 'filter_robots_txt' ), 10, 2 );
 
         add_action( 'save_post', array( __CLASS__, 'handle_post_change' ), 10, 3 );
@@ -65,19 +65,19 @@ class HSP_Smart_Cache_Plugin {
     }
 
     public static function activate() {
-        HSP_Smart_Cache_Utils::ensure_cache_dirs();
-        HSP_Smart_Cache_Settings::ensure_defaults();
-        HSP_Smart_Cache_Object::sync_dropin();
+        HSPSC_Utils::ensure_cache_dirs();
+        HSPSC_Settings::ensure_defaults();
+        HSPSC_Object::sync_dropin();
     }
 
     public static function deactivate() {
-        HSP_Smart_Cache_Object::remove_dropin();
+        HSPSC_Object::remove_dropin();
     }
 
     public static function flush_all_caches() {
-        HSP_Smart_Cache_Page::clear_cache();
-        HSP_Smart_Cache_Minify::clear_cache();
-        HSP_Smart_Cache_Object::flush_cache();
+        HSPSC_Page::clear_cache();
+        HSPSC_Minify::clear_cache();
+        HSPSC_Object::flush_cache();
     }
 
     public static function handle_post_change( $post_id, $post, $update ) {
@@ -87,14 +87,14 @@ class HSP_Smart_Cache_Plugin {
         if ( ! $post || $post->post_status === 'auto-draft' ) {
             return;
         }
-        HSP_Smart_Cache_Page::clear_cache_for_post( $post_id );
+        HSPSC_Page::clear_cache_for_post( $post_id );
     }
 
     public static function handle_post_delete( $post_id ) {
         if ( ! $post_id ) {
             return;
         }
-        HSP_Smart_Cache_Page::clear_cache_for_post( $post_id );
+        HSPSC_Page::clear_cache_for_post( $post_id );
     }
 
     public static function handle_comment_change( $comment_id ) {
@@ -102,11 +102,11 @@ class HSP_Smart_Cache_Plugin {
         if ( ! $comment || empty( $comment->comment_post_ID ) ) {
             return;
         }
-        HSP_Smart_Cache_Page::clear_cache_for_post( (int) $comment->comment_post_ID );
+        HSPSC_Page::clear_cache_for_post( (int) $comment->comment_post_ID );
     }
 
     public static function filter_robots_txt( $output, $public ) {
-        return HSP_Smart_Cache_Utils::apply_robots_rules( $output, (bool) $public );
+        return HSPSC_Utils::apply_robots_rules( $output, (bool) $public );
     }
 
     public static function handle_upgrader_process_complete( $upgrader, $hook_extra ) {
@@ -127,7 +127,7 @@ class HSP_Smart_Cache_Plugin {
     }
 }
 
-register_activation_hook( __FILE__, array( 'HSP_Smart_Cache_Plugin', 'activate' ) );
-register_deactivation_hook( __FILE__, array( 'HSP_Smart_Cache_Plugin', 'deactivate' ) );
+register_activation_hook( __FILE__, array( 'HSPSC_Plugin', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'HSPSC_Plugin', 'deactivate' ) );
 
-add_action( 'plugins_loaded', array( 'HSP_Smart_Cache_Plugin', 'init' ) );
+add_action( 'plugins_loaded', array( 'HSPSC_Plugin', 'init' ) );

@@ -1,6 +1,6 @@
 <?php
 
-class HSP_Smart_Cache_Object_Test extends WP_UnitTestCase {
+class HSPSC_Object_Test extends WP_UnitTestCase {
     private $target_file;
     private $target_backup;
     private $had_existing_target;
@@ -27,15 +27,15 @@ class HSP_Smart_Cache_Object_Test extends WP_UnitTestCase {
 
     public function test_sync_dropin_installs_when_enabled() {
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'object_cache' => true ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'object_cache' => true ) )
         );
 
-        HSP_Smart_Cache_Object::sync_dropin();
+        HSPSC_Object::sync_dropin();
 
         $this->assertFileExists( $this->target_file );
         $contents = file_get_contents( $this->target_file );
-        $this->assertStringContainsString( 'HSP_Smart_Cache_File_Object_Cache', (string) $contents );
+        $this->assertStringContainsString( 'HSPSC_File_Object_Cache', (string) $contents );
     }
 
     public function test_sync_dropin_removes_when_disabled() {
@@ -43,20 +43,20 @@ class HSP_Smart_Cache_Object_Test extends WP_UnitTestCase {
         $this->assertFileExists( $this->target_file );
 
         update_option(
-            HSP_Smart_Cache_Settings::OPTION_KEY,
-            array_merge( HSP_Smart_Cache_Settings::defaults(), array( 'object_cache' => false ) )
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'object_cache' => false ) )
         );
 
-        HSP_Smart_Cache_Object::sync_dropin();
+        HSPSC_Object::sync_dropin();
 
         $this->assertFileDoesNotExist( $this->target_file );
     }
 
     public function test_install_and_remove_dropin_methods() {
-        HSP_Smart_Cache_Object::install_dropin();
+        HSPSC_Object::install_dropin();
         $this->assertFileExists( $this->target_file );
 
-        HSP_Smart_Cache_Object::remove_dropin();
+        HSPSC_Object::remove_dropin();
         $this->assertFileDoesNotExist( $this->target_file );
     }
 }

@@ -15,8 +15,11 @@ class HSP_Smart_Cache_Admin {
         add_action( 'admin_post_hsp_cache_rebuild_all', array( __CLASS__, 'handle_rebuild_all' ) );
         add_action( 'admin_post_hsp_cache_restore_defaults', array( __CLASS__, 'handle_restore_defaults' ) );
         add_action( 'admin_post_hsp_cache_run_preload', array( __CLASS__, 'handle_run_preload' ) );
+        add_action( 'admin_post_hsp_cache_analyze_db', array( __CLASS__, 'handle_analyze_db' ) );
         add_action( 'admin_post_hsp_cache_run_db_cleanup', array( __CLASS__, 'handle_run_db_cleanup' ) );
         add_action( 'admin_post_hsp_cache_optimize_db', array( __CLASS__, 'handle_optimize_db' ) );
+        add_action( 'admin_post_hsp_cache_restore_db_backup', array( __CLASS__, 'handle_restore_db_backup' ) );
+        add_action( 'admin_post_hsp_cache_delete_db_backup', array( __CLASS__, 'handle_delete_db_backup' ) );
         add_action( 'admin_bar_menu', array( __CLASS__, 'register_admin_bar' ), 100 );
         add_action( 'update_option_' . HSP_Smart_Cache_Settings::OPTION_KEY, array( __CLASS__, 'handle_settings_update' ), 10, 2 );
     }
@@ -209,13 +212,72 @@ class HSP_Smart_Cache_Admin {
         self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=cleaned' ) );
     }
 
+    public static function handle_analyze_db() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::deny_access();
+        }
+        check_admin_referer( 'hsp_cache_analyze_db' );
+
+        $analysis = HSP_Smart_Cache_Maintenance::analyze_optimization();
+        set_transient( 'hsp_cache_db_analysis', $analysis, 15 * MINUTE_IN_SECONDS );
+
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=analyzed' ) );
+    }
+
     public static function handle_optimize_db() {
         if ( ! current_user_can( 'manage_options' ) ) {
             self::deny_access();
         }
         check_admin_referer( 'hsp_cache_optimize_db' );
+
+        $analysis = HSP_Smart_Cache_Maintenance::analyze_optimization();
+        set_transient( 'hsp_cache_db_analysis', $analysis, 15 * MINUTE_IN_SECONDS );
+
+        $backup = HSP_Smart_Cache_Maintenance::create_backup();
+        if ( empty( $backup['ok'] ) ) {
+            self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupfailed' ) );
+        }
+
+        set_transient( 'hsp_cache_db_last_backup', $backup, 15 * MINUTE_IN_SECONDS );
+
         HSP_Smart_Cache_Maintenance::optimize_tables();
         self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=optimized' ) );
+    }
+
+    public static function handle_restore_db_backup() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::deny_access();
+        }
+        check_admin_referer( 'hsp_cache_restore_db_backup' );
+
+        $backup_file = filter_input( INPUT_POST, 'backup_file', FILTER_UNSAFE_RAW );
+        if ( $backup_file === null && isset( $_POST['backup_file'] ) ) {
+            $backup_file = wp_unslash( $_POST['backup_file'] );
+        }
+        $backup_file = $backup_file ? sanitize_file_name( wp_unslash( $backup_file ) ) : '';
+
+        $result = HSP_Smart_Cache_Maintenance::restore_backup( $backup_file );
+        if ( empty( $result['ok'] ) ) {
+            self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restorefailed' ) );
+        }
+
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restored' ) );
+    }
+
+    public static function handle_delete_db_backup() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::deny_access();
+        }
+        check_admin_referer( 'hsp_cache_delete_db_backup' );
+
+        $backup_file = filter_input( INPUT_POST, 'backup_file', FILTER_UNSAFE_RAW );
+        if ( $backup_file === null && isset( $_POST['backup_file'] ) ) {
+            $backup_file = wp_unslash( $_POST['backup_file'] );
+        }
+        $backup_file = $backup_file ? sanitize_file_name( wp_unslash( $backup_file ) ) : '';
+
+        $deleted = HSP_Smart_Cache_Maintenance::delete_backup( $backup_file );
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=' . ( $deleted ? 'backupdeleted' : 'deletefailed' ) ) );
     }
 
     protected static function deny_access() {
@@ -253,6 +315,9 @@ class HSP_Smart_Cache_Admin {
         $preload_notice = filter_input( INPUT_GET, 'preload', FILTER_UNSAFE_RAW );
         $db_notice = filter_input( INPUT_GET, 'db', FILTER_UNSAFE_RAW );
         $tests_notice = filter_input( INPUT_GET, 'tests', FILTER_UNSAFE_RAW );
+        $db_analysis = get_transient( 'hsp_cache_db_analysis' );
+        $last_backup = get_transient( 'hsp_cache_db_last_backup' );
+        $db_backups = HSP_Smart_Cache_Maintenance::list_backups();
 
         $cache_notice = $cache_notice ? sanitize_key( $cache_notice ) : '';
         $settings_notice = $settings_notice ? sanitize_key( $settings_notice ) : '';
@@ -277,6 +342,24 @@ class HSP_Smart_Cache_Admin {
             <?php endif; ?>
             <?php if ( $db_notice === 'optimized' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Database optimization completed.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $db_notice === 'analyzed' ) : ?>
+                <div class="notice notice-success"><p><?php echo esc_html__( 'Database analysis completed.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $db_notice === 'backupfailed' ) : ?>
+                <div class="notice notice-error"><p><?php echo esc_html__( 'Database backup failed. Optimization was not executed.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $db_notice === 'restored' ) : ?>
+                <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup restored.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $db_notice === 'restorefailed' ) : ?>
+                <div class="notice notice-error"><p><?php echo esc_html__( 'Database backup restore failed.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $db_notice === 'backupdeleted' ) : ?>
+                <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup deleted.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $db_notice === 'deletefailed' ) : ?>
+                <div class="notice notice-error"><p><?php echo esc_html__( 'Deleting database backup failed.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
             <?php if ( $tests_notice === 'done' && is_array( $test_results ) ) : ?>
                 <div class="notice notice-info">
@@ -638,6 +721,11 @@ class HSP_Smart_Cache_Admin {
                 <div class="hsp-action-card">
                     <h2><?php echo esc_html__( 'Database Maintenance', 'hsp-smart-cache' ); ?></h2>
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                        <input type="hidden" name="action" value="hsp_cache_analyze_db" />
+                        <?php wp_nonce_field( 'hsp_cache_analyze_db' ); ?>
+                        <?php submit_button( __( 'Analyze Database Optimization', 'hsp-smart-cache' ), 'secondary' ); ?>
+                    </form>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                         <input type="hidden" name="action" value="hsp_cache_run_db_cleanup" />
                         <?php wp_nonce_field( 'hsp_cache_run_db_cleanup' ); ?>
                         <?php submit_button( __( 'Run Database Cleanup', 'hsp-smart-cache' ), 'secondary' ); ?>
@@ -650,9 +738,85 @@ class HSP_Smart_Cache_Admin {
                         <?php wp_nonce_field( 'hsp_cache_optimize_db' ); ?>
                         <?php submit_button( __( 'Optimize Database Tables', 'hsp-smart-cache' ), 'secondary' ); ?>
                     </form>
+                    <p class="description">
+                        <?php echo esc_html__( 'A timestamped backup is created automatically before optimization starts.', 'hsp-smart-cache' ); ?>
+                    </p>
                     <p class="description" style="color:#b32d2e;">
                         <?php echo esc_html__( 'Warning: Table optimization can be slow on large databases.', 'hsp-smart-cache' ); ?>
                     </p>
+
+                    <?php if ( is_array( $db_analysis ) && ! empty( $db_analysis['ok'] ) ) : ?>
+                        <hr />
+                        <h3><?php echo esc_html__( 'Latest Optimization Analysis', 'hsp-smart-cache' ); ?></h3>
+                        <p class="description">
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    /* translators: 1: table count, 2: optimizable table count, 3: total size, 4: overhead size */
+                                    __( 'Tables: %1$d, Optimizable: %2$d, Total size: %3$s, Reclaimable overhead: %4$s', 'hsp-smart-cache' ),
+                                    intval( $db_analysis['table_count'] ),
+                                    intval( $db_analysis['optimizable_tables'] ),
+                                    size_format( intval( $db_analysis['total_size_bytes'] ) ),
+                                    size_format( intval( $db_analysis['total_overhead_bytes'] ) )
+                                )
+                            );
+                            ?>
+                        </p>
+                    <?php endif; ?>
+
+                    <hr />
+                    <h3><?php echo esc_html__( 'Database Backups', 'hsp-smart-cache' ); ?></h3>
+                    <?php if ( ! empty( $last_backup ) && is_array( $last_backup ) && ! empty( $last_backup['ok'] ) ) : ?>
+                        <p class="description">
+                            <?php
+                            echo esc_html(
+                                sprintf(
+                                    /* translators: %s is a backup file name. */
+                                    __( 'Latest created backup: %s', 'hsp-smart-cache' ),
+                                    $last_backup['file']
+                                )
+                            );
+                            ?>
+                        </p>
+                    <?php endif; ?>
+
+                    <?php if ( empty( $db_backups ) ) : ?>
+                        <p class="description"><?php echo esc_html__( 'No backups available yet.', 'hsp-smart-cache' ); ?></p>
+                    <?php else : ?>
+                        <table class="widefat striped" style="margin-top:8px;">
+                            <thead>
+                                <tr>
+                                    <th><?php echo esc_html__( 'Backup', 'hsp-smart-cache' ); ?></th>
+                                    <th><?php echo esc_html__( 'Timestamp', 'hsp-smart-cache' ); ?></th>
+                                    <th><?php echo esc_html__( 'Size', 'hsp-smart-cache' ); ?></th>
+                                    <th><?php echo esc_html__( 'Actions', 'hsp-smart-cache' ); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $db_backups as $backup ) : ?>
+                                    <tr>
+                                        <td><?php echo esc_html( $backup['file'] ); ?></td>
+                                        <td><?php echo esc_html( $backup['timestamp'] ? gmdate( 'Y-m-d H:i:s', intval( $backup['timestamp'] ) ) . ' GMT' : '-' ); ?></td>
+                                        <td><?php echo esc_html( size_format( intval( $backup['size_bytes'] ) ) ); ?></td>
+                                        <td>
+                                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block; margin-right:8px;">
+                                                <input type="hidden" name="action" value="hsp_cache_restore_db_backup" />
+                                                <input type="hidden" name="backup_file" value="<?php echo esc_attr( $backup['file'] ); ?>" />
+                                                <?php wp_nonce_field( 'hsp_cache_restore_db_backup' ); ?>
+                                                <?php submit_button( __( 'Restore', 'hsp-smart-cache' ), 'small secondary', 'submit', false ); ?>
+                                            </form>
+                                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;">
+                                                <input type="hidden" name="action" value="hsp_cache_delete_db_backup" />
+                                                <input type="hidden" name="backup_file" value="<?php echo esc_attr( $backup['file'] ); ?>" />
+                                                <?php wp_nonce_field( 'hsp_cache_delete_db_backup' ); ?>
+                                                <?php submit_button( __( 'Delete', 'hsp-smart-cache' ), 'small', 'submit', false ); ?>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
                 </div>
             </div>
             <script>

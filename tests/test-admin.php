@@ -29,7 +29,10 @@ class HSP_Smart_Cache_Admin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( has_action( 'admin_menu', array( 'HSP_Smart_Cache_Admin', 'register_menu' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hsp_cache_clear', array( 'HSP_Smart_Cache_Admin', 'handle_clear_cache' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hsp_cache_run_tests', array( 'HSP_Smart_Cache_Admin', 'handle_run_tests' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_analyze_db', array( 'HSP_Smart_Cache_Admin', 'handle_analyze_db' ) ) );
         $this->assertNotFalse( has_action( 'admin_bar_menu', array( 'HSP_Smart_Cache_Admin', 'register_admin_bar' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_restore_db_backup', array( 'HSP_Smart_Cache_Admin', 'handle_restore_db_backup' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hsp_cache_delete_db_backup', array( 'HSP_Smart_Cache_Admin', 'handle_delete_db_backup' ) ) );
     }
 
     public function test_register_admin_bar_adds_main_cache_node_for_admin_user() {

@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.3.3
+Stable tag: 0.4.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -47,6 +47,17 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.4.0 =
+* Modernize the settings-page action area with cleaner database maintenance and cache operation controls.
+* Add AJAX handling for saving settings and long-running maintenance actions so the page no longer refreshes after completion.
+* Add loading/disabled button states and accessible live feedback for admin actions.
+* Add cleanup candidate reporting for revisions, auto-drafts, trashed posts, spam/trashed comments, and expired transients.
+* Improve database cleanup by removing related post/comment metadata and term relationships.
+* Restrict database optimization and backups to WordPress-prefixed tables and quote table identifiers.
+* Replace JSON database backups with streamed SQL/SQL.GZ backups, protected backup storage, and SQL restore handling.
+* Add a manual database backup action separate from table optimization.
+* Expand database maintenance, backup, restore, and admin action test coverage.
 
 = 0.3.3 =
 * Clear stale plugin update responses when the installed version already matches the latest GitHub release.

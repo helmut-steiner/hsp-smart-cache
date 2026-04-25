@@ -33,10 +33,12 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( has_action( 'admin_post_hspsc_run_tests', array( 'HSPSC_Admin', 'handle_run_tests' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hspsc_analyze_db', array( 'HSPSC_Admin', 'handle_analyze_db' ) ) );
         $this->assertNotFalse( has_action( 'admin_bar_menu', array( 'HSPSC_Admin', 'register_admin_bar' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hspsc_create_db_backup', array( 'HSPSC_Admin', 'handle_create_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hspsc_restore_db_backup', array( 'HSPSC_Admin', 'handle_restore_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hspsc_delete_db_backup', array( 'HSPSC_Admin', 'handle_delete_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'wp_ajax_hspsc_save_settings', array( 'HSPSC_Admin', 'ajax_save_settings' ) ) );
         $this->assertNotFalse( has_action( 'wp_ajax_hspsc_clear', array( 'HSPSC_Admin', 'ajax_clear_cache' ) ) );
+        $this->assertNotFalse( has_action( 'wp_ajax_hspsc_create_db_backup', array( 'HSPSC_Admin', 'ajax_create_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'wp_ajax_hspsc_optimize_db', array( 'HSPSC_Admin', 'ajax_optimize_db' ) ) );
     }
 

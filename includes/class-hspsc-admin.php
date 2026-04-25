@@ -17,6 +17,7 @@ class HSPSC_Admin {
         add_action( 'admin_post_hspsc_run_preload', array( __CLASS__, 'handle_run_preload' ) );
         add_action( 'admin_post_hspsc_analyze_db', array( __CLASS__, 'handle_analyze_db' ) );
         add_action( 'admin_post_hspsc_run_db_cleanup', array( __CLASS__, 'handle_run_db_cleanup' ) );
+        add_action( 'admin_post_hspsc_create_db_backup', array( __CLASS__, 'handle_create_db_backup' ) );
         add_action( 'admin_post_hspsc_optimize_db', array( __CLASS__, 'handle_optimize_db' ) );
         add_action( 'admin_post_hspsc_restore_db_backup', array( __CLASS__, 'handle_restore_db_backup' ) );
         add_action( 'admin_post_hspsc_delete_db_backup', array( __CLASS__, 'handle_delete_db_backup' ) );
@@ -27,6 +28,7 @@ class HSPSC_Admin {
         add_action( 'wp_ajax_hspsc_run_preload', array( __CLASS__, 'ajax_run_preload' ) );
         add_action( 'wp_ajax_hspsc_analyze_db', array( __CLASS__, 'ajax_analyze_db' ) );
         add_action( 'wp_ajax_hspsc_run_db_cleanup', array( __CLASS__, 'ajax_run_db_cleanup' ) );
+        add_action( 'wp_ajax_hspsc_create_db_backup', array( __CLASS__, 'ajax_create_db_backup' ) );
         add_action( 'wp_ajax_hspsc_optimize_db', array( __CLASS__, 'ajax_optimize_db' ) );
         add_action( 'wp_ajax_hspsc_restore_db_backup', array( __CLASS__, 'ajax_restore_db_backup' ) );
         add_action( 'wp_ajax_hspsc_delete_db_backup', array( __CLASS__, 'ajax_delete_db_backup' ) );
@@ -243,6 +245,22 @@ class HSPSC_Admin {
         self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=analyzed' ) );
     }
 
+    public static function handle_create_db_backup() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::deny_access();
+        }
+        check_admin_referer( 'hspsc_create_db_backup' );
+
+        $backup = HSPSC_Maintenance::create_backup();
+        if ( empty( $backup['ok'] ) ) {
+            self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupfailed' ) );
+        }
+
+        set_transient( 'hspsc_db_last_backup', $backup, 15 * MINUTE_IN_SECONDS );
+
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupcreated' ) );
+    }
+
     public static function handle_optimize_db() {
         if ( ! current_user_can( 'manage_options' ) ) {
             self::deny_access();
@@ -399,6 +417,25 @@ class HSPSC_Admin {
             array(
                 'analysis_html' => self::get_db_analysis_html( $analysis ),
                 'result' => $result,
+            )
+        );
+    }
+
+    public static function ajax_create_db_backup() {
+        self::ensure_ajax_access( 'hspsc_create_db_backup' );
+
+        $backup = HSPSC_Maintenance::create_backup();
+        if ( empty( $backup['ok'] ) ) {
+            self::send_ajax_error( __( 'Database backup failed.', 'hsp-smart-cache' ) );
+        }
+
+        set_transient( 'hspsc_db_last_backup', $backup, 15 * MINUTE_IN_SECONDS );
+
+        self::send_ajax_success(
+            __( 'Database backup created.', 'hsp-smart-cache' ),
+            array(
+                'backups_html' => self::get_db_backups_html( $backup, HSPSC_Maintenance::list_backups() ),
+                'result' => $backup,
             )
         );
     }
@@ -733,6 +770,9 @@ class HSPSC_Admin {
             <?php endif; ?>
             <?php if ( $db_notice === 'backupfailed' ) : ?>
                 <div class="notice notice-error"><p><?php echo esc_html__( 'Database backup failed. Optimization was not executed.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $db_notice === 'backupcreated' ) : ?>
+                <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup created.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
             <?php if ( $db_notice === 'restored' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup restored.', 'hsp-smart-cache' ); ?></p></div>
@@ -1274,6 +1314,11 @@ class HSPSC_Admin {
                             <input type="hidden" name="action" value="hspsc_run_db_cleanup" />
                             <?php wp_nonce_field( 'hspsc_run_db_cleanup' ); ?>
                             <button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Cleaning...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Clean Database', 'hsp-smart-cache' ); ?></button>
+                        </form>
+                        <form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                            <input type="hidden" name="action" value="hspsc_create_db_backup" />
+                            <?php wp_nonce_field( 'hspsc_create_db_backup' ); ?>
+                            <button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Creating...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Create Backup', 'hsp-smart-cache' ); ?></button>
                         </form>
                         <form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Create a backup and optimize database tables now?', 'hsp-smart-cache' ); ?>">
                             <input type="hidden" name="action" value="hspsc_optimize_db" />

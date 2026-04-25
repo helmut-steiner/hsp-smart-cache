@@ -21,10 +21,12 @@ class HSPSC_Admin {
         add_action( 'admin_post_hspsc_optimize_db', array( __CLASS__, 'handle_optimize_db' ) );
         add_action( 'admin_post_hspsc_restore_db_backup', array( __CLASS__, 'handle_restore_db_backup' ) );
         add_action( 'admin_post_hspsc_delete_db_backup', array( __CLASS__, 'handle_delete_db_backup' ) );
+        add_action( 'admin_post_hspsc_apply_bricks_preset', array( __CLASS__, 'handle_apply_bricks_preset' ) );
         add_action( 'wp_ajax_hspsc_save_settings', array( __CLASS__, 'ajax_save_settings' ) );
         add_action( 'wp_ajax_hspsc_clear', array( __CLASS__, 'ajax_clear_cache' ) );
         add_action( 'wp_ajax_hspsc_run_tests', array( __CLASS__, 'ajax_run_tests' ) );
         add_action( 'wp_ajax_hspsc_restore_defaults', array( __CLASS__, 'ajax_restore_defaults' ) );
+        add_action( 'wp_ajax_hspsc_apply_bricks_preset', array( __CLASS__, 'ajax_apply_bricks_preset' ) );
         add_action( 'wp_ajax_hspsc_run_preload', array( __CLASS__, 'ajax_run_preload' ) );
         add_action( 'wp_ajax_hspsc_analyze_db', array( __CLASS__, 'ajax_analyze_db' ) );
         add_action( 'wp_ajax_hspsc_run_db_cleanup', array( __CLASS__, 'ajax_run_db_cleanup' ) );
@@ -208,6 +210,16 @@ class HSPSC_Admin {
         self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=restored' ) );
     }
 
+    public static function handle_apply_bricks_preset() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::deny_access();
+        }
+        check_admin_referer( 'hspsc_apply_bricks_preset' );
+
+        self::apply_bricks_compatibility_preset();
+        self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=bricks-preset' ) );
+    }
+
     public static function handle_run_preload() {
         if ( ! current_user_can( 'manage_options' ) ) {
             self::deny_access();
@@ -369,6 +381,17 @@ class HSPSC_Admin {
         self::send_ajax_success(
             __( 'Defaults restored.', 'hsp-smart-cache' ),
             array( 'options' => $defaults )
+        );
+    }
+
+    public static function ajax_apply_bricks_preset() {
+        self::ensure_ajax_access( 'hspsc_apply_bricks_preset' );
+
+        $options = self::apply_bricks_compatibility_preset();
+
+        self::send_ajax_success(
+            __( 'Bricks compatibility preset applied. Enable matching native optimizations in Bricks > Settings > Performance.', 'hsp-smart-cache' ),
+            array( 'options' => $options )
         );
     }
 
@@ -718,6 +741,46 @@ class HSPSC_Admin {
         HSPSC_Minify::clear_cache();
     }
 
+    public static function apply_bricks_compatibility_preset() {
+        $options = HSPSC_Settings::get_all();
+
+        $options['perf_disable_emojis'] = false;
+        $options['perf_disable_embeds'] = false;
+        $options['perf_lazy_images'] = false;
+        $options['perf_lazy_iframes'] = false;
+        $options['render_defer_js'] = false;
+        $options['render_async_js'] = false;
+
+        $options = HSPSC_Settings::sanitize( $options );
+        update_option( HSPSC_Settings::OPTION_KEY, $options );
+
+        return $options;
+    }
+
+    public static function is_bricks_detected() {
+        if ( defined( 'BRICKS_VERSION' ) || class_exists( '\Bricks\Theme', false ) || class_exists( 'Bricks\Theme', false ) ) {
+            return true;
+        }
+
+        $theme = wp_get_theme();
+        $themes = array_filter(
+            array(
+                $theme ? $theme->get_stylesheet() : '',
+                $theme ? $theme->get_template() : '',
+                $theme ? $theme->get( 'Name' ) : '',
+                $theme && $theme->parent() ? $theme->parent()->get( 'Name' ) : '',
+            )
+        );
+
+        foreach ( $themes as $theme_value ) {
+            if ( stripos( (string) $theme_value, 'bricks' ) !== false ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function render_settings_page() {
         if ( ! current_user_can( 'manage_options' ) ) {
             return;
@@ -734,6 +797,7 @@ class HSPSC_Admin {
         $db_analysis = get_transient( 'hspsc_db_analysis' );
         $last_backup = get_transient( 'hspsc_db_last_backup' );
         $db_backups = HSPSC_Maintenance::list_backups();
+        $bricks_detected = self::is_bricks_detected();
 
         $cache_notice = $cache_notice ? sanitize_key( $cache_notice ) : '';
         $settings_notice = $settings_notice ? sanitize_key( $settings_notice ) : '';
@@ -748,6 +812,9 @@ class HSPSC_Admin {
             <?php endif; ?>
             <?php if ( $settings_notice === 'restored' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Defaults restored.', 'hsp-smart-cache' ); ?></p></div>
+            <?php endif; ?>
+            <?php if ( $settings_notice === 'bricks-preset' ) : ?>
+                <div class="notice notice-success"><p><?php echo esc_html__( 'Bricks compatibility preset applied. Enable matching native optimizations in Bricks > Settings > Performance.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
             <?php if ( $preload_notice === 'done' ) : ?>
                 <?php $preload_result = get_transient( 'hspsc_preload_result' ); ?>
@@ -1179,6 +1246,12 @@ class HSPSC_Admin {
                     background: #f0f6fc;
                     color: #1d3557;
                 }
+                .hspsc-compat-note {
+                    margin: 8px 0 12px;
+                    color: #646970;
+                    font-size: 13px;
+                    line-height: 1.4;
+                }
                 .hspsc-dynamic-panel {
                     border-top: 1px solid #eef0f2;
                     margin-top: 18px;
@@ -1284,6 +1357,20 @@ class HSPSC_Admin {
 
                     <div class="hspsc-action-group">
                         <h3><?php echo esc_html__( 'Settings', 'hsp-smart-cache' ); ?></h3>
+                        <form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Apply the Bricks compatibility preset? This disables overlapping HSP Smart Cache optimizations so Bricks can own them.', 'hsp-smart-cache' ); ?>">
+                            <input type="hidden" name="action" value="hspsc_apply_bricks_preset" />
+                            <?php wp_nonce_field( 'hspsc_apply_bricks_preset' ); ?>
+                            <button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Applying...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Apply Bricks Preset', 'hsp-smart-cache' ); ?></button>
+                        </form>
+                        <p class="hspsc-compat-note">
+                            <?php
+                            echo esc_html(
+                                $bricks_detected
+                                    ? __( 'Bricks detected. This preset turns off duplicate HSP lazy-load, emoji/embed cleanup, and script defer/async.', 'hsp-smart-cache' )
+                                    : __( 'Use this on Bricks sites to let Bricks handle its native performance toggles.', 'hsp-smart-cache' )
+                            );
+                            ?>
+                        </p>
                         <form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Restore all plugin settings to defaults?', 'hsp-smart-cache' ); ?>">
                             <input type="hidden" name="action" value="hspsc_restore_defaults" />
                             <?php wp_nonce_field( 'hspsc_restore_defaults' ); ?>

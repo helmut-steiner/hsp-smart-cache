@@ -36,10 +36,12 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( has_action( 'admin_post_hspsc_create_db_backup', array( 'HSPSC_Admin', 'handle_create_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hspsc_restore_db_backup', array( 'HSPSC_Admin', 'handle_restore_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hspsc_delete_db_backup', array( 'HSPSC_Admin', 'handle_delete_db_backup' ) ) );
+        $this->assertNotFalse( has_action( 'admin_post_hspsc_apply_bricks_preset', array( 'HSPSC_Admin', 'handle_apply_bricks_preset' ) ) );
         $this->assertNotFalse( has_action( 'wp_ajax_hspsc_save_settings', array( 'HSPSC_Admin', 'ajax_save_settings' ) ) );
         $this->assertNotFalse( has_action( 'wp_ajax_hspsc_clear', array( 'HSPSC_Admin', 'ajax_clear_cache' ) ) );
         $this->assertNotFalse( has_action( 'wp_ajax_hspsc_create_db_backup', array( 'HSPSC_Admin', 'ajax_create_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'wp_ajax_hspsc_optimize_db', array( 'HSPSC_Admin', 'ajax_optimize_db' ) ) );
+        $this->assertNotFalse( has_action( 'wp_ajax_hspsc_apply_bricks_preset', array( 'HSPSC_Admin', 'ajax_apply_bricks_preset' ) ) );
     }
 
     public function test_register_admin_bar_adds_main_cache_node_for_admin_user() {
@@ -74,6 +76,36 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $asset_file );
     }
 
+    public function test_apply_bricks_compatibility_preset_disables_overlapping_optimizations() {
+        update_option(
+            HSPSC_Settings::OPTION_KEY,
+            array_merge(
+                HSPSC_Settings::defaults(),
+                array(
+                    'perf_disable_emojis' => true,
+                    'perf_disable_embeds' => true,
+                    'perf_lazy_images' => true,
+                    'perf_lazy_iframes' => true,
+                    'render_defer_js' => true,
+                    'render_async_js' => true,
+                    'page_cache' => true,
+                    'minify_html' => true,
+                )
+            )
+        );
+
+        $options = HSPSC_Admin::apply_bricks_compatibility_preset();
+
+        $this->assertFalse( $options['perf_disable_emojis'] );
+        $this->assertFalse( $options['perf_disable_embeds'] );
+        $this->assertFalse( $options['perf_lazy_images'] );
+        $this->assertFalse( $options['perf_lazy_iframes'] );
+        $this->assertFalse( $options['render_defer_js'] );
+        $this->assertFalse( $options['render_async_js'] );
+        $this->assertTrue( $options['page_cache'] );
+        $this->assertTrue( $options['minify_html'] );
+    }
+
     public function test_cache_test_results_render_in_cache_operations_card() {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
         wp_set_current_user( $admin_id );
@@ -100,6 +132,7 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( $cache_heading );
         $this->assertNotFalse( $tests_panel );
         $this->assertNotFalse( $maintenance_heading );
+        $this->assertStringContainsString( 'Apply Bricks Preset', $html );
         $this->assertGreaterThan( $cache_heading, $tests_panel );
         $this->assertLessThan( $maintenance_heading, $tests_panel );
 

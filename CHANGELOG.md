@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Add a Bricks compatibility preset that disables overlapping HSP Smart Cache frontend optimizations so Bricks can handle its native performance toggles.
+- Add Bricks detection messaging to the settings quick actions area.
+- Add admin-post and AJAX handling for applying compatibility presets without a page refresh.
+- Add test coverage for the Bricks preset hooks, settings updates, and admin UI output.
+
 ## 0.4.0
 
 - Modernize the settings-page action area with cleaner database maintenance and cache operation controls.

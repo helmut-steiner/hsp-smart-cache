@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.4.0
+Stable tag: 0.5.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -47,6 +47,12 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.5.0 =
+* Add a Bricks compatibility preset that disables overlapping HSP Smart Cache frontend optimizations so Bricks can handle its native performance toggles.
+* Add Bricks detection messaging to the settings quick actions area.
+* Add admin-post and AJAX handling for applying compatibility presets without a page refresh.
+* Add test coverage for the Bricks preset hooks, settings updates, and admin UI output.
 
 = 0.4.0 =
 * Modernize the settings-page action area with cleaner database maintenance and cache operation controls.

@@ -68,6 +68,20 @@ class HSPSC_CDN_Test extends WP_UnitTestCase {
         $this->assertStringContainsString( '/uploads/2026/01/image.webp', $rewritten );
     }
 
+    public function test_rewrite_url_rewrites_modern_media_assets_to_cdn() {
+        $urls = array(
+            content_url( '/uploads/2026/01/image.avif?ver=1' ),
+            content_url( '/uploads/2026/01/video.mp4' ),
+            content_url( '/uploads/2026/01/audio.m4a' ),
+        );
+
+        foreach ( $urls as $url ) {
+            $rewritten = HSPSC_CDN::rewrite_url( $url );
+
+            $this->assertStringStartsWith( 'https://cdn.example.com/', $rewritten );
+        }
+    }
+
     public function test_rewrite_url_does_not_rewrite_non_static_file() {
         $url = content_url( '/api/data.json' );
 

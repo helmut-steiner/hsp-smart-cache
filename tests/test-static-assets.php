@@ -84,6 +84,9 @@ class HSPSC_Static_Assets_Test extends WP_UnitTestCase {
         $this->assertCount( 1, $wp_filesystem->writes );
         $this->assertStringContainsString( HSPSC_Static_Assets::HTACCESS_BEGIN, $wp_filesystem->writes[0]['contents'] );
         $this->assertStringContainsString( 'max-age=1200', $wp_filesystem->writes[0]['contents'] );
+        $this->assertStringContainsString( 'avif', $wp_filesystem->writes[0]['contents'] );
+        $this->assertStringContainsString( 'mp4', $wp_filesystem->writes[0]['contents'] );
+        $this->assertStringContainsString( 'mp3', $wp_filesystem->writes[0]['contents'] );
     }
 
     public function test_apply_rules_removes_block_when_disabled() {
@@ -110,5 +113,13 @@ class HSPSC_Static_Assets_Test extends WP_UnitTestCase {
 
         $this->assertCount( 1, $wp_filesystem->writes );
         $this->assertStringNotContainsString( HSPSC_Static_Assets::HTACCESS_BEGIN, $wp_filesystem->writes[0]['contents'] );
+    }
+
+    public function test_cacheable_asset_url_detects_modern_media_formats() {
+        $this->assertTrue( HSPSC_Static_Assets::is_cacheable_asset_url( content_url( '/uploads/photo.avif?ver=1' ) ) );
+        $this->assertTrue( HSPSC_Static_Assets::is_cacheable_asset_url( content_url( '/uploads/movie.webm' ) ) );
+        $this->assertTrue( HSPSC_Static_Assets::is_cacheable_asset_url( content_url( '/uploads/audio.opus' ) ) );
+        $this->assertTrue( HSPSC_Static_Assets::is_cacheable_asset_url( content_url( '/uploads/icon.svg' ) ) );
+        $this->assertFalse( HSPSC_Static_Assets::is_cacheable_asset_url( content_url( '/api/data.json' ) ) );
     }
 }

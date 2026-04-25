@@ -74,12 +74,73 @@ class HSPSC_Static_Assets {
 
         return self::HTACCESS_BEGIN . "\n"
             . "<IfModule mod_headers.c>\n"
-            . "  <FilesMatch \"\\.(css|js|png|jpg|jpeg|gif|svg|webp|woff2?|woff|ttf|eot)$\">\n"
+            . "  <FilesMatch \"(?i)\\.(" . self::get_cacheable_extensions_pattern() . ")$\">\n"
             . "    Header set Cache-Control \"" . $cache_control . "\"\n"
             . "  </FilesMatch>\n"
             . "</IfModule>\n"
             . $compression_rules
             . self::HTACCESS_END . "\n";
+    }
+
+    public static function is_cacheable_asset_url( $url ) {
+        $path = wp_parse_url( $url, PHP_URL_PATH );
+        if ( empty( $path ) ) {
+            return false;
+        }
+
+        $extension = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+        if ( $extension === '' ) {
+            return false;
+        }
+
+        return in_array( $extension, self::get_cacheable_extensions(), true );
+    }
+
+    public static function get_cacheable_extensions() {
+        return array(
+            'css',
+            'js',
+            'mjs',
+            'png',
+            'jpg',
+            'jpeg',
+            'gif',
+            'svg',
+            'webp',
+            'avif',
+            'ico',
+            'bmp',
+            'tif',
+            'tiff',
+            'apng',
+            'heic',
+            'heif',
+            'jxl',
+            'mp4',
+            'm4v',
+            'webm',
+            'ogv',
+            'ogg',
+            'mov',
+            'avi',
+            'wmv',
+            'mp3',
+            'm4a',
+            'aac',
+            'wav',
+            'flac',
+            'opus',
+            'pdf',
+            'woff2',
+            'woff',
+            'ttf',
+            'otf',
+            'eot',
+        );
+    }
+
+    protected static function get_cacheable_extensions_pattern() {
+        return implode( '|', array_map( 'preg_quote', self::get_cacheable_extensions() ) );
     }
 
     protected static function update_htaccess_block( $htaccess, $rules ) {

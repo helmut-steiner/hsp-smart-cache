@@ -28,7 +28,7 @@ class HSPSC_CDN {
             return $url;
         }
 
-        if ( ! preg_match( '/\.(css|js|png|jpg|jpeg|gif|svg|webp|woff2|woff|ttf|eot)(\?.*)?$/i', $url ) ) {
+        if ( ! HSPSC_Static_Assets::is_cacheable_asset_url( $url ) ) {
             return $url;
         }
 

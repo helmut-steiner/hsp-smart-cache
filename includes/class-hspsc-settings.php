@@ -6,9 +6,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class HSPSC_Settings {
     const OPTION_KEY = 'hspsc_settings';
+    protected static $options_cache = null;
 
     public static function init() {
         add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
+        add_action( 'add_option_' . self::OPTION_KEY, array( __CLASS__, 'reset_cache' ), 10, 0 );
+        add_action( 'update_option_' . self::OPTION_KEY, array( __CLASS__, 'reset_cache' ), 10, 0 );
     }
 
     public static function defaults() {
@@ -59,24 +62,41 @@ class HSPSC_Settings {
         $options = get_option( self::OPTION_KEY );
         if ( ! is_array( $options ) ) {
             update_option( self::OPTION_KEY, self::defaults() );
+            self::$options_cache = self::defaults();
             return;
         }
 
         $merged = wp_parse_args( $options, self::defaults() );
         if ( $merged !== $options ) {
             update_option( self::OPTION_KEY, $merged );
+            self::$options_cache = $merged;
         }
     }
 
     public static function get( $key, $default = null ) {
-        $options = get_option( self::OPTION_KEY, self::defaults() );
-        if ( ! is_array( $options ) ) {
-            $options = self::defaults();
-        }
+        $options = self::get_all();
         if ( array_key_exists( $key, $options ) ) {
             return $options[ $key ];
         }
         return $default;
+    }
+
+    public static function get_all() {
+        if ( self::$options_cache !== null ) {
+            return self::$options_cache;
+        }
+
+        $options = get_option( self::OPTION_KEY, self::defaults() );
+        if ( ! is_array( $options ) ) {
+            $options = self::defaults();
+        }
+
+        self::$options_cache = wp_parse_args( $options, self::defaults() );
+        return self::$options_cache;
+    }
+
+    public static function reset_cache() {
+        self::$options_cache = null;
     }
 
     public static function register_settings() {
@@ -128,6 +148,9 @@ class HSPSC_Settings {
         $output['cdn_enabled']    = ! empty( $input['cdn_enabled'] );
         $output['cdn_url']        = isset( $input['cdn_url'] ) ? esc_url_raw( trim( $input['cdn_url'] ) ) : '';
 
-        return wp_parse_args( $output, $defaults );
+        $sanitized = wp_parse_args( $output, $defaults );
+        self::$options_cache = $sanitized;
+
+        return $sanitized;
     }
 }

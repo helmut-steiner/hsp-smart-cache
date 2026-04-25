@@ -5,6 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class HSPSC_Render {
+    protected static $parsed_list_cache = array();
+
     public static function init() {
         add_filter( 'script_loader_tag', array( __CLASS__, 'filter_script_tag' ), 10, 3 );
         add_action( 'wp_head', array( __CLASS__, 'output_preconnects' ), 1 );
@@ -108,8 +110,14 @@ class HSPSC_Render {
     }
 
     protected static function parse_list( $value ) {
+        $cache_key = md5( (string) $value );
+        if ( array_key_exists( $cache_key, self::$parsed_list_cache ) ) {
+            return self::$parsed_list_cache[ $cache_key ];
+        }
+
         if ( empty( $value ) ) {
-            return array();
+            self::$parsed_list_cache[ $cache_key ] = array();
+            return self::$parsed_list_cache[ $cache_key ];
         }
         $parts = preg_split( '/[\r\n,]+/', $value );
         $clean = array();
@@ -119,7 +127,8 @@ class HSPSC_Render {
                 $clean[] = $part;
             }
         }
-        return array_unique( $clean );
+        self::$parsed_list_cache[ $cache_key ] = array_values( array_unique( $clean ) );
+        return self::$parsed_list_cache[ $cache_key ];
     }
 
     protected static function guess_font_type( $url ) {

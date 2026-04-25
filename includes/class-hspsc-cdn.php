@@ -5,6 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class HSPSC_CDN {
+    protected static $config_cache = array();
+
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );
         add_filter( 'script_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );
@@ -16,12 +18,13 @@ class HSPSC_CDN {
             return $url;
         }
 
-        if ( ! HSPSC_Settings::get( 'cdn_enabled' ) ) {
+        $config = self::get_config();
+
+        if ( ! $config['enabled'] ) {
             return $url;
         }
 
-        $cdn = HSPSC_Settings::get( 'cdn_url' );
-        if ( empty( $cdn ) ) {
+        if ( empty( $config['cdn_url'] ) ) {
             return $url;
         }
 
@@ -29,18 +32,41 @@ class HSPSC_CDN {
             return $url;
         }
 
-        $site_url   = site_url();
-        $content_url = content_url();
-        $cdn        = rtrim( $cdn, '/' );
-
-        if ( strpos( $url, $content_url ) === 0 ) {
-            return $cdn . substr( $url, strlen( $content_url ) );
+        if ( strpos( $url, $config['content_url'] ) === 0 ) {
+            return $config['cdn_url'] . substr( $url, strlen( $config['content_url'] ) );
         }
 
-        if ( strpos( $url, $site_url ) === 0 ) {
-            return $cdn . substr( $url, strlen( $site_url ) );
+        if ( strpos( $url, $config['site_url'] ) === 0 ) {
+            return $config['cdn_url'] . substr( $url, strlen( $config['site_url'] ) );
         }
 
         return $url;
+    }
+
+    protected static function get_config() {
+        $settings = HSPSC_Settings::get_all();
+        $signature = md5(
+            wp_json_encode(
+                array(
+                    ! empty( $settings['cdn_enabled'] ),
+                    isset( $settings['cdn_url'] ) ? $settings['cdn_url'] : '',
+                    site_url(),
+                    content_url(),
+                )
+            )
+        );
+
+        if ( isset( self::$config_cache[ $signature ] ) ) {
+            return self::$config_cache[ $signature ];
+        }
+
+        self::$config_cache[ $signature ] = array(
+            'enabled'     => ! empty( $settings['cdn_enabled'] ),
+            'cdn_url'     => isset( $settings['cdn_url'] ) ? rtrim( $settings['cdn_url'], '/' ) : '',
+            'site_url'    => site_url(),
+            'content_url' => content_url(),
+        );
+
+        return self::$config_cache[ $signature ];
     }
 }

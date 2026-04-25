@@ -36,6 +36,43 @@ class HSPSC_Page_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $file );
     }
 
+    public function test_cache_key_ignores_marketing_query_arguments() {
+        $base = $this->get_cache_path_for_url( home_url( '/sample-page/?page=2' ) );
+        $with_tracking = $this->get_cache_path_for_url( home_url( '/sample-page/?utm_source=newsletter&fbclid=abc&page=2' ) );
+
+        $this->assertSame( $base, $with_tracking );
+    }
+
+    public function test_cache_key_keeps_meaningful_query_arguments() {
+        $base = $this->get_cache_path_for_url( home_url( '/sample-page/?page=2' ) );
+        $filtered = $this->get_cache_path_for_url( home_url( '/sample-page/?page=3' ) );
+
+        $this->assertNotSame( $base, $filtered );
+    }
+
+    public function test_cleanup_expired_cache_removes_old_html_files() {
+        update_option(
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'page_cache_ttl' => 3600 ) )
+        );
+
+        HSPSC_Utils::ensure_cache_dirs();
+        $old_file = HSPSC_PATH . '/pages/expired-test.html';
+        $fresh_file = HSPSC_PATH . '/pages/fresh-test.html';
+
+        file_put_contents( $old_file, 'old' );
+        file_put_contents( $fresh_file, 'fresh' );
+        touch( $old_file, time() - 7200 );
+
+        $deleted = HSPSC_Page::cleanup_expired_cache();
+
+        $this->assertSame( 1, $deleted );
+        $this->assertFileDoesNotExist( $old_file );
+        $this->assertFileExists( $fresh_file );
+
+        wp_delete_file( $fresh_file );
+    }
+
     public function test_warm_url_with_timeout_issues_request_when_page_cache_enabled() {
         update_option(
             HSPSC_Settings::OPTION_KEY,

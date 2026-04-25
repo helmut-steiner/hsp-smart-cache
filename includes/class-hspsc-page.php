@@ -32,20 +32,7 @@ class HSPSC_Page {
             if ( $age <= $ttl ) {
                 self::send_browser_cache_headers( $cache_file );
                 header( 'X-HSPSC-Cache: HIT' );
-                $fs = HSPSC_Utils::get_filesystem();
-                if ( $fs ) {
-                    $contents = $fs->get_contents( $cache_file );
-                    if ( $contents !== false ) {
-                        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-                        echo $contents;
-                    }
-                } else {
-                    $contents = file_get_contents( $cache_file );
-                    if ( $contents !== false ) {
-                        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-                        echo $contents;
-                    }
-                }
+                self::stream_cache_file( $cache_file );
                 exit;
             }
         }
@@ -90,9 +77,12 @@ class HSPSC_Page {
             file_put_contents( $cache_file, $html );
             self::send_browser_cache_headers( $cache_file, true );
             header( 'X-HSPSC-Cache: MISS' );
+            self::maybe_cleanup_expired_cache();
         }
 
-        ob_end_flush();
+        ob_end_clean();
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo $html;
     }
 
     protected static function should_cache_response() {
@@ -148,7 +138,7 @@ class HSPSC_Page {
         $uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
         $ssl  = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
 
-        return md5( $ssl . '://' . $host . $uri );
+        return md5( $ssl . '://' . $host . self::normalize_cache_uri( $uri ) );
     }
 
     protected static function get_cache_file_path() {
@@ -167,8 +157,89 @@ class HSPSC_Page {
         $scheme = ! empty( $parts['scheme'] ) ? $parts['scheme'] : 'http';
         $path   = isset( $parts['path'] ) ? $parts['path'] : '/';
         $query  = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
-        $key    = md5( $scheme . '://' . $parts['host'] . $path . $query );
+        $uri    = self::normalize_cache_uri( $path . $query );
+        $key    = md5( $scheme . '://' . $parts['host'] . $uri );
         return HSPSC_PATH . '/pages/' . $key . '.html';
+    }
+
+    protected static function normalize_cache_uri( $uri ) {
+        $parts = wp_parse_url( $uri );
+        if ( ! is_array( $parts ) ) {
+            return '/';
+        }
+
+        $path = isset( $parts['path'] ) && $parts['path'] !== '' ? $parts['path'] : '/';
+        $query = isset( $parts['query'] ) ? $parts['query'] : '';
+        if ( $query === '' ) {
+            return $path;
+        }
+
+        wp_parse_str( $query, $args );
+        foreach ( array_keys( $args ) as $key ) {
+            $normalized_key = strtolower( (string) $key );
+            if ( in_array( $normalized_key, self::ignored_cache_query_args(), true ) || strpos( $normalized_key, 'utm_' ) === 0 ) {
+                unset( $args[ $key ] );
+            }
+        }
+
+        if ( empty( $args ) ) {
+            return $path;
+        }
+
+        ksort( $args );
+        return $path . '?' . http_build_query( $args, '', '&' );
+    }
+
+    protected static function ignored_cache_query_args() {
+        return array(
+            'fbclid',
+            'gclid',
+            'gclsrc',
+            'dclid',
+            'msclkid',
+            'mc_cid',
+            'mc_eid',
+            '_ga',
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content',
+            'utm_id',
+        );
+    }
+
+    protected static function stream_cache_file( $cache_file ) {
+        if ( ! is_readable( $cache_file ) ) {
+            return;
+        }
+
+        $handle = fopen( $cache_file, 'rb' );
+        if ( $handle ) {
+            fpassthru( $handle );
+            fclose( $handle );
+            return;
+        }
+
+        $contents = file_get_contents( $cache_file );
+        if ( $contents !== false ) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            echo $contents;
+        }
+    }
+
+    protected static function maybe_cleanup_expired_cache() {
+        if ( get_transient( 'hspsc_page_cache_gc' ) ) {
+            return;
+        }
+
+        set_transient( 'hspsc_page_cache_gc', 1, HOUR_IN_SECONDS );
+        self::cleanup_expired_cache();
+    }
+
+    public static function cleanup_expired_cache() {
+        $ttl = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
+        return HSPSC_Utils::delete_old_files( HSPSC_PATH . '/pages', $ttl, '.html' );
     }
 
     public static function clear_cache() {

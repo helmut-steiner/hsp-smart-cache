@@ -10,8 +10,40 @@ class HSPSC_Utils_Test extends WP_UnitTestCase {
     }
 
     public function test_normalize_url_path() {
-        $path = HSPSC_Utils::normalize_url_path( 'https://example.com/wp-content/style.css?ver=1' );
+        $path = HSPSC_Utils::normalize_url_path( content_url( '/style.css?ver=1' ) );
         $this->assertSame( '/wp-content/style.css', $path );
+    }
+
+    public function test_normalize_url_path_rejects_external_hosts() {
+        $path = HSPSC_Utils::normalize_url_path( 'https://cdn.example.com/wp-content/style.css?ver=1' );
+
+        $this->assertNull( $path );
+    }
+
+    public function test_delete_old_files_removes_only_expired_matching_files() {
+        HSPSC_Utils::ensure_cache_dirs();
+
+        $root = HSPSC_PATH . '/pages/old-file-test';
+        wp_mkdir_p( $root );
+        $old_html = $root . '/old.html';
+        $fresh_html = $root . '/fresh.html';
+        $old_txt = $root . '/old.txt';
+
+        file_put_contents( $old_html, 'old' );
+        file_put_contents( $fresh_html, 'fresh' );
+        file_put_contents( $old_txt, 'old txt' );
+        touch( $old_html, time() - 7200 );
+        touch( $old_txt, time() - 7200 );
+
+        $deleted = HSPSC_Utils::delete_old_files( $root, 3600, '.html' );
+
+        $this->assertSame( 1, $deleted );
+        $this->assertFileDoesNotExist( $old_html );
+        $this->assertFileExists( $fresh_html );
+        $this->assertFileExists( $old_txt );
+
+        HSPSC_Utils::delete_dir_contents( $root );
+        @rmdir( $root );
     }
 
     public function test_login_request_is_treated_as_backend() {

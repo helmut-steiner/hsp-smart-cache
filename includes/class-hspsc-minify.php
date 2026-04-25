@@ -5,6 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class HSPSC_Minify {
+    protected static $asset_url_cache = array();
+
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'filter_style_src' ), 20, 2 );
         add_filter( 'script_loader_src', array( __CLASS__, 'filter_script_src' ), 20, 2 );
@@ -25,25 +27,35 @@ class HSPSC_Minify {
     }
 
     protected static function maybe_minify_asset( $src, $type ) {
+        $cache_key = $type . '|' . $src;
+        if ( array_key_exists( $cache_key, self::$asset_url_cache ) ) {
+            return self::$asset_url_cache[ $cache_key ];
+        }
+
         if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
             return $src;
         }
 
         if ( empty( $src ) ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
             return $src;
         }
 
         $path = HSPSC_Utils::normalize_url_path( $src );
         if ( ! $path ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
             return $src;
         }
 
         $file_path = wp_normalize_path( ABSPATH . ltrim( $path, '/' ) );
         if ( ! file_exists( $file_path ) || ! is_readable( $file_path ) ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
             return $src;
         }
 
         if ( preg_match( '/\.min\.' . preg_quote( $type, '/' ) . '$/i', $file_path ) ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
             return $src;
         }
 
@@ -56,13 +68,16 @@ class HSPSC_Minify {
             HSPSC_Utils::ensure_cache_dirs();
             $contents = file_get_contents( $file_path );
             if ( $contents === false ) {
+                self::$asset_url_cache[ $cache_key ] = $src;
                 return $src;
             }
             $minified = ( $type === 'css' ) ? self::minify_css( $contents ) : self::minify_js( $contents );
             file_put_contents( $target, $minified );
+            self::maybe_cleanup_asset_cache();
         }
 
-        return HSPSC_URL . '/assets/' . $filename;
+        self::$asset_url_cache[ $cache_key ] = HSPSC_URL . '/assets/' . $filename;
+        return self::$asset_url_cache[ $cache_key ];
     }
 
     public static function maybe_send_asset_headers() {
@@ -192,5 +207,19 @@ class HSPSC_Minify {
 
     public static function clear_cache() {
         HSPSC_Utils::delete_dir_contents( HSPSC_PATH . '/assets' );
+        self::$asset_url_cache = array();
+    }
+
+    protected static function maybe_cleanup_asset_cache() {
+        if ( get_transient( 'hspsc_asset_cache_gc' ) ) {
+            return;
+        }
+
+        set_transient( 'hspsc_asset_cache_gc', 1, DAY_IN_SECONDS );
+        self::cleanup_old_assets();
+    }
+
+    public static function cleanup_old_assets() {
+        return HSPSC_Utils::delete_old_files( HSPSC_PATH . '/assets', MONTH_IN_SECONDS );
     }
 }

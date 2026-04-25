@@ -364,9 +364,16 @@ class HSPSC_Maintenance {
         return $backups;
     }
 
-    public static function delete_backup( $file ) {
+    public static function delete_backup( $file, &$error = null ) {
+        $error = null;
         $path = self::get_backup_file_path( $file );
-        if ( ! $path || ! file_exists( $path ) ) {
+        if ( ! $path ) {
+            $error = self::build_backup_delete_error( 'invalid_file', $file, $path );
+            return false;
+        }
+
+        if ( ! file_exists( $path ) ) {
+            $error = self::build_backup_delete_error( 'missing_file', $file, $path );
             return false;
         }
 
@@ -383,6 +390,15 @@ class HSPSC_Maintenance {
         }
 
         if ( strpos( $path_check, $backup_dir_check ) !== 0 ) {
+            $error = self::build_backup_delete_error(
+                'path_outside_backup_dir',
+                $file,
+                $path,
+                array(
+                    'backup_dir_check' => $backup_dir_check,
+                    'path_check' => $path_check,
+                )
+            );
             return false;
         }
 
@@ -391,24 +407,65 @@ class HSPSC_Maintenance {
         }
 
         $deleted = false;
+        $attempts = array();
 
         $fs = HSPSC_Utils::get_filesystem();
         if ( $fs && $fs->exists( $path ) ) {
             $deleted = (bool) $fs->delete( $path, false, 'f' );
+            $attempts[] = array(
+                'method' => 'WP_Filesystem::delete',
+                'ok' => $deleted,
+            );
+        } else {
+            $attempts[] = array(
+                'method' => 'WP_Filesystem::exists',
+                'ok' => false,
+                'error' => $fs ? 'File not visible to WP_Filesystem.' : 'WP_Filesystem unavailable.',
+            );
         }
 
         if ( ! $deleted && function_exists( 'wp_delete_file' ) ) {
             $deleted = (bool) wp_delete_file( $path );
+            $attempts[] = array(
+                'method' => 'wp_delete_file',
+                'ok' => $deleted,
+            );
         }
 
         if ( ! $deleted && file_exists( $path ) ) {
             if ( ! is_writable( $path ) ) {
                 @chmod( $path, 0644 );
             }
+            $last_error = error_get_last();
             $deleted = @unlink( $path );
+            $unlink_error = error_get_last();
+            if ( $last_error === $unlink_error ) {
+                $unlink_error = null;
+            }
+            $attempts[] = array(
+                'method' => 'unlink',
+                'ok' => $deleted,
+                'error' => $unlink_error && ! empty( $unlink_error['message'] ) ? $unlink_error['message'] : '',
+            );
         }
 
-        return $deleted || ! file_exists( $path );
+        if ( $deleted || ! file_exists( $path ) ) {
+            return true;
+        }
+
+        $error = self::build_backup_delete_error(
+            'delete_failed',
+            $file,
+            $path,
+            array(
+                'backup_dir_writable' => wp_is_writable( $backup_dir_path ),
+                'file_writable' => is_writable( $path ),
+                'file_permissions' => self::get_file_permissions( $path ),
+                'attempts' => $attempts,
+            )
+        );
+
+        return false;
     }
 
     public static function restore_backup( $file ) {
@@ -558,6 +615,27 @@ class HSPSC_Maintenance {
         }
 
         return trailingslashit( self::get_backup_dir() ) . $file;
+    }
+
+    protected static function build_backup_delete_error( $code, $file, $path, $details = array() ) {
+        return array_merge(
+            array(
+                'code' => $code,
+                'file' => basename( (string) $file ),
+                'path' => $path ? wp_normalize_path( $path ) : '',
+                'backup_dir' => wp_normalize_path( self::get_backup_dir() ),
+            ),
+            $details
+        );
+    }
+
+    protected static function get_file_permissions( $path ) {
+        $perms = @fileperms( $path );
+        if ( $perms === false ) {
+            return '';
+        }
+
+        return substr( sprintf( '%o', $perms ), -4 );
     }
 
     protected static function quote_identifier( $name ) {

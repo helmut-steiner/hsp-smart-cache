@@ -394,7 +394,11 @@ class HSPSC_Admin {
         }
         $backup_file = $backup_file ? sanitize_file_name( wp_unslash( $backup_file ) ) : '';
 
-        $deleted = HSPSC_Maintenance::delete_backup( $backup_file );
+        $delete_error = null;
+        $deleted = HSPSC_Maintenance::delete_backup( $backup_file, $delete_error );
+        if ( ! $deleted ) {
+            set_transient( 'hspsc_db_delete_error', $delete_error, 5 * MINUTE_IN_SECONDS );
+        }
         self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=' . ( $deleted ? 'backupdeleted' : 'deletefailed' ) ) );
     }
 
@@ -571,9 +575,10 @@ class HSPSC_Admin {
     public static function ajax_delete_db_backup() {
         self::ensure_ajax_access( 'hspsc_delete_db_backup' );
 
-        $deleted = HSPSC_Maintenance::delete_backup( self::get_posted_backup_file() );
+        $delete_error = null;
+        $deleted = HSPSC_Maintenance::delete_backup( self::get_posted_backup_file(), $delete_error );
         if ( ! $deleted ) {
-            self::send_ajax_error( __( 'Deleting database backup failed.', 'hsp-smart-cache' ) );
+            self::send_ajax_error( self::get_delete_backup_error_message( $delete_error ) );
         }
 
         self::send_ajax_success(
@@ -601,6 +606,118 @@ class HSPSC_Admin {
         }
 
         return $backup_file ? sanitize_file_name( wp_unslash( $backup_file ) ) : '';
+    }
+
+    protected static function get_delete_backup_error_message( $error ) {
+        if ( ! is_array( $error ) ) {
+            return __( 'Deleting database backup failed. No diagnostic details were returned.', 'hsp-smart-cache' );
+        }
+
+        $code = isset( $error['code'] ) ? sanitize_key( $error['code'] ) : 'unknown';
+        $messages = array(
+            'invalid_file' => __( 'The posted backup filename did not match the allowed backup filename format.', 'hsp-smart-cache' ),
+            'missing_file' => __( 'The backup file was not found at the expected path.', 'hsp-smart-cache' ),
+            'path_outside_backup_dir' => __( 'The resolved backup path is outside the configured backup directory.', 'hsp-smart-cache' ),
+            'delete_failed' => __( 'WordPress filesystem deletion, wp_delete_file(), and unlink() did not remove the file.', 'hsp-smart-cache' ),
+        );
+
+        $detail = isset( $messages[ $code ] ) ? $messages[ $code ] : __( 'Unknown backup deletion failure.', 'hsp-smart-cache' );
+        $parts = array(
+            __( 'Deleting database backup failed.', 'hsp-smart-cache' ),
+            sprintf(
+                /* translators: %s is an internal diagnostic code. */
+                __( 'Code: %s', 'hsp-smart-cache' ),
+                $code
+            ),
+            $detail,
+        );
+
+        if ( ! empty( $error['file'] ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is a backup file name. */
+                __( 'File: %s', 'hsp-smart-cache' ),
+                $error['file']
+            );
+        }
+
+        if ( ! empty( $error['path'] ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is an absolute filesystem path. */
+                __( 'Path: %s', 'hsp-smart-cache' ),
+                $error['path']
+            );
+        }
+
+        if ( ! empty( $error['backup_dir'] ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is an absolute filesystem path. */
+                __( 'Backup directory: %s', 'hsp-smart-cache' ),
+                $error['backup_dir']
+            );
+        }
+
+        if ( ! empty( $error['path_check'] ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is an absolute filesystem path used for validation. */
+                __( 'Validated path: %s', 'hsp-smart-cache' ),
+                $error['path_check']
+            );
+        }
+
+        if ( ! empty( $error['backup_dir_check'] ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is an absolute filesystem path used for validation. */
+                __( 'Validated backup directory: %s', 'hsp-smart-cache' ),
+                $error['backup_dir_check']
+            );
+        }
+
+        if ( array_key_exists( 'backup_dir_writable', $error ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is yes or no. */
+                __( 'Backup directory writable: %s', 'hsp-smart-cache' ),
+                $error['backup_dir_writable'] ? __( 'yes', 'hsp-smart-cache' ) : __( 'no', 'hsp-smart-cache' )
+            );
+        }
+
+        if ( array_key_exists( 'file_writable', $error ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is yes or no. */
+                __( 'File writable: %s', 'hsp-smart-cache' ),
+                $error['file_writable'] ? __( 'yes', 'hsp-smart-cache' ) : __( 'no', 'hsp-smart-cache' )
+            );
+        }
+
+        if ( ! empty( $error['file_permissions'] ) ) {
+            $parts[] = sprintf(
+                /* translators: %s is a four-digit octal permissions value. */
+                __( 'Permissions: %s', 'hsp-smart-cache' ),
+                $error['file_permissions']
+            );
+        }
+
+        if ( ! empty( $error['attempts'] ) && is_array( $error['attempts'] ) ) {
+            $attempts = array();
+            foreach ( $error['attempts'] as $attempt ) {
+                if ( ! is_array( $attempt ) || empty( $attempt['method'] ) ) {
+                    continue;
+                }
+                $attempt_text = $attempt['method'] . '=' . ( ! empty( $attempt['ok'] ) ? 'ok' : 'failed' );
+                if ( ! empty( $attempt['error'] ) ) {
+                    $attempt_text .= ' (' . $attempt['error'] . ')';
+                }
+                $attempts[] = $attempt_text;
+            }
+            if ( ! empty( $attempts ) ) {
+                $parts[] = sprintf(
+                    /* translators: %s is a comma-separated list of deletion attempts. */
+                    __( 'Attempts: %s', 'hsp-smart-cache' ),
+                    implode( ', ', $attempts )
+                );
+            }
+        }
+
+        return implode( ' ', $parts );
     }
 
     protected static function send_ajax_success( $message, $data = array() ) {
@@ -861,6 +978,10 @@ class HSPSC_Admin {
         $tests_notice = filter_input( INPUT_GET, 'tests', FILTER_UNSAFE_RAW );
         $db_analysis = get_transient( 'hspsc_db_analysis' );
         $last_backup = get_transient( 'hspsc_db_last_backup' );
+        $db_delete_error = get_transient( 'hspsc_db_delete_error' );
+        if ( $db_delete_error ) {
+            delete_transient( 'hspsc_db_delete_error' );
+        }
         $db_backups = HSPSC_Maintenance::list_backups();
         $bricks_detected = self::is_bricks_detected();
 
@@ -916,7 +1037,7 @@ class HSPSC_Admin {
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup deleted.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
             <?php if ( $db_notice === 'deletefailed' ) : ?>
-                <div class="notice notice-error"><p><?php echo esc_html__( 'Deleting database backup failed.', 'hsp-smart-cache' ); ?></p></div>
+                <div class="notice notice-error"><p><?php echo esc_html( self::get_delete_backup_error_message( $db_delete_error ) ); ?></p></div>
             <?php endif; ?>
             <?php if ( $tests_notice === 'done' && is_array( $test_results ) ) : ?>
                 <div class="notice notice-info">

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+- Add detailed database backup deletion diagnostics for invalid filenames, missing files, path validation failures, filesystem visibility, permissions, and failed delete attempts.
+- Show backup deletion diagnostics in AJAX errors and redirected admin notices to make host/path issues easier to troubleshoot.
+
 ## 0.5.2
 
 - Fix database backup deletion on hosts where `realpath()` cannot resolve the backup directory or backup file before deletion.

@@ -15,9 +15,16 @@ class HSPSC_Maintenance_WPDB_Mock {
     public $create_sql = array();
     public $inserted = array();
     public $counts = array();
+    public $query_fail_patterns = array();
 
     public function query( $sql ) {
         $this->queries[] = $sql;
+        foreach ( $this->query_fail_patterns as $pattern ) {
+            if ( stripos( $sql, $pattern ) !== false ) {
+                return false;
+            }
+        }
+
         return 1;
     }
 
@@ -55,6 +62,7 @@ class HSPSC_Maintenance_WPDB_Mock {
     }
 
     public function get_col( $sql ) {
+        $this->queries[] = $sql;
         if ( stripos( $sql, 'SHOW TABLES' ) !== false ) {
             return $this->tables;
         }
@@ -62,6 +70,7 @@ class HSPSC_Maintenance_WPDB_Mock {
     }
 
     public function get_var( $sql ) {
+        $this->queries[] = $sql;
         if ( stripos( $sql, "post_type = 'revision'" ) !== false ) {
             return isset( $this->counts['revisions'] ) ? $this->counts['revisions'] : 0;
         }
@@ -98,19 +107,26 @@ class HSPSC_Maintenance_WPDB_Mock {
     }
 
     public function get_results( $sql, $output = OBJECT ) {
+        $this->queries[] = $sql;
         if ( stripos( $sql, 'SHOW TABLE STATUS' ) !== false ) {
             return $this->status_rows;
         }
 
-        if ( preg_match( '/SELECT\s+\*\s+FROM\s+`([^`]+)`/i', $sql, $matches ) ) {
+        if ( preg_match( '/SELECT\s+\*\s+FROM\s+`([^`]+)`(?:\s+LIMIT\s+(\d+)\s*,\s*(\d+))?/i', $sql, $matches ) ) {
             $table = $matches[1];
-            return isset( $this->table_rows[ $table ] ) ? $this->table_rows[ $table ] : array();
+            $rows = isset( $this->table_rows[ $table ] ) ? $this->table_rows[ $table ] : array();
+            if ( isset( $matches[2], $matches[3] ) ) {
+                return array_slice( $rows, intval( $matches[2] ), intval( $matches[3] ) );
+            }
+
+            return $rows;
         }
 
         return array();
     }
 
     public function get_row( $sql, $output = OBJECT ) {
+        $this->queries[] = $sql;
         if ( preg_match( '/SHOW\s+CREATE\s+TABLE\s+`([^`]+)`/i', $sql, $matches ) ) {
             $table = $matches[1];
             return array(
@@ -199,6 +215,19 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertSame( array( 'no_tables' ), $result['errors'] );
     }
 
+    public function test_optimize_tables_reports_query_failures() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_posts', 'wp_options' );
+        $wpdb->query_fail_patterns = array( 'OPTIMIZE TABLE `wp_options`' );
+
+        $result = HSPSC_Maintenance::optimize_tables();
+
+        $this->assertFalse( $result['ok'] );
+        $this->assertSame( 1, $result['optimized_tables'] );
+        $this->assertSame( array( 'wp_options' ), $result['errors'] );
+    }
+
     public function test_analyze_optimization_returns_summary() {
         global $wpdb;
         $wpdb = new HSPSC_Maintenance_WPDB_Mock();
@@ -264,8 +293,42 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $backup = HSPSC_Maintenance::create_backup();
 
         $this->assertTrue( $backup['ok'] );
-        $this->assertMatchesRegularExpression( '/^hsp-db-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.json$/', $backup['file'] );
+        $this->assertMatchesRegularExpression( '/^hsp-db-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.sql(?:\.gz)?$/', $backup['file'] );
         $this->assertFileExists( $backup['path'] );
+        $this->assertSame( 1, $backup['tables'] );
+        $this->assertSame( 1, $backup['rows'] );
+
+        $contents = $this->read_backup_contents( $backup['path'] );
+        $this->assertStringContainsString( 'CREATE TABLE `wp_posts`', $contents );
+        $this->assertStringContainsString( 'INSERT INTO `wp_posts`', $contents );
+        $this->assertStringContainsString( "'Hello'", $contents );
+    }
+
+    public function test_create_backup_streams_rows_in_batches_and_escapes_semicolons() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_posts' );
+        $wpdb->table_rows = array( 'wp_posts' => array() );
+        $wpdb->create_sql = array(
+            'wp_posts' => 'CREATE TABLE `wp_posts` (`ID` int(11) NOT NULL, `post_title` text, `post_content` text)',
+        );
+
+        for ( $i = 1; $i <= 501; $i++ ) {
+            $wpdb->table_rows['wp_posts'][] = array(
+                'ID' => $i,
+                'post_title' => 'Post ' . $i,
+                'post_content' => $i === 501 ? "Semi; colon and 'quote'" : 'Body ' . $i,
+            );
+        }
+
+        $backup = HSPSC_Maintenance::create_backup();
+        $contents = $this->read_backup_contents( $backup['path'] );
+
+        $this->assertTrue( $backup['ok'] );
+        $this->assertSame( 501, $backup['rows'] );
+        $this->assertStringContainsString( 'LIMIT 0, 500', implode( "\n", $wpdb->queries ) );
+        $this->assertStringContainsString( 'LIMIT 500, 500', implode( "\n", $wpdb->queries ) );
+        $this->assertStringContainsString( "Semi; colon and \\'quote\\'", $contents );
     }
 
     public function test_restore_backup_reinserts_rows() {
@@ -288,8 +351,69 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $restore = HSPSC_Maintenance::restore_backup( $backup['file'] );
 
         $this->assertTrue( $restore['ok'] );
-        $this->assertArrayHasKey( 'wp_posts', $wpdb->inserted );
-        $this->assertCount( 2, $wpdb->inserted['wp_posts'] );
+        $this->assertGreaterThanOrEqual( 5, $restore['statements'] );
+        $this->assertStringContainsString( 'DROP TABLE IF EXISTS `wp_posts`', implode( "\n", $wpdb->queries ) );
+        $this->assertStringContainsString( 'INSERT INTO `wp_posts`', implode( "\n", $wpdb->queries ) );
+    }
+
+    public function test_restore_backup_handles_semicolons_inside_values() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+
+        $file = 'hsp-db-backup-2026-04-25_10-20-30.sql';
+        $path = $this->backup_dir . '/' . $file;
+        wp_mkdir_p( $this->backup_dir );
+        file_put_contents(
+            $path,
+            "SET FOREIGN_KEY_CHECKS=0;\n"
+            . "INSERT INTO `wp_posts` (`ID`, `post_title`) VALUES ('1', 'A title; with semicolon');\n"
+            . "SET FOREIGN_KEY_CHECKS=1;\n"
+        );
+
+        $restore = HSPSC_Maintenance::restore_backup( $file );
+
+        $this->assertTrue( $restore['ok'] );
+        $this->assertSame( 3, $restore['statements'] );
+        $this->assertContains( "INSERT INTO `wp_posts` (`ID`, `post_title`) VALUES ('1', 'A title; with semicolon');", $wpdb->queries );
+    }
+
+    public function test_restore_backup_skips_non_wordpress_table_statements() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+
+        $file = 'hsp-db-backup-2026-04-25_10-20-31.sql';
+        $path = $this->backup_dir . '/' . $file;
+        wp_mkdir_p( $this->backup_dir );
+        file_put_contents(
+            $path,
+            "DROP TABLE IF EXISTS `other_logs`;\n"
+            . "CREATE TABLE `other_logs` (`id` int(11) NOT NULL);\n"
+            . "INSERT INTO `other_logs` (`id`) VALUES ('1');\n"
+            . "INSERT INTO `wp_posts` (`ID`) VALUES ('2');\n"
+        );
+
+        $restore = HSPSC_Maintenance::restore_backup( $file );
+
+        $this->assertTrue( $restore['ok'] );
+        $this->assertSame( 1, $restore['statements'] );
+        $this->assertSame( array( "INSERT INTO `wp_posts` (`ID`) VALUES ('2');" ), $wpdb->queries );
+    }
+
+    public function test_restore_backup_reports_query_failures() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->query_fail_patterns = array( 'INSERT INTO `wp_posts`' );
+
+        $file = 'hsp-db-backup-2026-04-25_10-20-32.sql';
+        $path = $this->backup_dir . '/' . $file;
+        wp_mkdir_p( $this->backup_dir );
+        file_put_contents( $path, "INSERT INTO `wp_posts` (`ID`) VALUES ('1');\n" );
+
+        $restore = HSPSC_Maintenance::restore_backup( $file );
+
+        $this->assertFalse( $restore['ok'] );
+        $this->assertSame( 'query_failed', $restore['error'] );
+        $this->assertSame( 1, $restore['statement'] );
     }
 
     public function test_list_and_delete_backups_work() {
@@ -309,6 +433,16 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $deleted = HSPSC_Maintenance::delete_backup( $backup['file'] );
         $this->assertTrue( $deleted );
         $this->assertFileDoesNotExist( $backup['path'] );
+    }
+
+    private function read_backup_contents( $path ) {
+        $contents = file_get_contents( $path );
+        if ( substr( $path, -3 ) === '.gz' ) {
+            $decoded = gzdecode( $contents );
+            return is_string( $decoded ) ? $decoded : '';
+        }
+
+        return (string) $contents;
     }
 
     private function delete_dir_recursively( $dir ) {

@@ -223,20 +223,36 @@ class HSPSC_Maintenance {
             return array( 'ok' => false, 'error' => 'no_tables' );
         }
 
-        $payload = array(
-            'created_at_gmt' => gmdate( 'c' ),
-            'site_url' => site_url(),
-            'tables' => array(),
-        );
+        $dir = self::get_backup_dir();
+        if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
+            return array( 'ok' => false, 'error' => 'mkdir_failed' );
+        }
+
+        self::protect_backup_dir( $dir );
+
+        $compressed = function_exists( 'gzopen' );
+        $filename = 'hsp-db-backup-' . gmdate( 'Y-m-d_H-i-s' ) . '.sql' . ( $compressed ? '.gz' : '' );
+        $path = trailingslashit( $dir ) . $filename;
+        $handle = $compressed ? gzopen( $path, 'wb' ) : fopen( $path, 'wb' );
+        if ( ! $handle ) {
+            return array( 'ok' => false, 'error' => 'open_failed' );
+        }
+
+        $tables_written = 0;
+        $rows_written = 0;
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        self::write_backup_line( $handle, '-- HSP Smart Cache database backup', $compressed );
+        self::write_backup_line( $handle, '-- Created at GMT: ' . gmdate( 'c' ), $compressed );
+        self::write_backup_line( $handle, '-- Site URL: ' . site_url(), $compressed );
+        self::write_backup_line( $handle, 'SET FOREIGN_KEY_CHECKS=0;', $compressed );
+        self::write_backup_line( $handle, '', $compressed );
+
         foreach ( $tables as $table ) {
             $table = (string) $table;
             $create_row = $wpdb->get_row( 'SHOW CREATE TABLE ' . self::quote_identifier( $table ), ARRAY_A );
-            $rows = $wpdb->get_results( 'SELECT * FROM ' . self::quote_identifier( $table ), ARRAY_A );
-
             $create_sql = '';
             if ( is_array( $create_row ) ) {
                 foreach ( $create_row as $value ) {
@@ -247,40 +263,62 @@ class HSPSC_Maintenance {
                 }
             }
 
-            $payload['tables'][] = array(
-                'name' => $table,
-                'create_sql' => $create_sql,
-                'rows' => is_array( $rows ) ? $rows : array(),
-            );
+            if ( $create_sql === '' ) {
+                continue;
+            }
+
+            self::write_backup_line( $handle, 'DROP TABLE IF EXISTS ' . self::quote_identifier( $table ) . ';', $compressed );
+            self::write_backup_line( $handle, rtrim( $create_sql, " \t\n\r\0\x0B;" ) . ';', $compressed );
+
+            $offset = 0;
+            $batch_size = 500;
+            do {
+                $rows = $wpdb->get_results( 'SELECT * FROM ' . self::quote_identifier( $table ) . ' LIMIT ' . intval( $offset ) . ', ' . intval( $batch_size ), ARRAY_A );
+                if ( empty( $rows ) || ! is_array( $rows ) ) {
+                    break;
+                }
+
+                foreach ( $rows as $row ) {
+                    if ( ! is_array( $row ) || empty( $row ) ) {
+                        continue;
+                    }
+
+                    $columns = array_map( array( __CLASS__, 'quote_identifier' ), array_keys( $row ) );
+                    $values = array_map( array( __CLASS__, 'sql_literal' ), array_values( $row ) );
+                    self::write_backup_line(
+                        $handle,
+                        'INSERT INTO ' . self::quote_identifier( $table ) . ' (' . implode( ', ', $columns ) . ') VALUES (' . implode( ', ', $values ) . ');',
+                        $compressed
+                    );
+                    $rows_written++;
+                }
+
+                $offset += $batch_size;
+            } while ( count( $rows ) === $batch_size );
+
+            self::write_backup_line( $handle, '', $compressed );
+            $tables_written++;
         }
+
+        self::write_backup_line( $handle, 'SET FOREIGN_KEY_CHECKS=1;', $compressed );
         // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
 
-        $json = wp_json_encode( $payload );
-        if ( ! is_string( $json ) || $json === '' ) {
-            return array( 'ok' => false, 'error' => 'encode_failed' );
-        }
-
-        $dir = self::get_backup_dir();
-        if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
-            return array( 'ok' => false, 'error' => 'mkdir_failed' );
-        }
-
-        $filename = 'hsp-db-backup-' . gmdate( 'Y-m-d_H-i-s' ) . '.json';
-        $path = trailingslashit( $dir ) . $filename;
-
-        $written = file_put_contents( $path, $json );
-        if ( $written === false ) {
-            return array( 'ok' => false, 'error' => 'write_failed' );
+        $closed = $compressed ? gzclose( $handle ) : fclose( $handle );
+        if ( ! $closed ) {
+            return array( 'ok' => false, 'error' => 'close_failed' );
         }
 
         return array(
             'ok' => true,
             'file' => $filename,
             'path' => $path,
-            'size_bytes' => (int) $written,
-            'created_at_gmt' => $payload['created_at_gmt'],
+            'size_bytes' => (int) @filesize( $path ),
+            'created_at_gmt' => gmdate( 'c' ),
+            'compressed' => $compressed,
+            'tables' => $tables_written,
+            'rows' => $rows_written,
         );
     }
 
@@ -290,7 +328,7 @@ class HSPSC_Maintenance {
             return array();
         }
 
-        $files = glob( trailingslashit( $dir ) . 'hsp-db-backup-*.json' );
+        $files = glob( trailingslashit( $dir ) . 'hsp-db-backup-*.sql*' );
         if ( empty( $files ) || ! is_array( $files ) ) {
             return array();
         }
@@ -336,57 +374,38 @@ class HSPSC_Maintenance {
             return array( 'ok' => false, 'error' => 'missing_file' );
         }
 
-        $json = file_get_contents( $path );
-        if ( $json === false || $json === '' ) {
+        $sql = self::read_backup_file( $path );
+        if ( $sql === false || $sql === '' ) {
             return array( 'ok' => false, 'error' => 'read_failed' );
         }
 
-        $payload = json_decode( $json, true );
-        if ( ! is_array( $payload ) || empty( $payload['tables'] ) || ! is_array( $payload['tables'] ) ) {
+        $statements = self::split_sql_statements( $sql );
+        if ( empty( $statements ) ) {
             return array( 'ok' => false, 'error' => 'invalid_backup' );
         }
 
-        $restored_tables = 0;
+        $executed = 0;
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        $wpdb->query( 'SET FOREIGN_KEY_CHECKS=0' );
-
-        foreach ( $payload['tables'] as $table_payload ) {
-            if ( empty( $table_payload['name'] ) ) {
+        foreach ( $statements as $statement ) {
+            if ( ! self::is_allowed_restore_statement( $statement ) ) {
                 continue;
             }
 
-            $table = (string) $table_payload['name'];
-            if ( ! self::is_wp_table( $table ) ) {
-                continue;
+            $result = $wpdb->query( $statement );
+            if ( $result === false ) {
+                return array( 'ok' => false, 'error' => 'query_failed', 'statement' => $executed + 1 );
             }
 
-            $create_sql = isset( $table_payload['create_sql'] ) ? (string) $table_payload['create_sql'] : '';
-
-            if ( $create_sql !== '' ) {
-                $wpdb->query( $create_sql );
-            }
-
-            $wpdb->query( 'DELETE FROM ' . self::quote_identifier( $table ) );
-
-            $rows = isset( $table_payload['rows'] ) && is_array( $table_payload['rows'] ) ? $table_payload['rows'] : array();
-            foreach ( $rows as $row ) {
-                if ( is_array( $row ) ) {
-                    $wpdb->insert( $table, $row );
-                }
-            }
-
-            $restored_tables++;
+            $executed++;
         }
-
-        $wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
         // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
 
-        return array( 'ok' => true, 'tables' => $restored_tables );
+        return array( 'ok' => true, 'statements' => $executed );
     }
 
     public static function optimize_tables() {
@@ -489,7 +508,7 @@ class HSPSC_Maintenance {
 
     protected static function get_backup_file_path( $file ) {
         $file = basename( (string) $file );
-        if ( $file === '' || ! preg_match( '/^hsp-db-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.json$/', $file ) ) {
+        if ( $file === '' || ! preg_match( '/^hsp-db-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.sql(?:\.gz)?$/', $file ) ) {
             return null;
         }
 
@@ -498,5 +517,145 @@ class HSPSC_Maintenance {
 
     protected static function quote_identifier( $name ) {
         return '`' . str_replace( '`', '``', (string) $name ) . '`';
+    }
+
+    protected static function sql_literal( $value ) {
+        global $wpdb;
+
+        if ( $value === null ) {
+            return 'NULL';
+        }
+
+        if ( is_bool( $value ) ) {
+            return $value ? '1' : '0';
+        }
+
+        if ( method_exists( $wpdb, '_real_escape' ) ) {
+            $escaped = $wpdb->_real_escape( (string) $value );
+        } elseif ( method_exists( $wpdb, '_escape' ) ) {
+            $escaped = $wpdb->_escape( (string) $value );
+        } else {
+            $escaped = addslashes( (string) $value );
+        }
+
+        return "'" . $escaped . "'";
+    }
+
+    protected static function write_backup_line( $handle, $line, $compressed ) {
+        $data = $line . "\n";
+        return $compressed ? gzwrite( $handle, $data ) : fwrite( $handle, $data );
+    }
+
+    protected static function read_backup_file( $path ) {
+        if ( substr( $path, -3 ) !== '.gz' ) {
+            return file_get_contents( $path );
+        }
+
+        if ( ! function_exists( 'gzopen' ) ) {
+            return false;
+        }
+
+        $handle = gzopen( $path, 'rb' );
+        if ( ! $handle ) {
+            return false;
+        }
+
+        $contents = '';
+        while ( ! gzeof( $handle ) ) {
+            $chunk = gzread( $handle, 1024 * 1024 );
+            if ( $chunk === false ) {
+                gzclose( $handle );
+                return false;
+            }
+            $contents .= $chunk;
+        }
+
+        gzclose( $handle );
+        return $contents;
+    }
+
+    protected static function split_sql_statements( $sql ) {
+        $statements = array();
+        $statement = '';
+        $quote = '';
+        $escaped = false;
+        $length = strlen( $sql );
+
+        for ( $i = 0; $i < $length; $i++ ) {
+            $char = $sql[ $i ];
+            $next = $i + 1 < $length ? $sql[ $i + 1 ] : '';
+
+            if ( $quote === '' && $char === '-' && $next === '-' ) {
+                while ( $i < $length && $sql[ $i ] !== "\n" ) {
+                    $i++;
+                }
+                continue;
+            }
+
+            $statement .= $char;
+
+            if ( $quote !== '' ) {
+                if ( $escaped ) {
+                    $escaped = false;
+                    continue;
+                }
+                if ( $char === '\\' ) {
+                    $escaped = true;
+                    continue;
+                }
+                if ( $char === $quote ) {
+                    $quote = '';
+                }
+                continue;
+            }
+
+            if ( $char === "'" || $char === '"' || $char === '`' ) {
+                $quote = $char;
+                continue;
+            }
+
+            if ( $char === ';' ) {
+                $trimmed = trim( $statement );
+                if ( $trimmed !== '' ) {
+                    $statements[] = $trimmed;
+                }
+                $statement = '';
+            }
+        }
+
+        $trimmed = trim( $statement );
+        if ( $trimmed !== '' ) {
+            $statements[] = $trimmed;
+        }
+
+        return $statements;
+    }
+
+    protected static function is_allowed_restore_statement( $statement ) {
+        if ( preg_match( '/^\s*SET\s+FOREIGN_KEY_CHECKS\s*=\s*[01]\s*;?\s*$/i', $statement ) ) {
+            return true;
+        }
+
+        if ( ! preg_match( '/^\s*(?:DROP\s+TABLE\s+IF\s+EXISTS|CREATE\s+TABLE|INSERT\s+INTO)\s+`?([^`\s(]+)`?/i', $statement, $matches ) ) {
+            return false;
+        }
+
+        return self::is_wp_table( $matches[1] );
+    }
+
+    protected static function protect_backup_dir( $dir ) {
+        if ( ! is_dir( $dir ) ) {
+            return;
+        }
+
+        $index = trailingslashit( $dir ) . 'index.php';
+        if ( ! file_exists( $index ) ) {
+            file_put_contents( $index, "<?php\n// Silence is golden.\n" );
+        }
+
+        $htaccess = trailingslashit( $dir ) . '.htaccess';
+        if ( ! file_exists( $htaccess ) ) {
+            file_put_contents( $htaccess, "Deny from all\n" );
+        }
     }
 }

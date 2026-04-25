@@ -5,6 +5,7 @@ require_once ABSPATH . WPINC . '/class-wp-admin-bar.php';
 class HSPSC_Admin_Test extends WP_UnitTestCase {
     private $original_get;
     private $original_request;
+    private $original_server;
 
     public function set_up(): void {
         parent::set_up();
@@ -12,6 +13,7 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 
         $this->original_get = $_GET;
         $this->original_request = $_REQUEST;
+        $this->original_server = $_SERVER;
 
         add_filter( 'hspsc_skip_admin_exit', '__return_true' );
     }
@@ -21,6 +23,7 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 
         $_GET = $this->original_get;
         $_REQUEST = $this->original_request;
+        $_SERVER = $this->original_server;
 
         parent::tear_down();
     }
@@ -140,6 +143,26 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         wp_set_current_user( 0 );
     }
 
+    public function test_admin_bar_actions_use_current_url_as_return_target() {
+        $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+        wp_set_current_user( $admin_id );
+
+        $home_parts = wp_parse_url( home_url() );
+        $_SERVER['HTTP_HOST'] = $home_parts['host'] . ( isset( $home_parts['port'] ) ? ':' . $home_parts['port'] : '' );
+        $_SERVER['REQUEST_URI'] = '/cache-view/?preview=true';
+
+        $bar = new WP_Admin_Bar();
+        $bar->initialize();
+
+        HSPSC_Admin::register_admin_bar( $bar );
+
+        $node = $bar->get_node( 'hspsc-rebuild-all' );
+        $this->assertNotNull( $node );
+        $this->assertStringContainsString( rawurlencode( home_url( '/cache-view/?preview=true' ) ), $node->href );
+
+        wp_set_current_user( 0 );
+    }
+
     public function test_handle_clear_all_flushes_cache_and_redirects_back() {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
         wp_set_current_user( $admin_id );
@@ -167,6 +190,32 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 
         $this->assertFileDoesNotExist( $page_file );
         $this->assertSame( home_url( '/return-clear-all/' ), $redirect_to );
+
+        wp_set_current_user( 0 );
+    }
+
+    public function test_handle_rebuild_all_redirects_back_with_status_notice() {
+        $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+        wp_set_current_user( $admin_id );
+
+        $_GET['_wpnonce'] = wp_create_nonce( 'hspsc_rebuild_all' );
+        $_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
+        $_GET['hspsc_return'] = rawurlencode( home_url( '/return-rebuild-all/' ) );
+
+        $redirect_to = '';
+        $capture_redirect = static function( $location ) use ( &$redirect_to ) {
+            $redirect_to = $location;
+            return false;
+        };
+        add_filter( 'wp_redirect', $capture_redirect );
+
+        try {
+            HSPSC_Admin::handle_rebuild_all();
+        } finally {
+            remove_filter( 'wp_redirect', $capture_redirect );
+        }
+
+        $this->assertSame( home_url( '/return-rebuild-all/?hspsc_notice=rebuild-all-complete' ), $redirect_to );
 
         wp_set_current_user( 0 );
     }

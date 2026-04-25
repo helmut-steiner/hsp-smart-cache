@@ -460,6 +460,21 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $backup['path'] );
     }
 
+    public function test_list_and_delete_hspsc_prefixed_backup_files() {
+        wp_mkdir_p( $this->backup_dir );
+
+        $file = 'hspsc-db-backup-2026-04-25_10-20-33.sql';
+        $path = $this->backup_dir . '/' . $file;
+        file_put_contents( $path, '-- backup' );
+
+        $backups = HSPSC_Maintenance::list_backups();
+        $this->assertNotEmpty( $backups );
+        $this->assertSame( $file, $backups[0]['file'] );
+
+        $this->assertTrue( HSPSC_Maintenance::delete_backup( $file ) );
+        $this->assertFileDoesNotExist( $path );
+    }
+
     private function read_backup_contents( $path ) {
         $contents = file_get_contents( $path );
         if ( substr( $path, -3 ) === '.gz' ) {

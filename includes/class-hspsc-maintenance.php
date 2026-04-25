@@ -328,8 +328,12 @@ class HSPSC_Maintenance {
             return array();
         }
 
-        $files = glob( trailingslashit( $dir ) . 'hsp-db-backup-*.sql*' );
-        if ( empty( $files ) || ! is_array( $files ) ) {
+        $files = array_merge(
+            (array) glob( trailingslashit( $dir ) . 'hsp-db-backup-*.sql*' ),
+            (array) glob( trailingslashit( $dir ) . 'hspsc-db-backup-*.sql*' )
+        );
+        $files = array_values( array_unique( array_filter( $files ) ) );
+        if ( empty( $files ) ) {
             return array();
         }
 
@@ -345,6 +349,9 @@ class HSPSC_Maintenance {
         $backups = array();
         foreach ( $files as $path ) {
             $name = basename( $path );
+            if ( ! self::get_backup_file_path( $name ) ) {
+                continue;
+            }
             $mtime = @filemtime( $path );
             $backups[] = array(
                 'file' => $name,
@@ -363,13 +370,33 @@ class HSPSC_Maintenance {
             return false;
         }
 
+        $backup_dir = realpath( self::get_backup_dir() );
+        $real_path = realpath( $path );
+        if ( ! $backup_dir || ! $real_path ) {
+            return false;
+        }
+
+        $backup_dir = trailingslashit( wp_normalize_path( $backup_dir ) );
+        $real_path = wp_normalize_path( $real_path );
+        if ( strpos( $real_path, $backup_dir ) !== 0 ) {
+            return false;
+        }
+
         $deleted = false;
 
-        if ( function_exists( 'wp_delete_file' ) ) {
+        $fs = HSPSC_Utils::get_filesystem();
+        if ( $fs && $fs->exists( $path ) ) {
+            $deleted = (bool) $fs->delete( $path, false, 'f' );
+        }
+
+        if ( ! $deleted && function_exists( 'wp_delete_file' ) ) {
             $deleted = (bool) wp_delete_file( $path );
         }
 
         if ( ! $deleted && file_exists( $path ) ) {
+            if ( ! is_writable( $path ) ) {
+                @chmod( $path, 0644 );
+            }
             $deleted = @unlink( $path );
         }
 
@@ -518,7 +545,7 @@ class HSPSC_Maintenance {
 
     protected static function get_backup_file_path( $file ) {
         $file = basename( (string) $file );
-        if ( $file === '' || ! preg_match( '/^hsp-db-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.sql(?:\.gz)?$/', $file ) ) {
+        if ( $file === '' || ! preg_match( '/^hsp(?:sc)?-db-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.sql(?:\.gz)?$/', $file ) ) {
             return null;
         }
 

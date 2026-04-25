@@ -35,6 +35,8 @@ class HSPSC_Admin {
         add_action( 'wp_ajax_hspsc_restore_db_backup', array( __CLASS__, 'ajax_restore_db_backup' ) );
         add_action( 'wp_ajax_hspsc_delete_db_backup', array( __CLASS__, 'ajax_delete_db_backup' ) );
         add_action( 'admin_bar_menu', array( __CLASS__, 'register_admin_bar' ), 100 );
+        add_action( 'admin_notices', array( __CLASS__, 'render_action_notice' ) );
+        add_action( 'wp_footer', array( __CLASS__, 'render_action_notice' ) );
         add_action( 'update_option_' . HSPSC_Settings::OPTION_KEY, array( __CLASS__, 'handle_settings_update' ), 10, 2 );
     }
 
@@ -84,12 +86,55 @@ class HSPSC_Admin {
 
     public static function handle_rebuild_all() {
         self::ensure_admin_bar_access( 'hspsc_rebuild_all' );
-        HSPSC_Plugin::flush_all_caches();
-        HSPSC_Page::warm_urls( array( home_url( '/' ) ) );
-        if ( HSPSC_Settings::get( 'preload_enabled' ) ) {
-            HSPSC_Preload::run();
+        $notice = 'rebuild-all-complete';
+
+        try {
+            HSPSC_Plugin::flush_all_caches();
+            HSPSC_Page::warm_urls( array( home_url( '/' ) ) );
+            if ( HSPSC_Settings::get( 'preload_enabled' ) ) {
+                $preload = HSPSC_Preload::run();
+                if ( empty( $preload['ok'] ) ) {
+                    $notice = 'rebuild-all-failed';
+                }
+            }
+        } catch ( Throwable $e ) {
+            $notice = 'rebuild-all-failed';
         }
-        self::redirect_back();
+
+        self::redirect_back_with_notice( $notice );
+    }
+
+    public static function render_action_notice() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        $notice = filter_input( INPUT_GET, 'hspsc_notice', FILTER_UNSAFE_RAW );
+        if ( $notice === null && isset( $_GET['hspsc_notice'] ) ) {
+            $notice = wp_unslash( $_GET['hspsc_notice'] );
+        }
+
+        $notice = $notice ? sanitize_key( $notice ) : '';
+        if ( ! in_array( $notice, array( 'rebuild-all-complete', 'rebuild-all-failed' ), true ) ) {
+            return;
+        }
+
+        $is_error = $notice === 'rebuild-all-failed';
+        $message = $is_error
+            ? __( 'Rebuilding all cache files failed.', 'hsp-smart-cache' )
+            : __( 'All cache files were rebuilt.', 'hsp-smart-cache' );
+        $class = $is_error ? 'notice notice-error' : 'notice notice-success';
+
+        if ( is_admin() ) {
+            printf( '<div class="%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
+            return;
+        }
+
+        printf(
+            '<div class="hspsc-action-notice %1$s" role="status" aria-live="polite"><p>%2$s</p></div><style>.hspsc-action-notice{position:fixed;right:20px;bottom:20px;z-index:99999;max-width:min(360px,calc(100vw - 40px));padding:10px 14px;background:#fff;border-left:4px solid #46b450;box-shadow:0 2px 8px rgba(0,0,0,.18)}.hspsc-action-notice.notice-error{border-left-color:#dc3232}.hspsc-action-notice p{margin:0;color:#1d2327}</style>',
+            esc_attr( $class ),
+            esc_html( $message )
+        );
     }
 
     public static function register_admin_bar( $wp_admin_bar ) {
@@ -152,12 +197,27 @@ class HSPSC_Admin {
         );
 
         $url = admin_url( 'admin-post.php' );
-        $referer = wp_get_referer();
-        if ( $referer ) {
-            $args['hspsc_return'] = rawurlencode( $referer );
+        $return = self::get_current_url();
+        if ( ! $return ) {
+            $return = wp_get_referer();
+        }
+        if ( $return ) {
+            $args['hspsc_return'] = rawurlencode( $return );
         }
 
         return add_query_arg( $args, $url );
+    }
+
+    protected static function get_current_url() {
+        if ( empty( $_SERVER['HTTP_HOST'] ) || empty( $_SERVER['REQUEST_URI'] ) ) {
+            return '';
+        }
+
+        $scheme = is_ssl() ? 'https://' : 'http://';
+        $url = $scheme . sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) . wp_unslash( $_SERVER['REQUEST_URI'] );
+        $url = remove_query_arg( array( 'hspsc_notice', '_wpnonce', 'action', 'hspsc_return' ), $url );
+
+        return esc_url_raw( $url );
     }
 
     protected static function get_target_url() {
@@ -178,6 +238,11 @@ class HSPSC_Admin {
 
     protected static function redirect_back() {
         $url = self::get_target_url();
+        self::safe_redirect( $url );
+    }
+
+    protected static function redirect_back_with_notice( $notice ) {
+        $url = add_query_arg( 'hspsc_notice', sanitize_key( $notice ), self::get_target_url() );
         self::safe_redirect( $url );
     }
 

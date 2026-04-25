@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -47,6 +47,10 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.5.2 =
+* Fix database backup deletion on hosts where `realpath()` cannot resolve the backup directory or backup file before deletion.
+* Preserve strict backup filename validation while allowing the existing filesystem deletion fallbacks to run.
 
 = 0.5.1 =
 * Fix database backup deletion by hardening backup path validation and adding filesystem deletion fallbacks.

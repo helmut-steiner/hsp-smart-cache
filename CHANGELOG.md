@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+- Fix database backup deletion on hosts where `realpath()` cannot resolve the backup directory or backup file before deletion.
+- Preserve strict backup filename validation while allowing the existing filesystem deletion fallbacks to run.
+
 ## 0.5.1
 
 - Fix database backup deletion by hardening backup path validation and adding filesystem deletion fallbacks.

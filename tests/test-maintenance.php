@@ -435,6 +435,31 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $backup['path'] );
     }
 
+    public function test_delete_backup_falls_back_when_wp_delete_file_is_blocked() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_options' );
+        $wpdb->table_rows = array( 'wp_options' => array() );
+        $wpdb->create_sql = array( 'wp_options' => 'CREATE TABLE `wp_options` (`option_id` int(11) NOT NULL)' );
+
+        $backup = HSPSC_Maintenance::create_backup();
+        $this->assertTrue( $backup['ok'] );
+
+        add_filter(
+            'wp_delete_file',
+            static function () {
+                return '';
+            }
+        );
+
+        $deleted = HSPSC_Maintenance::delete_backup( $backup['file'] );
+
+        remove_all_filters( 'wp_delete_file' );
+
+        $this->assertTrue( $deleted );
+        $this->assertFileDoesNotExist( $backup['path'] );
+    }
+
     private function read_backup_contents( $path ) {
         $contents = file_get_contents( $path );
         if ( substr( $path, -3 ) === '.gz' ) {

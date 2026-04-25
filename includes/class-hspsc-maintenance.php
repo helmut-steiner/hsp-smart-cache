@@ -363,7 +363,17 @@ class HSPSC_Maintenance {
             return false;
         }
 
-        return (bool) wp_delete_file( $path );
+        $deleted = false;
+
+        if ( function_exists( 'wp_delete_file' ) ) {
+            $deleted = (bool) wp_delete_file( $path );
+        }
+
+        if ( ! $deleted && file_exists( $path ) ) {
+            $deleted = @unlink( $path );
+        }
+
+        return $deleted || ! file_exists( $path );
     }
 
     public static function restore_backup( $file ) {

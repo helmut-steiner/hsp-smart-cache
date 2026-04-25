@@ -789,17 +789,6 @@ class HSPSC_Admin {
             <?php if ( $tests_notice === 'done' && is_array( $test_results ) ) : ?>
                 <div class="notice notice-info">
                     <p><?php echo esc_html__( 'Cache tests completed.', 'hsp-smart-cache' ); ?></p>
-                    <ul>
-                        <?php foreach ( $test_results as $result ) : ?>
-                            <li>
-                                <?php echo $result['status'] ? '✅' : '❌'; ?>
-                                <?php echo esc_html( $result['label'] ); ?>
-                                <?php if ( ! empty( $result['details'] ) ) : ?>
-                                    - <?php echo esc_html( $result['details'] ); ?>
-                                <?php endif; ?>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
                 </div>
             <?php endif; ?>
 
@@ -1279,6 +1268,9 @@ class HSPSC_Admin {
                                 <button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Testing...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Run Cache Tests', 'hsp-smart-cache' ); ?></button>
                             </form>
                         </div>
+                        <div id="hspsc-tests-panel" class="hspsc-dynamic-panel">
+                            <?php echo self::get_cache_tests_html( $test_results ); ?>
+                        </div>
                     </div>
 
                     <div class="hspsc-action-group">
@@ -1329,10 +1321,6 @@ class HSPSC_Admin {
 
                     <p class="hspsc-note"><?php echo esc_html__( 'A timestamped backup is created automatically before optimization starts.', 'hsp-smart-cache' ); ?></p>
                     <p class="hspsc-callout"><?php echo esc_html__( 'Database cleanup deletes revisions, trashed posts, spam comments, and expired transients. Table optimization can be slow on large databases.', 'hsp-smart-cache' ); ?></p>
-
-                    <div id="hspsc-tests-panel" class="hspsc-dynamic-panel">
-                        <?php echo self::get_cache_tests_html( $test_results ); ?>
-                    </div>
 
                     <div id="hspsc-db-analysis-panel" class="hspsc-dynamic-panel">
                         <?php echo self::get_db_analysis_html( $db_analysis ); ?>

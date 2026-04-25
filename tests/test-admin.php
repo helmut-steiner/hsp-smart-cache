@@ -74,6 +74,39 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $asset_file );
     }
 
+    public function test_cache_test_results_render_in_cache_operations_card() {
+        $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+        wp_set_current_user( $admin_id );
+
+        set_transient(
+            'hspsc_test_results',
+            array(
+                array(
+                    'status' => true,
+                    'label'  => 'Cache directories exist',
+                ),
+            ),
+            300
+        );
+
+        ob_start();
+        HSPSC_Admin::render_settings_page();
+        $html = ob_get_clean();
+
+        $cache_heading = strpos( $html, 'Cache Operations' );
+        $tests_panel = strpos( $html, 'id="hspsc-tests-panel"' );
+        $maintenance_heading = strpos( $html, 'Database Maintenance' );
+
+        $this->assertNotFalse( $cache_heading );
+        $this->assertNotFalse( $tests_panel );
+        $this->assertNotFalse( $maintenance_heading );
+        $this->assertGreaterThan( $cache_heading, $tests_panel );
+        $this->assertLessThan( $maintenance_heading, $tests_panel );
+
+        delete_transient( 'hspsc_test_results' );
+        wp_set_current_user( 0 );
+    }
+
     public function test_handle_clear_all_flushes_cache_and_redirects_back() {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
         wp_set_current_user( $admin_id );

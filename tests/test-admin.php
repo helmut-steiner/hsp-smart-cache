@@ -35,6 +35,9 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( has_action( 'admin_bar_menu', array( 'HSPSC_Admin', 'register_admin_bar' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hspsc_restore_db_backup', array( 'HSPSC_Admin', 'handle_restore_db_backup' ) ) );
         $this->assertNotFalse( has_action( 'admin_post_hspsc_delete_db_backup', array( 'HSPSC_Admin', 'handle_delete_db_backup' ) ) );
+        $this->assertNotFalse( has_action( 'wp_ajax_hspsc_save_settings', array( 'HSPSC_Admin', 'ajax_save_settings' ) ) );
+        $this->assertNotFalse( has_action( 'wp_ajax_hspsc_clear', array( 'HSPSC_Admin', 'ajax_clear_cache' ) ) );
+        $this->assertNotFalse( has_action( 'wp_ajax_hspsc_optimize_db', array( 'HSPSC_Admin', 'ajax_optimize_db' ) ) );
     }
 
     public function test_register_admin_bar_adds_main_cache_node_for_admin_user() {

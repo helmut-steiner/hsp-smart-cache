@@ -1,15 +1,20 @@
 <?php
 
 class HSPSC_Maintenance_WPDB_Mock {
+    public $prefix = 'wp_';
     public $posts = 'wp_posts';
     public $comments = 'wp_comments';
+    public $commentmeta = 'wp_commentmeta';
     public $options = 'wp_options';
+    public $postmeta = 'wp_postmeta';
+    public $term_relationships = 'wp_term_relationships';
     public $queries = array();
-    public $tables = array( 'wp_posts', 'wp_comments', 'wp_options' );
+    public $tables = array( 'wp_posts', 'wp_comments', 'wp_options', 'other_logs' );
     public $status_rows = array();
     public $table_rows = array();
     public $create_sql = array();
     public $inserted = array();
+    public $counts = array();
 
     public function query( $sql ) {
         $this->queries[] = $sql;
@@ -54,6 +59,42 @@ class HSPSC_Maintenance_WPDB_Mock {
             return $this->tables;
         }
         return array();
+    }
+
+    public function get_var( $sql ) {
+        if ( stripos( $sql, "post_type = 'revision'" ) !== false ) {
+            return isset( $this->counts['revisions'] ) ? $this->counts['revisions'] : 0;
+        }
+
+        if ( stripos( $sql, "post_status = 'auto-draft'" ) !== false ) {
+            return isset( $this->counts['auto_drafts'] ) ? $this->counts['auto_drafts'] : 0;
+        }
+
+        if ( stripos( $sql, "post_status = 'trash'" ) !== false ) {
+            return isset( $this->counts['trashed_posts'] ) ? $this->counts['trashed_posts'] : 0;
+        }
+
+        if ( stripos( $sql, "comment_approved IN ('spam','trash')" ) !== false ) {
+            return isset( $this->counts['spam_trash_comments'] ) ? $this->counts['spam_trash_comments'] : 0;
+        }
+
+        if ( stripos( $sql, 'COUNT(o.option_id)' ) !== false && stripos( $sql, 'site' ) !== false && stripos( $sql, 'transient' ) !== false ) {
+            return isset( $this->counts['expired_site_transient_values'] ) ? $this->counts['expired_site_transient_values'] : 0;
+        }
+
+        if ( stripos( $sql, 'COUNT(o.option_id)' ) !== false ) {
+            return isset( $this->counts['expired_transient_values'] ) ? $this->counts['expired_transient_values'] : 0;
+        }
+
+        if ( stripos( $sql, 'option_name LIKE' ) !== false && stripos( $sql, 'option_value <' ) !== false && stripos( $sql, 'site' ) !== false && stripos( $sql, 'transient' ) !== false ) {
+            return isset( $this->counts['expired_site_transient_timeouts'] ) ? $this->counts['expired_site_transient_timeouts'] : 0;
+        }
+
+        if ( stripos( $sql, 'option_name LIKE' ) !== false && stripos( $sql, 'option_value <' ) !== false ) {
+            return isset( $this->counts['expired_transient_timeouts'] ) ? $this->counts['expired_transient_timeouts'] : 0;
+        }
+
+        return 0;
     }
 
     public function get_results( $sql, $output = OBJECT ) {
@@ -125,22 +166,26 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
 
         $result = HSPSC_Maintenance::run_db_cleanup();
 
-        $this->assertTrue( $result );
-        $this->assertGreaterThanOrEqual( 6, count( $wpdb->queries ) );
-        $this->assertStringContainsString( "post_type = 'revision'", $wpdb->queries[0] );
-        $this->assertStringContainsString( "comment_approved IN ('spam','trash')", $wpdb->queries[3] );
+        $this->assertIsArray( $result );
+        $this->assertTrue( $result['ok'] );
+        $this->assertGreaterThanOrEqual( 11, count( $wpdb->queries ) );
+        $this->assertStringContainsString( 'wp_postmeta', implode( "\n", $wpdb->queries ) );
+        $this->assertStringContainsString( 'wp_term_relationships', implode( "\n", $wpdb->queries ) );
+        $this->assertStringContainsString( 'site\\_transient\\_timeout', implode( "\n", $wpdb->queries ) );
     }
 
     public function test_optimize_tables_returns_true_and_runs_optimize_per_table() {
         global $wpdb;
         $wpdb = new HSPSC_Maintenance_WPDB_Mock();
-        $wpdb->tables = array( 'wp_posts', 'wp_options' );
+        $wpdb->tables = array( 'wp_posts', 'wp_options', 'other_logs' );
 
         $result = HSPSC_Maintenance::optimize_tables();
 
-        $this->assertTrue( $result );
-        $this->assertContains( 'OPTIMIZE TABLE wp_posts', $wpdb->queries );
-        $this->assertContains( 'OPTIMIZE TABLE wp_options', $wpdb->queries );
+        $this->assertTrue( $result['ok'] );
+        $this->assertSame( 2, $result['optimized_tables'] );
+        $this->assertContains( 'OPTIMIZE TABLE `wp_posts`', $wpdb->queries );
+        $this->assertContains( 'OPTIMIZE TABLE `wp_options`', $wpdb->queries );
+        $this->assertNotContains( 'OPTIMIZE TABLE `other_logs`', $wpdb->queries );
     }
 
     public function test_optimize_tables_returns_false_when_no_tables_found() {
@@ -150,12 +195,23 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
 
         $result = HSPSC_Maintenance::optimize_tables();
 
-        $this->assertFalse( $result );
+        $this->assertFalse( $result['ok'] );
+        $this->assertSame( array( 'no_tables' ), $result['errors'] );
     }
 
     public function test_analyze_optimization_returns_summary() {
         global $wpdb;
         $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->counts = array(
+            'revisions' => 7,
+            'auto_drafts' => 2,
+            'trashed_posts' => 3,
+            'spam_trash_comments' => 5,
+            'expired_transient_timeouts' => 11,
+            'expired_transient_values' => 10,
+            'expired_site_transient_timeouts' => 4,
+            'expired_site_transient_values' => 3,
+        );
         $wpdb->status_rows = array(
             array(
                 'Name' => 'wp_posts',
@@ -171,6 +227,13 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
                 'Index_length' => 100,
                 'Data_free' => 0,
             ),
+            array(
+                'Name' => 'other_logs',
+                'Rows' => 500,
+                'Data_length' => 10000,
+                'Index_length' => 1000,
+                'Data_free' => 1000,
+            ),
         );
 
         $analysis = HSPSC_Maintenance::analyze_optimization();
@@ -180,6 +243,9 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertSame( 1, $analysis['optimizable_tables'] );
         $this->assertSame( 1800, $analysis['total_size_bytes'] );
         $this->assertSame( 250, $analysis['total_overhead_bytes'] );
+        $this->assertSame( 7, $analysis['cleanup']['revisions'] );
+        $this->assertSame( 15, $analysis['cleanup']['expired_transient_timeouts'] );
+        $this->assertSame( 45, $analysis['cleanup']['total_items'] );
     }
 
     public function test_create_backup_generates_timestamped_file() {

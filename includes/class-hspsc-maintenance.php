@@ -9,39 +9,99 @@ class HSPSC_Maintenance {
 
     public static function run_db_cleanup() {
         global $wpdb;
+        $before = self::analyze_cleanup_candidates();
+        $errors = array();
+        $affected = array();
+
+        $stale_post_where = "p.post_type = 'revision' OR p.post_status IN ('auto-draft','trash')";
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-        // Delete revisions
-        $wpdb->query( "DELETE FROM {$wpdb->posts} WHERE post_type = 'revision'" );
-        // Delete auto-drafts
-        $wpdb->query( "DELETE FROM {$wpdb->posts} WHERE post_status = 'auto-draft'" );
-        // Delete trashed posts
-        $wpdb->query( "DELETE FROM {$wpdb->posts} WHERE post_status = 'trash'" );
-        // Delete spam/trashed comments
-        $wpdb->query( "DELETE FROM {$wpdb->comments} WHERE comment_approved IN ('spam','trash')" );
+        self::run_counted_query(
+            "DELETE cm FROM {$wpdb->commentmeta} cm INNER JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID INNER JOIN {$wpdb->posts} p ON c.comment_post_ID = p.ID WHERE {$stale_post_where}",
+            'commentmeta_for_posts',
+            $affected,
+            $errors
+        );
+        self::run_counted_query(
+            "DELETE c FROM {$wpdb->comments} c INNER JOIN {$wpdb->posts} p ON c.comment_post_ID = p.ID WHERE {$stale_post_where}",
+            'comments_for_posts',
+            $affected,
+            $errors
+        );
+        self::run_counted_query(
+            "DELETE pm FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID WHERE {$stale_post_where}",
+            'postmeta',
+            $affected,
+            $errors
+        );
+        self::run_counted_query(
+            "DELETE tr FROM {$wpdb->term_relationships} tr INNER JOIN {$wpdb->posts} p ON tr.object_id = p.ID WHERE {$stale_post_where}",
+            'term_relationships',
+            $affected,
+            $errors
+        );
+        self::run_counted_query(
+            "DELETE FROM {$wpdb->posts} WHERE post_type = 'revision' OR post_status IN ('auto-draft','trash')",
+            'posts',
+            $affected,
+            $errors
+        );
+
+        self::run_counted_query(
+            "DELETE cm FROM {$wpdb->commentmeta} cm INNER JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID WHERE c.comment_approved IN ('spam','trash')",
+            'spam_trash_commentmeta',
+            $affected,
+            $errors
+        );
+        self::run_counted_query(
+            "DELETE FROM {$wpdb->comments} WHERE comment_approved IN ('spam','trash')",
+            'spam_trash_comments',
+            $affected,
+            $errors
+        );
 
         // Delete expired transients
         $now = time();
-        $like = $wpdb->esc_like( '_transient_timeout_' ) . '%';
-        $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_value < %d", $like, $now ) );
-        $wpdb->query(
-            $wpdb->prepare(
-                "DELETE o FROM {$wpdb->options} o LEFT JOIN {$wpdb->options} t ON o.option_name = REPLACE(t.option_name, '_timeout', '') WHERE t.option_name LIKE %s AND t.option_value < %d",
-                $like,
-                $now
-            )
-        );
+        foreach ( self::get_transient_timeout_prefixes() as $prefix ) {
+            $like = $wpdb->esc_like( $prefix ) . '%';
+            self::run_counted_query(
+                $wpdb->prepare(
+                    "DELETE o FROM {$wpdb->options} o INNER JOIN {$wpdb->options} t ON o.option_name = REPLACE(t.option_name, '_timeout', '') WHERE t.option_name LIKE %s AND t.option_value < %d",
+                    $like,
+                    $now
+                ),
+                $prefix . 'values',
+                $affected,
+                $errors
+            );
+            self::run_counted_query(
+                $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_value < %d", $like, $now ),
+                $prefix . 'timeouts',
+                $affected,
+                $errors
+            );
+        }
 
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
-        return true;
+        return array(
+            'ok' => empty( $errors ),
+            'cleanup' => $before,
+            'affected' => $affected,
+            'errors' => $errors,
+        );
     }
 
     public static function analyze_optimization() {
         global $wpdb;
+        $cleanup = self::analyze_cleanup_candidates();
+
+        $wp_tables = self::get_tables();
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -56,6 +116,7 @@ class HSPSC_Maintenance {
                 'total_size_bytes' => 0,
                 'total_overhead_bytes' => 0,
                 'optimizable_tables' => 0,
+                'cleanup' => $cleanup,
                 'tables' => array(),
             );
         }
@@ -68,6 +129,9 @@ class HSPSC_Maintenance {
         foreach ( $status_rows as $row ) {
             $name = isset( $row['Name'] ) ? (string) $row['Name'] : '';
             if ( $name === '' ) {
+                continue;
+            }
+            if ( ! in_array( $name, $wp_tables, true ) ) {
                 continue;
             }
 
@@ -101,8 +165,53 @@ class HSPSC_Maintenance {
             'total_size_bytes' => $total_size,
             'total_overhead_bytes' => $total_overhead,
             'optimizable_tables' => $optimizable,
+            'cleanup' => $cleanup,
             'tables' => $tables,
             'generated_at' => gmdate( 'c' ),
+        );
+    }
+
+    public static function analyze_cleanup_candidates() {
+        global $wpdb;
+
+        $now = time();
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        $revisions = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'revision'" );
+        $auto_drafts = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'auto-draft'" );
+        $trashed_posts = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'trash'" );
+        $spam_trash_comments = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved IN ('spam','trash')" );
+        $expired_transient_timeouts = 0;
+        $expired_transient_values = 0;
+        foreach ( self::get_transient_timeout_prefixes() as $prefix ) {
+            $like = $wpdb->esc_like( $prefix ) . '%';
+            $expired_transient_timeouts += (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s AND option_value < %d",
+                    $like,
+                    $now
+                )
+            );
+            $expired_transient_values += (int) $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(o.option_id) FROM {$wpdb->options} o INNER JOIN {$wpdb->options} t ON o.option_name = REPLACE(t.option_name, '_timeout', '') WHERE t.option_name LIKE %s AND t.option_value < %d",
+                    $like,
+                    $now
+                )
+            );
+        }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+
+        return array(
+            'revisions' => $revisions,
+            'auto_drafts' => $auto_drafts,
+            'trashed_posts' => $trashed_posts,
+            'spam_trash_comments' => $spam_trash_comments,
+            'expired_transient_timeouts' => $expired_transient_timeouts,
+            'expired_transient_values' => $expired_transient_values,
+            'total_items' => $revisions + $auto_drafts + $trashed_posts + $spam_trash_comments + $expired_transient_timeouts + $expired_transient_values,
         );
     }
 
@@ -250,6 +359,10 @@ class HSPSC_Maintenance {
             }
 
             $table = (string) $table_payload['name'];
+            if ( ! self::is_wp_table( $table ) ) {
+                continue;
+            }
+
             $create_sql = isset( $table_payload['create_sql'] ) ? (string) $table_payload['create_sql'] : '';
 
             if ( $create_sql !== '' ) {
@@ -278,22 +391,40 @@ class HSPSC_Maintenance {
 
     public static function optimize_tables() {
         global $wpdb;
+        $errors = array();
+        $optimized = array();
+
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        // phpcs:disable PluginCheck.Security.DirectDB.UnescapedDBParameter
-        $tables = $wpdb->get_col( 'SHOW TABLES' );
+        $tables = self::get_tables();
         if ( empty( $tables ) ) {
-            return false;
+            return array(
+                'ok' => false,
+                'optimized_tables' => 0,
+                'tables' => array(),
+                'errors' => array( 'no_tables' ),
+            );
         }
         foreach ( $tables as $table ) {
-            $wpdb->query( "OPTIMIZE TABLE {$table}" );
+            $result = $wpdb->query( 'OPTIMIZE TABLE ' . self::quote_identifier( $table ) );
+            if ( $result === false ) {
+                $errors[] = $table;
+                continue;
+            }
+
+            $optimized[] = $table;
         }
-        // phpcs:enable PluginCheck.Security.DirectDB.UnescapedDBParameter
         // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
-        return true;
+
+        return array(
+            'ok' => empty( $errors ),
+            'optimized_tables' => count( $optimized ),
+            'tables' => $optimized,
+            'errors' => $errors,
+        );
     }
 
     protected static function get_tables() {
@@ -305,7 +436,51 @@ class HSPSC_Maintenance {
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
 
-        return is_array( $tables ) ? $tables : array();
+        if ( ! is_array( $tables ) ) {
+            return array();
+        }
+
+        $prefix = isset( $wpdb->prefix ) ? (string) $wpdb->prefix : '';
+        if ( $prefix === '' ) {
+            return $tables;
+        }
+
+        return array_values(
+            array_filter(
+                $tables,
+                static function ( $table ) {
+                    return self::is_wp_table( $table );
+                }
+            )
+        );
+    }
+
+    protected static function is_wp_table( $table ) {
+        global $wpdb;
+
+        $prefix = isset( $wpdb->prefix ) ? (string) $wpdb->prefix : '';
+        return $prefix === '' || strpos( (string) $table, $prefix ) === 0;
+    }
+
+    protected static function run_counted_query( $sql, $key, &$affected, &$errors ) {
+        global $wpdb;
+
+        $result = $wpdb->query( $sql );
+        if ( $result === false ) {
+            $errors[] = $key;
+            $affected[ $key ] = 0;
+            return false;
+        }
+
+        $affected[ $key ] = (int) $result;
+        return true;
+    }
+
+    protected static function get_transient_timeout_prefixes() {
+        return array(
+            '_transient_timeout_',
+            '_site_transient_timeout_',
+        );
     }
 
     protected static function get_backup_dir() {

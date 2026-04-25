@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+- Fix database backup deletion by hardening backup path validation and adding filesystem deletion fallbacks.
+- Support listing and deleting HSPSC-prefixed database backup files.
+- Keep admin bar "Rebuild all caches" users on the current page and show a completion or failure notice instead of redirecting to the settings page.
+- Add regression coverage for backup deletion and admin bar rebuild redirects.
+
 ## 0.5.0
 
 - Add a Bricks compatibility preset that disables overlapping HSP Smart Cache frontend optimizations so Bricks can handle its native performance toggles.

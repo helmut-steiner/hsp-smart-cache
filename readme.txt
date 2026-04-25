@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.0
+Stable tag: 0.5.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -47,6 +47,12 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.5.1 =
+* Fix database backup deletion by hardening backup path validation and adding filesystem deletion fallbacks.
+* Support listing and deleting HSPSC-prefixed database backup files.
+* Keep admin bar "Rebuild all caches" users on the current page and show a completion or failure notice instead of redirecting to the settings page.
+* Add regression coverage for backup deletion and admin bar rebuild redirects.
 
 = 0.5.0 =
 * Add a Bricks compatibility preset that disables overlapping HSP Smart Cache frontend optimizations so Bricks can handle its native performance toggles.

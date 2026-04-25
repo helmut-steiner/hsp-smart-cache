@@ -372,7 +372,7 @@ class HSPSC_Admin {
         if ( $backup_file === null && isset( $_POST['backup_file'] ) ) {
             $backup_file = wp_unslash( $_POST['backup_file'] );
         }
-        $backup_file = $backup_file ? sanitize_file_name( wp_unslash( $backup_file ) ) : '';
+        $backup_file = self::normalize_posted_backup_file( $backup_file );
 
         $result = HSPSC_Maintenance::restore_backup( $backup_file );
         if ( empty( $result['ok'] ) ) {
@@ -392,7 +392,7 @@ class HSPSC_Admin {
         if ( $backup_file === null && isset( $_POST['backup_file'] ) ) {
             $backup_file = wp_unslash( $_POST['backup_file'] );
         }
-        $backup_file = $backup_file ? sanitize_file_name( wp_unslash( $backup_file ) ) : '';
+        $backup_file = self::normalize_posted_backup_file( $backup_file );
 
         $delete_error = null;
         $deleted = HSPSC_Maintenance::delete_backup( $backup_file, $delete_error );
@@ -605,7 +605,17 @@ class HSPSC_Admin {
             $backup_file = wp_unslash( $_POST['backup_file'] );
         }
 
-        return $backup_file ? sanitize_file_name( wp_unslash( $backup_file ) ) : '';
+        return self::normalize_posted_backup_file( $backup_file );
+    }
+
+    protected static function normalize_posted_backup_file( $backup_file ) {
+        if ( ! is_scalar( $backup_file ) ) {
+            return '';
+        }
+
+        $backup_file = str_replace( '\\', '/', (string) wp_unslash( $backup_file ) );
+
+        return basename( $backup_file );
     }
 
     protected static function get_delete_backup_error_message( $error ) {

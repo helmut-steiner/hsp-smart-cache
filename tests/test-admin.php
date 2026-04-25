@@ -79,6 +79,26 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $asset_file );
     }
 
+    public function test_backup_file_normalization_preserves_sql_gz_extension() {
+        $method = new ReflectionMethod( 'HSPSC_Admin', 'normalize_posted_backup_file' );
+        $method->setAccessible( true );
+
+        $this->assertSame(
+            'hsp-db-backup-2026-04-25_20-09-17.sql.gz',
+            $method->invoke( null, 'hsp-db-backup-2026-04-25_20-09-17.sql.gz' )
+        );
+    }
+
+    public function test_backup_file_normalization_removes_paths() {
+        $method = new ReflectionMethod( 'HSPSC_Admin', 'normalize_posted_backup_file' );
+        $method->setAccessible( true );
+
+        $this->assertSame(
+            'hsp-db-backup-2026-04-25_20-09-17.sql.gz',
+            $method->invoke( null, '../db-backups/hsp-db-backup-2026-04-25_20-09-17.sql.gz' )
+        );
+    }
+
     public function test_apply_bricks_compatibility_preset_disables_overlapping_optimizations() {
         update_option(
             HSPSC_Settings::OPTION_KEY,

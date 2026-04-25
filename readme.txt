@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.3
+Stable tag: 0.5.4
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -47,6 +47,11 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.5.4 =
+* Add a complete option reference documenting every stored plugin option, default value, input type, and maintenance action.
+* Link the option reference from the project README.
+* Fix backup restore/delete handling for `.sql.gz` files by preserving the posted backup filename instead of passing it through WordPress filename sanitization, which rewrote `.sql.gz` to `.sql_.gz`.
 
 = 0.5.3 =
 * Add detailed database backup deletion diagnostics for invalid filenames, missing files, path validation failures, filesystem visibility, permissions, and failed delete attempts.

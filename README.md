@@ -29,6 +29,10 @@ Page caching, HTML/CSS/JS minification, CDN rewriting, and file-based object cac
 - Use **Clear All Caches** to purge.
 - Use **Run Cache Tests** to validate cache routines and permissions.
 
+## Documentation
+
+- [Option Reference](docs/options.md) documents every stored plugin option, default value, input type, and maintenance action.
+
 ## PHPUnit Tests
 
 Local via wp-env:

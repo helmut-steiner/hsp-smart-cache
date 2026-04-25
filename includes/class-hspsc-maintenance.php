@@ -370,16 +370,24 @@ class HSPSC_Maintenance {
             return false;
         }
 
-        $backup_dir = realpath( self::get_backup_dir() );
+        $backup_dir_path = self::get_backup_dir();
+        $backup_dir = realpath( $backup_dir_path );
         $real_path = realpath( $path );
-        if ( ! $backup_dir || ! $real_path ) {
+
+        if ( $backup_dir && $real_path ) {
+            $backup_dir_check = trailingslashit( wp_normalize_path( $backup_dir ) );
+            $path_check = wp_normalize_path( $real_path );
+        } else {
+            $backup_dir_check = trailingslashit( wp_normalize_path( $backup_dir_path ) );
+            $path_check = wp_normalize_path( $path );
+        }
+
+        if ( strpos( $path_check, $backup_dir_check ) !== 0 ) {
             return false;
         }
 
-        $backup_dir = trailingslashit( wp_normalize_path( $backup_dir ) );
-        $real_path = wp_normalize_path( $real_path );
-        if ( strpos( $real_path, $backup_dir ) !== 0 ) {
-            return false;
+        if ( ! wp_is_writable( $backup_dir_path ) ) {
+            @chmod( $backup_dir_path, 0755 );
         }
 
         $deleted = false;

@@ -34,7 +34,8 @@ jobs:
             --exclude '*.yml' \
             --exclude '*.yaml' \
             --exclude '*.json' \
-            --exclude '*.lock'
+            --exclude '*.lock' \
+            --exclude '*.gitignore'
 
           (cd dist && zip -r "../${ZIP_NAME}" "${PLUGIN_SLUG}")
           echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT

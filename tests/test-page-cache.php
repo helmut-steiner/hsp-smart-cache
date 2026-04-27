@@ -8,6 +8,13 @@ class HSPSC_Page_Test extends WP_UnitTestCase {
         return $method->invoke( null, $url );
     }
 
+    protected function get_current_cache_path() {
+        $ref = new ReflectionClass( 'HSPSC_Page' );
+        $method = $ref->getMethod( 'get_cache_file_path' );
+        $method->setAccessible( true );
+        return $method->invoke( null );
+    }
+
     public function test_clear_cache_for_url_removes_file() {
         HSPSC_Utils::ensure_cache_dirs();
         $url = home_url( '/sample-page/' );
@@ -48,6 +55,25 @@ class HSPSC_Page_Test extends WP_UnitTestCase {
         $filtered = $this->get_cache_path_for_url( home_url( '/sample-page/?page=3' ) );
 
         $this->assertNotSame( $base, $filtered );
+    }
+
+    public function test_logged_in_cache_key_varies_by_user() {
+        $_SERVER['HTTP_HOST'] = wp_parse_url( home_url(), PHP_URL_HOST );
+        $_SERVER['REQUEST_URI'] = '/member-area/';
+        $_SERVER['HTTPS'] = is_ssl() ? 'on' : 'off';
+
+        $user_a = self::factory()->user->create();
+        $user_b = self::factory()->user->create();
+
+        wp_set_current_user( $user_a );
+        $path_a = $this->get_current_cache_path();
+
+        wp_set_current_user( $user_b );
+        $path_b = $this->get_current_cache_path();
+
+        wp_set_current_user( 0 );
+
+        $this->assertNotSame( $path_a, $path_b );
     }
 
     public function test_cleanup_expired_cache_removes_old_html_files() {
@@ -101,6 +127,35 @@ class HSPSC_Page_Test extends WP_UnitTestCase {
         $this->assertCount( 1, $captured );
         $this->assertSame( home_url( '/warm-me/' ), $captured[0]['url'] );
         $this->assertSame( 4, $captured[0]['args']['timeout'] );
+        $this->assertNotFalse( $captured[0]['args']['sslverify'] );
+    }
+
+    public function test_warm_url_rejects_external_urls() {
+        update_option(
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'page_cache' => true ) )
+        );
+
+        $captured = array();
+        $mock_http = static function( $preempt, $args, $url ) use ( &$captured ) {
+            $captured[] = $url;
+            return array(
+                'headers'  => array(),
+                'body'     => 'ok',
+                'response' => array( 'code' => 200, 'message' => 'OK' ),
+                'cookies'  => array(),
+                'filename' => null,
+            );
+        };
+
+        add_filter( 'pre_http_request', $mock_http, 10, 3 );
+        try {
+            HSPSC_Page::warm_url_with_timeout( 'https://example.net/warm-me/', 4 );
+        } finally {
+            remove_filter( 'pre_http_request', $mock_http, 10 );
+        }
+
+        $this->assertSame( array(), $captured );
     }
 
     public function test_warm_urls_calls_remote_get_for_each_url() {

@@ -14,6 +14,9 @@ class HSPSC_Preload {
         if ( empty( $sitemap ) ) {
             $sitemap = home_url( '/sitemap.xml' );
         }
+        if ( ! HSPSC_Page::is_warmable_url( $sitemap ) ) {
+            return array( 'ok' => false, 'count' => 0, 'error' => 'invalid_sitemap_url' );
+        }
 
         $limit = intval( HSPSC_Settings::get( 'preload_limit', 50 ) );
         $timeout = intval( HSPSC_Settings::get( 'preload_timeout', 8 ) );
@@ -46,7 +49,7 @@ class HSPSC_Preload {
         $urls = array();
         foreach ( $matches[1] as $url ) {
             $url = esc_url_raw( trim( $url ) );
-            if ( $url ) {
+            if ( $url && HSPSC_Page::is_warmable_url( $url ) ) {
                 $urls[] = $url;
             }
             if ( count( $urls ) >= $limit ) {

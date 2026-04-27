@@ -35,7 +35,7 @@ class HSPSC_Preload_Test extends WP_UnitTestCase {
             if ( $url === $sitemap_url ) {
                 return array(
                     'headers'  => array(),
-                    'body'     => '<urlset><url><loc>' . esc_url_raw( home_url( '/a/' ) ) . '</loc></url><url><loc>' . esc_url_raw( home_url( '/b/' ) ) . '</loc></url><url><loc>' . esc_url_raw( home_url( '/c/' ) ) . '</loc></url></urlset>',
+                    'body'     => '<urlset><url><loc>' . esc_url_raw( home_url( '/a/' ) ) . '</loc></url><url><loc>https://example.net/private/</loc></url><url><loc>' . esc_url_raw( home_url( '/b/' ) ) . '</loc></url><url><loc>' . esc_url_raw( home_url( '/c/' ) ) . '</loc></url></urlset>',
                     'response' => array( 'code' => 200, 'message' => 'OK' ),
                     'cookies'  => array(),
                     'filename' => null,
@@ -66,5 +66,26 @@ class HSPSC_Preload_Test extends WP_UnitTestCase {
         $this->assertCount( 2, $warmed_urls );
         $this->assertContains( home_url( '/a/' ), $warmed_urls );
         $this->assertContains( home_url( '/b/' ), $warmed_urls );
+        $this->assertNotContains( 'https://example.net/private/', $warmed_urls );
+    }
+
+    public function test_run_rejects_external_sitemap_url() {
+        update_option(
+            HSPSC_Settings::OPTION_KEY,
+            array_merge(
+                HSPSC_Settings::defaults(),
+                array(
+                    'page_cache'          => true,
+                    'preload_enabled'     => true,
+                    'preload_sitemap_url' => 'https://example.net/sitemap.xml',
+                )
+            )
+        );
+
+        $result = HSPSC_Preload::run();
+
+        $this->assertFalse( $result['ok'] );
+        $this->assertSame( 'invalid_sitemap_url', $result['error'] );
+        $this->assertSame( 0, $result['count'] );
     }
 }

@@ -137,8 +137,17 @@ class HSPSC_Page {
         $host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : 'localhost';
         $uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
         $ssl  = ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+        $user_context = '';
 
-        return md5( $ssl . '://' . $host . self::normalize_cache_uri( $uri ) );
+        if ( is_user_logged_in() ) {
+            $user_id = get_current_user_id();
+            if ( $user_id <= 0 ) {
+                return '';
+            }
+            $user_context = '|user:' . $user_id . ':' . wp_salt( 'auth' );
+        }
+
+        return md5( $ssl . '://' . $host . self::normalize_cache_uri( $uri ) . $user_context );
     }
 
     protected static function get_cache_file_path() {
@@ -292,11 +301,13 @@ class HSPSC_Page {
         if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
             return;
         }
+        if ( ! self::is_warmable_url( $url ) ) {
+            return;
+        }
         wp_remote_get(
             $url,
             array(
-                'timeout'   => 8,
-                'sslverify' => false,
+                'timeout' => 8,
             )
         );
     }
@@ -305,11 +316,13 @@ class HSPSC_Page {
         if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
             return;
         }
+        if ( ! self::is_warmable_url( $url ) ) {
+            return;
+        }
         wp_remote_get(
             $url,
             array(
-                'timeout'   => max( 3, intval( $timeout ) ),
-                'sslverify' => false,
+                'timeout' => max( 3, intval( $timeout ) ),
             )
         );
     }
@@ -320,5 +333,27 @@ class HSPSC_Page {
                 self::warm_url( $url );
             }
         }
+    }
+
+    public static function is_warmable_url( $url ) {
+        $parts = wp_parse_url( $url );
+        if ( empty( $parts['host'] ) ) {
+            return false;
+        }
+
+        $scheme = isset( $parts['scheme'] ) ? strtolower( (string) $parts['scheme'] ) : '';
+        if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+            return false;
+        }
+
+        $allowed_hosts = array_filter(
+            array(
+                wp_parse_url( home_url(), PHP_URL_HOST ),
+                wp_parse_url( site_url(), PHP_URL_HOST ),
+            )
+        );
+        $allowed_hosts = array_map( 'strtolower', array_unique( $allowed_hosts ) );
+
+        return in_array( strtolower( (string) $parts['host'] ), $allowed_hosts, true );
     }
 }

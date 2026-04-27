@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.5
+
+- Harden logged-in page caching by varying cache files per user with site salt.
+- Restrict cache preload and warm requests to same-site URLs and keep SSL verification enabled.
+- Add randomized database backup filenames while preserving restore/delete support for existing backup names.
+- Preserve third-party object-cache drop-ins during install, disable, and uninstall flows.
+- Link the option reference from the WordPress readme.
+
 ## 0.5.4
 
 - Add a complete option reference documenting every stored plugin option, default value, input type, and maintenance action.

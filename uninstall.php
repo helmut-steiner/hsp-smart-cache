@@ -22,7 +22,7 @@ function hspsc_uninstall() {
 
     if ( $fs ) {
         $object_dropin = WP_CONTENT_DIR . '/object-cache.php';
-        if ( $fs->exists( $object_dropin ) ) {
+        if ( $fs->exists( $object_dropin ) && hspsc_uninstall_is_own_dropin( $object_dropin, $fs ) ) {
             $fs->delete( $object_dropin );
         }
 
@@ -64,6 +64,22 @@ function hspsc_delete_dir_contents( $dir, $fs ) {
             $fs->delete( $path );
         }
     }
+}
+
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+function hspsc_uninstall_is_own_dropin( $path, $fs ) {
+    if ( ! $fs || ! $fs->exists( $path ) ) {
+        return false;
+    }
+
+    $contents = $fs->get_contents( $path );
+    if ( ! is_string( $contents ) ) {
+        return false;
+    }
+
+    $contents = substr( $contents, 0, 4096 );
+    return strpos( $contents, 'HSPSC_File_Object_Cache' ) !== false
+        || strpos( $contents, 'Drop-in object cache for HSP Smart Cache' ) !== false;
 }
 
 hspsc_uninstall();

@@ -231,7 +231,7 @@ class HSPSC_Maintenance {
         self::protect_backup_dir( $dir );
 
         $compressed = function_exists( 'gzopen' );
-        $filename = 'hsp-db-backup-' . gmdate( 'Y-m-d_H-i-s' ) . '.sql' . ( $compressed ? '.gz' : '' );
+        $filename = 'hsp-db-backup-' . gmdate( 'Y-m-d_H-i-s' ) . '-' . self::backup_filename_token() . '.sql' . ( $compressed ? '.gz' : '' );
         $path = trailingslashit( $dir ) . $filename;
         $handle = $compressed ? gzopen( $path, 'wb' ) : fopen( $path, 'wb' );
         if ( ! $handle ) {
@@ -610,7 +610,7 @@ class HSPSC_Maintenance {
 
     protected static function get_backup_file_path( $file ) {
         $file = basename( (string) $file );
-        if ( $file === '' || ! preg_match( '/^hsp(?:sc)?-db-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}\.sql(?:\.gz)?$/', $file ) ) {
+        if ( $file === '' || ! preg_match( '/^hsp(?:sc)?-db-backup-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(?:-[A-Za-z0-9]{12})?\.sql(?:\.gz)?$/', $file ) ) {
             return null;
         }
 
@@ -667,6 +667,14 @@ class HSPSC_Maintenance {
     protected static function write_backup_line( $handle, $line, $compressed ) {
         $data = $line . "\n";
         return $compressed ? gzwrite( $handle, $data ) : fwrite( $handle, $data );
+    }
+
+    protected static function backup_filename_token() {
+        if ( function_exists( 'wp_generate_password' ) ) {
+            return wp_generate_password( 12, false, false );
+        }
+
+        return substr( str_replace( array( '+', '/', '=' ), '', base64_encode( random_bytes( 9 ) ) ), 0, 12 );
     }
 
     protected static function read_backup_file( $path ) {

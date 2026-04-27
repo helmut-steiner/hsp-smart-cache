@@ -293,7 +293,7 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $backup = HSPSC_Maintenance::create_backup();
 
         $this->assertTrue( $backup['ok'] );
-        $this->assertMatchesRegularExpression( '/^hsp-db-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.sql(?:\.gz)?$/', $backup['file'] );
+        $this->assertMatchesRegularExpression( '/^hsp-db-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-[A-Za-z0-9]{12}\.sql(?:\.gz)?$/', $backup['file'] );
         $this->assertFileExists( $backup['path'] );
         $this->assertSame( 1, $backup['tables'] );
         $this->assertSame( 1, $backup['rows'] );
@@ -375,6 +375,21 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertTrue( $restore['ok'] );
         $this->assertSame( 3, $restore['statements'] );
         $this->assertContains( "INSERT INTO `wp_posts` (`ID`, `post_title`) VALUES ('1', 'A title; with semicolon');", $wpdb->queries );
+    }
+
+    public function test_restore_backup_accepts_randomized_backup_names() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+
+        $file = 'hsp-db-backup-2026-04-25_10-20-30-AbCdEf123456.sql';
+        $path = $this->backup_dir . '/' . $file;
+        wp_mkdir_p( $this->backup_dir );
+        file_put_contents( $path, "INSERT INTO `wp_posts` (`ID`) VALUES ('1');\n" );
+
+        $restore = HSPSC_Maintenance::restore_backup( $file );
+
+        $this->assertTrue( $restore['ok'] );
+        $this->assertSame( 1, $restore['statements'] );
     }
 
     public function test_restore_backup_skips_non_wordpress_table_statements() {

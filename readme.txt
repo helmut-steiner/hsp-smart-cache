@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.4
+Stable tag: 0.5.5
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -31,6 +31,9 @@ It includes the following functionality:
 
 The settings page groups these features into clear sections and provides one-click maintenance actions for day-to-day operations.
 
+== Documentation ==
+See the [Option Reference](https://github.com/helmut-steiner/hsp-smart-cache/blob/main/docs/options.md) for every stored plugin option, default value, input type, and maintenance action.
+
 == Installation ==
 1. Upload the `hsp-smart-cache` folder to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the 'Plugins' menu in WordPress.
@@ -47,6 +50,13 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.5.5 =
+* Harden logged-in page caching by varying cache files per user with site salt.
+* Restrict cache preload and warm requests to same-site URLs and keep SSL verification enabled.
+* Add randomized database backup filenames while preserving restore/delete support for existing backup names.
+* Preserve third-party object-cache drop-ins during install, disable, and uninstall flows.
+* Link the option reference from the WordPress readme.
 
 = 0.5.4 =
 * Add a complete option reference documenting every stored plugin option, default value, input type, and maintenance action.

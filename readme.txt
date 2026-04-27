@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.5
+Stable tag: 0.5.6
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -50,6 +50,12 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.5.6 =
+* Add detailed database restore diagnostics for skipped SQL, failed queries, restored table coverage, and prefix mismatches.
+* Surface restore diagnostics in redirected admin notices and AJAX feedback.
+* Make database analysis reclaimable-space estimates more realistic across storage engines.
+* Improve spacing above the cleanup candidates section in the database analysis UI.
 
 = 0.5.5 =
 * Harden logged-in page caching by varying cache files per user with site salt.

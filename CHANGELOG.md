@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.6
+
+- Add detailed database restore diagnostics for skipped SQL, failed queries, restored table coverage, and prefix mismatches.
+- Surface restore diagnostics in redirected admin notices and AJAX feedback.
+- Make database analysis reclaimable-space estimates more realistic across storage engines.
+- Improve spacing above the cleanup candidates section in the database analysis UI.
+
 ## 0.5.5
 
 - Harden logged-in page caching by varying cache files per user with site salt.

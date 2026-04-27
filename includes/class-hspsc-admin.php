@@ -994,7 +994,7 @@ class HSPSC_Admin {
                     </span>
                     <span>
                         <strong><?php echo esc_html( size_format( intval( $db_analysis['total_overhead_bytes'] ) ) ); ?></strong>
-                        <?php echo esc_html__( 'Reclaimable', 'hsp-smart-cache' ); ?>
+                        <?php echo esc_html__( 'Estimated reclaimable', 'hsp-smart-cache' ); ?>
                     </span>
                 </div>
                 <?php if ( ! empty( $db_analysis['cleanup'] ) && is_array( $db_analysis['cleanup'] ) ) : ?>
@@ -1678,6 +1678,9 @@ class HSPSC_Admin {
                 .hspsc-cleanup-row {
                     grid-template-columns: repeat(3, minmax(150px, 1fr));
                     margin-top: 10px;
+                }
+                .hspsc-db-analysis h3 {
+                    margin-top: 18px;
                 }
                 .hspsc-metric-row span {
                     border: 1px solid #dcdcde;

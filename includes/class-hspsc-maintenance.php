@@ -137,10 +137,10 @@ class HSPSC_Maintenance {
 
             $data_length = isset( $row['Data_length'] ) ? (int) $row['Data_length'] : 0;
             $index_length = isset( $row['Index_length'] ) ? (int) $row['Index_length'] : 0;
-            $overhead = isset( $row['Data_free'] ) ? (int) $row['Data_free'] : 0;
             $rows = isset( $row['Rows'] ) ? (int) $row['Rows'] : 0;
 
             $size = $data_length + $index_length;
+            $overhead = self::estimate_reclaimable_bytes( $row, $size );
             $is_optimizable = $overhead > 0;
 
             $total_size += $size;
@@ -213,6 +213,35 @@ class HSPSC_Maintenance {
             'expired_transient_values' => $expired_transient_values,
             'total_items' => $revisions + $auto_drafts + $trashed_posts + $spam_trash_comments + $expired_transient_timeouts + $expired_transient_values,
         );
+    }
+
+    protected static function estimate_reclaimable_bytes( $status_row, $table_size ) {
+        $table_size = max( 0, (int) $table_size );
+        $raw_overhead = isset( $status_row['Data_free'] ) ? max( 0, (int) $status_row['Data_free'] ) : 0;
+        if ( $table_size <= 0 || $raw_overhead <= 0 ) {
+            return 0;
+        }
+
+        $engine = isset( $status_row['Engine'] ) ? strtolower( (string) $status_row['Engine'] ) : '';
+        $capped_overhead = min( $raw_overhead, $table_size );
+
+        if ( in_array( $engine, array( 'myisam', 'aria' ), true ) ) {
+            return $capped_overhead;
+        }
+
+        if ( $engine === 'innodb' ) {
+            if ( $raw_overhead > $table_size ) {
+                return 0;
+            }
+
+            if ( $raw_overhead < 1024 * 1024 || $raw_overhead < $table_size * 0.1 ) {
+                return 0;
+            }
+
+            return $capped_overhead;
+        }
+
+        return $raw_overhead <= $table_size ? $capped_overhead : 0;
     }
 
     public static function create_backup() {

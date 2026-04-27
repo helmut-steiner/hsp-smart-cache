@@ -277,6 +277,85 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertSame( 45, $analysis['cleanup']['total_items'] );
     }
 
+    public function test_analyze_optimization_caps_reclaimable_bytes_to_table_size() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->status_rows = array(
+            array(
+                'Name' => 'wp_posts',
+                'Engine' => 'InnoDB',
+                'Rows' => 10,
+                'Data_length' => 1024,
+                'Index_length' => 512,
+                'Data_free' => 4096,
+            ),
+            array(
+                'Name' => 'wp_options',
+                'Rows' => 10,
+                'Data_length' => 2048,
+                'Index_length' => 1024,
+                'Data_free' => 128,
+            ),
+        );
+
+        $analysis = HSPSC_Maintenance::analyze_optimization();
+
+        $this->assertTrue( $analysis['ok'] );
+        $this->assertSame( 4608, $analysis['total_size_bytes'] );
+        $this->assertSame( 128, $analysis['total_overhead_bytes'] );
+        $this->assertSame( 0, $analysis['tables'][0]['overhead_bytes'] );
+    }
+
+    public function test_analyze_optimization_counts_large_innodb_reclaimable_estimates_only() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->status_rows = array(
+            array(
+                'Name' => 'wp_posts',
+                'Engine' => 'InnoDB',
+                'Rows' => 10,
+                'Data_length' => 16 * 1024 * 1024,
+                'Index_length' => 4 * 1024 * 1024,
+                'Data_free' => 3 * 1024 * 1024,
+            ),
+            array(
+                'Name' => 'wp_options',
+                'Engine' => 'InnoDB',
+                'Rows' => 10,
+                'Data_length' => 16 * 1024 * 1024,
+                'Index_length' => 4 * 1024 * 1024,
+                'Data_free' => 512 * 1024,
+            ),
+        );
+
+        $analysis = HSPSC_Maintenance::analyze_optimization();
+
+        $this->assertTrue( $analysis['ok'] );
+        $this->assertSame( 3 * 1024 * 1024, $analysis['total_overhead_bytes'] );
+        $this->assertSame( 1, $analysis['optimizable_tables'] );
+    }
+
+    public function test_analyze_optimization_counts_myisam_data_free_as_reclaimable() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->status_rows = array(
+            array(
+                'Name' => 'wp_posts',
+                'Engine' => 'MyISAM',
+                'Rows' => 10,
+                'Data_length' => 1024,
+                'Index_length' => 512,
+                'Data_free' => 4096,
+            ),
+        );
+
+        $analysis = HSPSC_Maintenance::analyze_optimization();
+
+        $this->assertTrue( $analysis['ok'] );
+        $this->assertSame( 1536, $analysis['total_overhead_bytes'] );
+        $this->assertSame( 1, $analysis['optimizable_tables'] );
+    }
+
     public function test_create_backup_generates_timestamped_file() {
         global $wpdb;
         $wpdb = new HSPSC_Maintenance_WPDB_Mock();

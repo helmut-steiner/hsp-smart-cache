@@ -374,6 +374,8 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
 
         $this->assertTrue( $restore['ok'] );
         $this->assertSame( 3, $restore['statements'] );
+        $this->assertSame( 1, $restore['tables']['wp_posts']['insert'] );
+        $this->assertNotEmpty( $restore['warnings'] );
         $this->assertContains( "INSERT INTO `wp_posts` (`ID`, `post_title`) VALUES ('1', 'A title; with semicolon');", $wpdb->queries );
     }
 
@@ -390,6 +392,8 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
 
         $this->assertTrue( $restore['ok'] );
         $this->assertSame( 1, $restore['statements'] );
+        $this->assertSame( 1, $restore['tables']['wp_posts']['insert'] );
+        $this->assertNotEmpty( $restore['warnings'] );
     }
 
     public function test_restore_backup_skips_non_wordpress_table_statements() {
@@ -411,7 +415,37 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
 
         $this->assertTrue( $restore['ok'] );
         $this->assertSame( 1, $restore['statements'] );
+        $this->assertSame( 3, $restore['skipped'] );
+        $this->assertCount( 3, $restore['skipped_statements'] );
+        $this->assertSame( 'non_wordpress_table', $restore['skipped_statements'][0]['reason'] );
+        $this->assertNotEmpty( $restore['warnings'] );
         $this->assertSame( array( "INSERT INTO `wp_posts` (`ID`) VALUES ('2');" ), $wpdb->queries );
+    }
+
+    public function test_restore_backup_fails_when_no_wordpress_tables_are_restored() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+
+        $file = 'hsp-db-backup-2026-04-25_10-20-34.sql';
+        $path = $this->backup_dir . '/' . $file;
+        wp_mkdir_p( $this->backup_dir );
+        file_put_contents(
+            $path,
+            "SET FOREIGN_KEY_CHECKS=0;\n"
+            . "DROP TABLE IF EXISTS `old_posts`;\n"
+            . "CREATE TABLE `old_posts` (`ID` int(11) NOT NULL);\n"
+            . "INSERT INTO `old_posts` (`ID`) VALUES ('1');\n"
+            . "SET FOREIGN_KEY_CHECKS=1;\n"
+        );
+
+        $restore = HSPSC_Maintenance::restore_backup( $file );
+
+        $this->assertFalse( $restore['ok'] );
+        $this->assertSame( 'no_tables_restored', $restore['error'] );
+        $this->assertSame( 2, $restore['statements'] );
+        $this->assertSame( 3, $restore['skipped'] );
+        $this->assertNotEmpty( $restore['skipped_statements'] );
+        $this->assertNotEmpty( $restore['warnings'] );
     }
 
     public function test_restore_backup_reports_query_failures() {

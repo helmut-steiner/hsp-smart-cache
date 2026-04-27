@@ -376,9 +376,11 @@ class HSPSC_Admin {
 
         $result = HSPSC_Maintenance::restore_backup( $backup_file );
         if ( empty( $result['ok'] ) ) {
+            set_transient( 'hspsc_db_restore_error', $result, 15 * MINUTE_IN_SECONDS );
             self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restorefailed' ) );
         }
 
+        set_transient( 'hspsc_db_restore_result', $result, 15 * MINUTE_IN_SECONDS );
         self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restored' ) );
     }
 
@@ -566,10 +568,23 @@ class HSPSC_Admin {
         $backup_file = self::get_posted_backup_file();
         $result = HSPSC_Maintenance::restore_backup( $backup_file );
         if ( empty( $result['ok'] ) ) {
-            self::send_ajax_error( __( 'Database backup restore failed.', 'hsp-smart-cache' ) );
+            self::send_ajax_error(
+                self::get_restore_backup_error_message( $result ),
+                400,
+                array(
+                    'details' => self::get_restore_backup_error_details( $result ),
+                    'result' => $result,
+                )
+            );
         }
 
-        self::send_ajax_success( __( 'Database backup restored.', 'hsp-smart-cache' ) );
+        self::send_ajax_success(
+            self::get_restore_backup_success_message( $result ),
+            array(
+                'details' => self::get_restore_backup_success_details( $result ),
+                'result' => $result,
+            )
+        );
     }
 
     public static function ajax_delete_db_backup() {
@@ -616,6 +631,183 @@ class HSPSC_Admin {
         $backup_file = str_replace( '\\', '/', (string) wp_unslash( $backup_file ) );
 
         return basename( $backup_file );
+    }
+
+    protected static function get_restore_backup_success_message( $result ) {
+        if ( ! is_array( $result ) ) {
+            return __( 'Database backup restored.', 'hsp-smart-cache' );
+        }
+
+        $tables = isset( $result['tables'] ) && is_array( $result['tables'] ) ? count( $result['tables'] ) : 0;
+        $executed = isset( $result['executed'] ) ? intval( $result['executed'] ) : 0;
+
+        if ( ! empty( $result['warnings'] ) || ! empty( $result['skipped'] ) ) {
+            return sprintf(
+                /* translators: 1: number of restored tables, 2: number of executed SQL statements. */
+                __( 'Database backup restored with warnings. Restored %1$d table(s) using %2$d SQL statement(s).', 'hsp-smart-cache' ),
+                $tables,
+                $executed
+            );
+        }
+
+        return sprintf(
+            /* translators: 1: number of restored tables, 2: number of executed SQL statements. */
+            __( 'Database backup restored. Restored %1$d table(s) using %2$d SQL statement(s).', 'hsp-smart-cache' ),
+            $tables,
+            $executed
+        );
+    }
+
+    protected static function get_restore_backup_success_details( $result ) {
+        $details = self::get_restore_backup_common_details( $result );
+        if ( ! is_array( $result ) ) {
+            return $details;
+        }
+
+        if ( ! empty( $result['warnings'] ) && is_array( $result['warnings'] ) ) {
+            foreach ( $result['warnings'] as $warning ) {
+                $details[] = sprintf(
+                    /* translators: %s is a restore warning. */
+                    __( 'Warning: %s', 'hsp-smart-cache' ),
+                    $warning
+                );
+            }
+        }
+
+        return $details;
+    }
+
+    protected static function get_restore_backup_error_message( $result ) {
+        if ( ! is_array( $result ) ) {
+            return __( 'Database backup restore failed. No diagnostic details were returned.', 'hsp-smart-cache' );
+        }
+
+        $code = isset( $result['error'] ) ? sanitize_key( $result['error'] ) : 'unknown';
+        $messages = array(
+            'missing_file' => __( 'The selected backup file was not found or did not match the allowed backup filename format.', 'hsp-smart-cache' ),
+            'read_failed' => __( 'The backup file could not be read or decompressed.', 'hsp-smart-cache' ),
+            'invalid_backup' => __( 'The backup file did not contain executable SQL statements.', 'hsp-smart-cache' ),
+            'query_failed' => __( 'A database query failed while replaying the backup.', 'hsp-smart-cache' ),
+            'no_tables_restored' => __( 'No WordPress tables were restored. The backup may use a different table prefix than this site.', 'hsp-smart-cache' ),
+        );
+
+        $detail = isset( $messages[ $code ] ) ? $messages[ $code ] : __( 'Unknown restore failure.', 'hsp-smart-cache' );
+
+        return sprintf(
+            /* translators: 1: internal diagnostic code, 2: human-readable diagnostic detail. */
+            __( 'Database backup restore failed. Code: %1$s. %2$s', 'hsp-smart-cache' ),
+            $code,
+            $detail
+        );
+    }
+
+    protected static function get_restore_backup_error_details( $result ) {
+        if ( ! is_array( $result ) ) {
+            return array();
+        }
+
+        $details = self::get_restore_backup_common_details( $result );
+
+        if ( ! empty( $result['statement'] ) ) {
+            $details[] = sprintf(
+                /* translators: %d is the failed SQL statement number. */
+                __( 'Failed statement number: %d', 'hsp-smart-cache' ),
+                intval( $result['statement'] )
+            );
+        }
+
+        if ( ! empty( $result['failed_statement'] ) ) {
+            $details[] = sprintf(
+                /* translators: %s is a shortened SQL statement. */
+                __( 'Failed SQL: %s', 'hsp-smart-cache' ),
+                $result['failed_statement']
+            );
+        }
+
+        if ( ! empty( $result['warnings'] ) && is_array( $result['warnings'] ) ) {
+            foreach ( $result['warnings'] as $warning ) {
+                $details[] = sprintf(
+                    /* translators: %s is a restore warning. */
+                    __( 'Warning: %s', 'hsp-smart-cache' ),
+                    $warning
+                );
+            }
+        }
+
+        return $details;
+    }
+
+    protected static function get_restore_backup_common_details( $result ) {
+        $details = array();
+        if ( ! is_array( $result ) ) {
+            return $details;
+        }
+
+        if ( ! empty( $result['file'] ) ) {
+            $details[] = sprintf(
+                /* translators: %s is a backup file name. */
+                __( 'File: %s', 'hsp-smart-cache' ),
+                $result['file']
+            );
+        }
+
+        if ( ! empty( $result['path'] ) ) {
+            $details[] = sprintf(
+                /* translators: %s is an absolute filesystem path. */
+                __( 'Path: %s', 'hsp-smart-cache' ),
+                $result['path']
+            );
+        }
+
+        $details[] = sprintf(
+            /* translators: 1: executed statements, 2: total parsed statements, 3: skipped statements. */
+            __( 'SQL statements: %1$d executed, %2$d parsed, %3$d skipped.', 'hsp-smart-cache' ),
+            isset( $result['executed'] ) ? intval( $result['executed'] ) : 0,
+            isset( $result['total_statements'] ) ? intval( $result['total_statements'] ) : 0,
+            isset( $result['skipped'] ) ? intval( $result['skipped'] ) : 0
+        );
+
+        if ( ! empty( $result['tables'] ) && is_array( $result['tables'] ) ) {
+            foreach ( $result['tables'] as $table => $summary ) {
+                $details[] = sprintf(
+                    /* translators: 1: table name, 2: drop count, 3: create count, 4: insert count. */
+                    __( 'Table %1$s: DROP=%2$d CREATE=%3$d INSERT=%4$d.', 'hsp-smart-cache' ),
+                    $table,
+                    isset( $summary['drop'] ) ? intval( $summary['drop'] ) : 0,
+                    isset( $summary['create'] ) ? intval( $summary['create'] ) : 0,
+                    isset( $summary['insert'] ) ? intval( $summary['insert'] ) : 0
+                );
+            }
+        }
+
+        if ( ! empty( $result['skipped_statements'] ) && is_array( $result['skipped_statements'] ) ) {
+            foreach ( array_slice( $result['skipped_statements'], 0, 5 ) as $skipped ) {
+                if ( ! is_array( $skipped ) ) {
+                    continue;
+                }
+                $details[] = sprintf(
+                    /* translators: 1: skip reason, 2: SQL preview. */
+                    __( 'Skipped SQL (%1$s): %2$s', 'hsp-smart-cache' ),
+                    isset( $skipped['reason'] ) ? $skipped['reason'] : 'unknown',
+                    isset( $skipped['statement'] ) ? $skipped['statement'] : ''
+                );
+            }
+        }
+
+        return $details;
+    }
+
+    protected static function render_restore_backup_details( $details ) {
+        if ( empty( $details ) || ! is_array( $details ) ) {
+            return;
+        }
+        ?>
+        <ul class="hspsc-notice-details">
+            <?php foreach ( $details as $detail ) : ?>
+                <li><?php echo esc_html( $detail ); ?></li>
+            <?php endforeach; ?>
+        </ul>
+        <?php
     }
 
     protected static function get_delete_backup_error_message( $error ) {
@@ -741,10 +933,13 @@ class HSPSC_Admin {
         );
     }
 
-    protected static function send_ajax_error( $message, $status_code = 400 ) {
+    protected static function send_ajax_error( $message, $status_code = 400, $data = array() ) {
         wp_send_json_error(
-            array(
-                'message' => $message,
+            array_merge(
+                array(
+                    'message' => $message,
+                ),
+                $data
             ),
             $status_code
         );
@@ -988,6 +1183,14 @@ class HSPSC_Admin {
         $tests_notice = filter_input( INPUT_GET, 'tests', FILTER_UNSAFE_RAW );
         $db_analysis = get_transient( 'hspsc_db_analysis' );
         $last_backup = get_transient( 'hspsc_db_last_backup' );
+        $db_restore_result = get_transient( 'hspsc_db_restore_result' );
+        if ( $db_restore_result ) {
+            delete_transient( 'hspsc_db_restore_result' );
+        }
+        $db_restore_error = get_transient( 'hspsc_db_restore_error' );
+        if ( $db_restore_error ) {
+            delete_transient( 'hspsc_db_restore_error' );
+        }
         $db_delete_error = get_transient( 'hspsc_db_delete_error' );
         if ( $db_delete_error ) {
             delete_transient( 'hspsc_db_delete_error' );
@@ -1038,10 +1241,16 @@ class HSPSC_Admin {
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup created.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
             <?php if ( $db_notice === 'restored' ) : ?>
-                <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup restored.', 'hsp-smart-cache' ); ?></p></div>
+                <div class="notice notice-success">
+                    <p><?php echo esc_html( self::get_restore_backup_success_message( $db_restore_result ) ); ?></p>
+                    <?php self::render_restore_backup_details( self::get_restore_backup_success_details( $db_restore_result ) ); ?>
+                </div>
             <?php endif; ?>
             <?php if ( $db_notice === 'restorefailed' ) : ?>
-                <div class="notice notice-error"><p><?php echo esc_html__( 'Database backup restore failed.', 'hsp-smart-cache' ); ?></p></div>
+                <div class="notice notice-error">
+                    <p><?php echo esc_html( self::get_restore_backup_error_message( $db_restore_error ) ); ?></p>
+                    <?php self::render_restore_backup_details( self::get_restore_backup_error_details( $db_restore_error ) ); ?>
+                </div>
             <?php endif; ?>
             <?php if ( $db_notice === 'backupdeleted' ) : ?>
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Database backup deleted.', 'hsp-smart-cache' ); ?></p></div>
@@ -1354,6 +1563,14 @@ class HSPSC_Admin {
                 }
                 .hspsc-feedback .notice {
                     margin: 0;
+                }
+                .hspsc-notice-details {
+                    margin: 8px 0 2px 20px;
+                    list-style: disc;
+                }
+                .hspsc-notice-details li {
+                    margin: 3px 0;
+                    word-break: break-word;
                 }
                 .hspsc-action-area {
                     display: grid;
@@ -1671,9 +1888,18 @@ class HSPSC_Admin {
                     var feedback = document.getElementById('hspsc-feedback');
                     var settingsForm = document.getElementById('hspsc-settings-form');
 
-                    function showFeedback(message, type) {
+                    function showFeedback(message, type, details) {
                         if (!feedback) { return; }
-                        feedback.innerHTML = '<div class="notice notice-' + type + ' is-dismissible"><p>' + escapeHtml(message) + '</p></div>';
+                        var html = '<div class="notice notice-' + type + ' is-dismissible"><p>' + escapeHtml(message) + '</p>';
+                        if (Array.isArray(details) && details.length) {
+                            html += '<ul class="hspsc-notice-details">';
+                            details.forEach(function(detail) {
+                                html += '<li>' + escapeHtml(detail) + '</li>';
+                            });
+                            html += '</ul>';
+                        }
+                        html += '</div>';
+                        feedback.innerHTML = html;
                     }
 
                     function escapeHtml(value) {
@@ -1761,15 +1987,17 @@ class HSPSC_Admin {
                             .then(function(response) {
                                 var data = response && response.data ? response.data : {};
                                 if (!response || !response.success) {
-                                    throw new Error(data.message || '<?php echo esc_js( __( 'Action failed. Please try again.', 'hsp-smart-cache' ) ); ?>');
+                                    var ajaxError = new Error(data.message || '<?php echo esc_js( __( 'Action failed. Please try again.', 'hsp-smart-cache' ) ); ?>');
+                                    ajaxError.details = data.details || [];
+                                    throw ajaxError;
                                 }
 
-                                showFeedback(data.message || '<?php echo esc_js( __( 'Action completed.', 'hsp-smart-cache' ) ); ?>', 'success');
+                                showFeedback(data.message || '<?php echo esc_js( __( 'Action completed.', 'hsp-smart-cache' ) ); ?>', 'success', data.details || []);
                                 applyOptions(data.options);
                                 updatePanels(data);
                             })
                             .catch(function(error) {
-                                showFeedback(error.message || '<?php echo esc_js( __( 'Action failed. Please try again.', 'hsp-smart-cache' ) ); ?>', 'error');
+                                showFeedback(error.message || '<?php echo esc_js( __( 'Action failed. Please try again.', 'hsp-smart-cache' ) ); ?>', 'error', error.details || []);
                             })
                             .finally(function() {
                                 setFormBusy(form, false);

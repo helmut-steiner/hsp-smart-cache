@@ -471,43 +471,99 @@ class HSPSC_Maintenance {
     public static function restore_backup( $file ) {
         global $wpdb;
 
+        $file = basename( (string) $file );
         $path = self::get_backup_file_path( $file );
         if ( ! $path || ! file_exists( $path ) ) {
-            return array( 'ok' => false, 'error' => 'missing_file' );
+            return self::build_restore_result(
+                false,
+                'missing_file',
+                array(
+                    'file' => $file,
+                    'path' => $path ? wp_normalize_path( $path ) : '',
+                )
+            );
         }
 
         $sql = self::read_backup_file( $path );
         if ( $sql === false || $sql === '' ) {
-            return array( 'ok' => false, 'error' => 'read_failed' );
+            return self::build_restore_result(
+                false,
+                'read_failed',
+                array(
+                    'file' => $file,
+                    'path' => wp_normalize_path( $path ),
+                )
+            );
         }
 
         $statements = self::split_sql_statements( $sql );
         if ( empty( $statements ) ) {
-            return array( 'ok' => false, 'error' => 'invalid_backup' );
+            return self::build_restore_result(
+                false,
+                'invalid_backup',
+                array(
+                    'file' => $file,
+                    'path' => wp_normalize_path( $path ),
+                )
+            );
         }
 
-        $executed = 0;
+        $result = self::build_restore_result(
+            true,
+            '',
+            array(
+                'file' => $file,
+                'path' => wp_normalize_path( $path ),
+                'total_statements' => count( $statements ),
+            )
+        );
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         foreach ( $statements as $statement ) {
-            if ( ! self::is_allowed_restore_statement( $statement ) ) {
+            $statement_info = self::get_restore_statement_info( $statement );
+            if ( empty( $statement_info['allowed'] ) ) {
+                $result['skipped']++;
+                $result['skipped_statements'][] = self::build_skipped_restore_statement( $statement, $statement_info );
                 continue;
             }
 
-            $result = $wpdb->query( $statement );
-            if ( $result === false ) {
-                return array( 'ok' => false, 'error' => 'query_failed', 'statement' => $executed + 1 );
+            $query_result = $wpdb->query( $statement );
+            if ( $query_result === false ) {
+                return self::build_restore_result(
+                    false,
+                    'query_failed',
+                    array(
+                        'file' => $file,
+                        'path' => wp_normalize_path( $path ),
+                        'total_statements' => count( $statements ),
+                        'executed' => $result['executed'],
+                        'skipped' => $result['skipped'],
+                        'skipped_statements' => $result['skipped_statements'],
+                        'tables' => $result['tables'],
+                        'statement' => $result['executed'] + 1,
+                        'failed_statement' => self::preview_sql_statement( $statement ),
+                    )
+                );
             }
 
-            $executed++;
+            $result['executed']++;
+            if ( ! empty( $statement_info['table'] ) ) {
+                $table = (string) $statement_info['table'];
+                if ( ! isset( $result['tables'][ $table ] ) ) {
+                    $result['tables'][ $table ] = self::empty_restore_table_summary();
+                }
+                if ( ! empty( $statement_info['type'] ) && isset( $result['tables'][ $table ][ $statement_info['type'] ] ) ) {
+                    $result['tables'][ $table ][ $statement_info['type'] ]++;
+                }
+            }
         }
         // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
 
-        return array( 'ok' => true, 'statements' => $executed );
+        return self::finalize_restore_result( $result );
     }
 
     public static function optimize_tables() {
@@ -762,16 +818,128 @@ class HSPSC_Maintenance {
         return $statements;
     }
 
-    protected static function is_allowed_restore_statement( $statement ) {
+    protected static function build_restore_result( $ok, $error = '', $data = array() ) {
+        return array_merge(
+            array(
+                'ok' => (bool) $ok,
+                'error' => $error,
+                'file' => '',
+                'path' => '',
+                'total_statements' => 0,
+                'executed' => 0,
+                'statements' => 0,
+                'skipped' => 0,
+                'skipped_statements' => array(),
+                'tables' => array(),
+                'warnings' => array(),
+            ),
+            $data
+        );
+    }
+
+    protected static function finalize_restore_result( $result ) {
+        $result['statements'] = isset( $result['executed'] ) ? (int) $result['executed'] : 0;
+
+        if ( empty( $result['tables'] ) ) {
+            $result['ok'] = false;
+            $result['error'] = 'no_tables_restored';
+            $result['warnings'][] = 'No WordPress tables were restored. Check whether the backup table prefix matches this site.';
+            return $result;
+        }
+
+        foreach ( $result['tables'] as $table => $summary ) {
+            if ( empty( $summary['drop'] ) || empty( $summary['create'] ) ) {
+                $result['warnings'][] = sprintf(
+                    'Table %s did not include both DROP TABLE and CREATE TABLE statements, so the restore may not remove rows created after the backup.',
+                    $table
+                );
+            }
+        }
+
+        if ( ! empty( $result['skipped'] ) ) {
+            $result['warnings'][] = sprintf(
+                '%d SQL statement(s) were skipped because they were not allowed for restore.',
+                (int) $result['skipped']
+            );
+        }
+
+        return $result;
+    }
+
+    protected static function empty_restore_table_summary() {
+        return array(
+            'drop' => 0,
+            'create' => 0,
+            'insert' => 0,
+        );
+    }
+
+    protected static function get_restore_statement_info( $statement ) {
         if ( preg_match( '/^\s*SET\s+FOREIGN_KEY_CHECKS\s*=\s*[01]\s*;?\s*$/i', $statement ) ) {
-            return true;
+            return array(
+                'allowed' => true,
+                'type' => 'set',
+                'table' => '',
+                'reason' => '',
+            );
         }
 
-        if ( ! preg_match( '/^\s*(?:DROP\s+TABLE\s+IF\s+EXISTS|CREATE\s+TABLE|INSERT\s+INTO)\s+`?([^`\s(]+)`?/i', $statement, $matches ) ) {
-            return false;
+        if ( ! preg_match( '/^\s*(DROP\s+TABLE\s+IF\s+EXISTS|CREATE\s+TABLE|INSERT\s+INTO)\s+`?([^`\s(]+)`?/i', $statement, $matches ) ) {
+            return array(
+                'allowed' => false,
+                'type' => '',
+                'table' => '',
+                'reason' => 'unsupported_statement',
+            );
         }
 
-        return self::is_wp_table( $matches[1] );
+        $table = $matches[2];
+        if ( ! self::is_wp_table( $table ) ) {
+            return array(
+                'allowed' => false,
+                'type' => '',
+                'table' => $table,
+                'reason' => 'non_wordpress_table',
+            );
+        }
+
+        $keyword = strtoupper( $matches[1] );
+        if ( strpos( $keyword, 'DROP' ) === 0 ) {
+            $type = 'drop';
+        } elseif ( strpos( $keyword, 'CREATE' ) === 0 ) {
+            $type = 'create';
+        } else {
+            $type = 'insert';
+        }
+
+        return array(
+            'allowed' => true,
+            'type' => $type,
+            'table' => $table,
+            'reason' => '',
+        );
+    }
+
+    protected static function build_skipped_restore_statement( $statement, $statement_info ) {
+        return array(
+            'reason' => isset( $statement_info['reason'] ) ? $statement_info['reason'] : 'unknown',
+            'table' => isset( $statement_info['table'] ) ? $statement_info['table'] : '',
+            'statement' => self::preview_sql_statement( $statement ),
+        );
+    }
+
+    protected static function preview_sql_statement( $statement ) {
+        $statement = preg_replace( '/\s+/', ' ', trim( (string) $statement ) );
+        if ( strlen( $statement ) > 220 ) {
+            $statement = substr( $statement, 0, 217 ) . '...';
+        }
+
+        return $statement;
+    }
+
+    protected static function is_allowed_restore_statement( $statement ) {
+        $statement_info = self::get_restore_statement_info( $statement );
+        return ! empty( $statement_info['allowed'] );
     }
 
     protected static function protect_backup_dir( $dir ) {

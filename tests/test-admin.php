@@ -99,6 +99,41 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         );
     }
 
+    public function test_restore_backup_error_message_includes_diagnostics() {
+        $message_method = new ReflectionMethod( 'HSPSC_Admin', 'get_restore_backup_error_message' );
+        $message_method->setAccessible( true );
+        $details_method = new ReflectionMethod( 'HSPSC_Admin', 'get_restore_backup_error_details' );
+        $details_method->setAccessible( true );
+
+        $result = array(
+            'ok' => false,
+            'error' => 'no_tables_restored',
+            'file' => 'hsp-db-backup-2026-04-25_20-09-17.sql.gz',
+            'path' => '/tmp/hsp-db-backup-2026-04-25_20-09-17.sql.gz',
+            'executed' => 2,
+            'total_statements' => 5,
+            'skipped' => 3,
+            'skipped_statements' => array(
+                array(
+                    'reason' => 'non_wordpress_table',
+                    'statement' => 'DROP TABLE IF EXISTS `old_posts`;',
+                ),
+            ),
+            'warnings' => array(
+                'No WordPress tables were restored. Check whether the backup table prefix matches this site.',
+            ),
+            'tables' => array(),
+        );
+
+        $message = $message_method->invoke( null, $result );
+        $details = $details_method->invoke( null, $result );
+
+        $this->assertStringContainsString( 'no_tables_restored', $message );
+        $this->assertContains( 'File: hsp-db-backup-2026-04-25_20-09-17.sql.gz', $details );
+        $this->assertContains( 'SQL statements: 2 executed, 5 parsed, 3 skipped.', $details );
+        $this->assertStringContainsString( 'Skipped SQL (non_wordpress_table)', implode( "\n", $details ) );
+    }
+
     public function test_apply_bricks_compatibility_preset_disables_overlapping_optimizations() {
         update_option(
             HSPSC_Settings::OPTION_KEY,

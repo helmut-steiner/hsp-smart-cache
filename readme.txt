@@ -56,7 +56,6 @@ Use the **Run Cache Tests** button on the settings page.
 * Add throttled garbage collection for object-cache files plus legacy cleanup for unlimited entries written before the cap.
 * Add admin settings for object-cache default TTL and maximum TTL cap.
 * Add test coverage for object-cache TTL normalization and expired-file cleanup.
-* Bump the plugin version to 0.6.0.
 
 = 0.5.6 =
 * Add detailed database restore diagnostics for skipped SQL, failed queries, restored table coverage, and prefix mismatches.

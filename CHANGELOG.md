@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+
+- Fix object-cache drop-in bootstrap fatal by avoiding hard dependency on HSPSC_Settings before plugin classes are loaded.
+- Keep object-cache TTL defaults and max-cap behavior via safe fallback values during early WordPress bootstrap.
+
 ## 0.6.0
 
 - Add bounded object-cache lifetimes so entries without an explicit expiration get a default TTL and longer writes are capped.

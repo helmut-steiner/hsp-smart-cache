@@ -220,8 +220,8 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
 
         protected function normalize_expire( $expire ) {
             $expire = max( 0, intval( $expire ) );
-            $default_ttl = max( 0, intval( HSPSC_Settings::get( 'object_cache_default_ttl', 604800 ) ) );
-            $max_ttl = max( 0, intval( HSPSC_Settings::get( 'object_cache_max_ttl', 2592000 ) ) );
+            $default_ttl = max( 0, intval( $this->get_setting( 'object_cache_default_ttl', 604800 ) ) );
+            $max_ttl = max( 0, intval( $this->get_setting( 'object_cache_max_ttl', 2592000 ) ) );
 
             if ( $expire <= 0 ) {
                 $expire = $default_ttl;
@@ -235,7 +235,7 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
         }
 
         protected function is_legacy_entry_expired( $file ) {
-            $max_ttl = max( 0, intval( HSPSC_Settings::get( 'object_cache_max_ttl', 2592000 ) ) );
+            $max_ttl = max( 0, intval( $this->get_setting( 'object_cache_max_ttl', 2592000 ) ) );
             if ( $max_ttl <= 0 ) {
                 return false;
             }
@@ -246,6 +246,14 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
             }
 
             return ( time() - $mtime ) > $max_ttl;
+        }
+
+        protected function get_setting( $key, $default ) {
+            if ( class_exists( 'HSPSC_Settings' ) && is_callable( array( 'HSPSC_Settings', 'get' ) ) ) {
+                return HSPSC_Settings::get( $key, $default );
+            }
+
+            return $default;
         }
 
         protected function maybe_cleanup_expired_cache() {
@@ -267,7 +275,9 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
                 return true;
             }
 
-            return ( time() - $mtime ) >= HOUR_IN_SECONDS;
+            $cleanup_interval = defined( 'HOUR_IN_SECONDS' ) ? HOUR_IN_SECONDS : 3600;
+
+            return ( time() - $mtime ) >= $cleanup_interval;
         }
 
         protected function touch_cleanup_lock() {

@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.6.0
+Stable tag: 0.6.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -50,6 +50,10 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.6.1 =
+* Fix object-cache drop-in bootstrap fatal by avoiding hard dependency on HSPSC_Settings before plugin classes are loaded.
+* Keep object-cache TTL defaults and max-cap behavior via safe fallback values during early WordPress bootstrap.
 
 = 0.6.0 =
 * Add bounded object-cache lifetimes so entries without an explicit expiration get a default TTL and longer writes are capped.

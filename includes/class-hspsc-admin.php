@@ -1525,8 +1525,20 @@ class HSPSC_Admin {
                                 <input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache]" value="1" <?php checked( $options['object_cache'] ); ?> title="<?php echo esc_attr__( 'Use file-based persistent object cache drop-in.', 'hsp-smart-cache' ); ?>" />
                                 <?php echo esc_html__( 'Enable file-based persistent object cache (drop-in)', 'hsp-smart-cache' ); ?>
                             </label>
+                            <p>
+                                <label>
+                                    <?php echo esc_html__( 'Default TTL for uncached entries (seconds)', 'hsp-smart-cache' ); ?>
+                                    <input type="number" min="0" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache_default_ttl]" value="<?php echo esc_attr( $options['object_cache_default_ttl'] ); ?>" title="<?php echo esc_attr__( 'Used when an object cache write does not provide an expiration.', 'hsp-smart-cache' ); ?>" />
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <?php echo esc_html__( 'Maximum TTL cap (seconds)', 'hsp-smart-cache' ); ?>
+                                    <input type="number" min="0" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache_max_ttl]" value="<?php echo esc_attr( $options['object_cache_max_ttl'] ); ?>" title="<?php echo esc_attr__( 'Caps any longer object cache expiration and bounds legacy unlimited entries.', 'hsp-smart-cache' ); ?>" />
+                                </label>
+                            </p>
                             <p class="description" style="color:#b32d2e;">
-                                <?php echo esc_html__( 'Warning: Object cache drop-ins can conflict with other cache plugins.', 'hsp-smart-cache' ); ?>
+                                <?php echo esc_html__( 'Warning: Object cache drop-ins can conflict with other cache plugins. Entries without an expiration are now capped by the maximum TTL and periodically cleaned up.', 'hsp-smart-cache' ); ?>
                             </p>
                         </td>
                     </tr>

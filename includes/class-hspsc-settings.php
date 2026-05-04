@@ -53,6 +53,8 @@ class HSPSC_Settings {
             'minify_css'     => true,
             'minify_js'      => true,
             'object_cache'   => false,
+            'object_cache_default_ttl' => 604800,
+            'object_cache_max_ttl'     => 2592000,
             'cdn_enabled'    => false,
             'cdn_url'        => '',
         );
@@ -145,6 +147,8 @@ class HSPSC_Settings {
         $output['minify_css']     = ! empty( $input['minify_css'] );
         $output['minify_js']      = ! empty( $input['minify_js'] );
         $output['object_cache']   = ! empty( $input['object_cache'] );
+        $output['object_cache_default_ttl'] = isset( $input['object_cache_default_ttl'] ) ? max( 0, intval( $input['object_cache_default_ttl'] ) ) : $defaults['object_cache_default_ttl'];
+        $output['object_cache_max_ttl']     = isset( $input['object_cache_max_ttl'] ) ? max( 0, intval( $input['object_cache_max_ttl'] ) ) : $defaults['object_cache_max_ttl'];
         $output['cdn_enabled']    = ! empty( $input['cdn_enabled'] );
         $output['cdn_url']        = isset( $input['cdn_url'] ) ? esc_url_raw( trim( $input['cdn_url'] ) ) : '';
 

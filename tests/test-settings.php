@@ -11,6 +11,8 @@ class HSPSC_Settings_Test extends WP_UnitTestCase {
         $this->assertArrayHasKey( 'minify_css', $defaults );
         $this->assertArrayHasKey( 'minify_js', $defaults );
         $this->assertArrayHasKey( 'object_cache', $defaults );
+        $this->assertArrayHasKey( 'object_cache_default_ttl', $defaults );
+        $this->assertArrayHasKey( 'object_cache_max_ttl', $defaults );
         $this->assertArrayHasKey( 'cdn_enabled', $defaults );
         $this->assertArrayHasKey( 'cdn_url', $defaults );
         $this->assertArrayHasKey( 'perf_lazy_images', $defaults );
@@ -35,6 +37,8 @@ class HSPSC_Settings_Test extends WP_UnitTestCase {
             'minify_css'     => '1',
             'minify_js'      => '1',
             'object_cache'   => '1',
+            'object_cache_default_ttl' => '5',
+            'object_cache_max_ttl'     => '10',
             'cdn_enabled'    => '1',
             'cdn_url'        => 'https://cdn.example.com',
         );
@@ -45,6 +49,8 @@ class HSPSC_Settings_Test extends WP_UnitTestCase {
         $this->assertGreaterThanOrEqual( 60, $sanitized['page_cache_ttl'] );
         $this->assertTrue( $sanitized['cache_logged_in'] );
         $this->assertFalse( $sanitized['minify_html'] );
+        $this->assertSame( 5, $sanitized['object_cache_default_ttl'] );
+        $this->assertSame( 10, $sanitized['object_cache_max_ttl'] );
     }
 
     public function test_static_asset_rules_generation() {

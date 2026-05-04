@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.5.6
+Stable tag: 0.6.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -50,6 +50,13 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.6.0 =
+* Add bounded object-cache lifetimes so entries without an explicit expiration get a default TTL and longer writes are capped.
+* Add throttled garbage collection for object-cache files plus legacy cleanup for unlimited entries written before the cap.
+* Add admin settings for object-cache default TTL and maximum TTL cap.
+* Add test coverage for object-cache TTL normalization and expired-file cleanup.
+* Bump the plugin version to 0.6.0.
 
 = 0.5.6 =
 * Add detailed database restore diagnostics for skipped SQL, failed queries, restored table coverage, and prefix mismatches.

@@ -162,9 +162,10 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         parent::set_up();
         global $wpdb;
         $this->wpdb_original = $wpdb;
-        $this->backup_dir = HSPSC_PATH . '/db-backups';
+        $this->backup_dir = $this->get_backup_dir();
 
         $this->delete_dir_recursively( $this->backup_dir );
+        $this->delete_dir_recursively( HSPSC_PATH . '/db-backups' );
     }
 
     public function tear_down(): void {
@@ -172,6 +173,7 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $wpdb = $this->wpdb_original;
 
         $this->delete_dir_recursively( $this->backup_dir );
+        $this->delete_dir_recursively( HSPSC_PATH . '/db-backups' );
 
         parent::tear_down();
     }
@@ -603,6 +605,39 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $path );
     }
 
+    public function test_list_backups_includes_legacy_backup_directory() {
+        $legacy_dir = HSPSC_PATH . '/db-backups';
+        wp_mkdir_p( $legacy_dir );
+
+        $file = 'hsp-db-backup-2026-04-25_10-20-35.sql';
+        $path = $legacy_dir . '/' . $file;
+        file_put_contents( $path, '-- legacy backup' );
+
+        $backups = HSPSC_Maintenance::list_backups();
+
+        $this->assertNotEmpty( $backups );
+        $this->assertContains( $file, wp_list_pluck( $backups, 'file' ) );
+        $this->assertTrue( HSPSC_Maintenance::delete_backup( $file ) );
+        $this->assertFileDoesNotExist( $path );
+    }
+
+    public function test_create_backup_writes_directory_protection_files() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_options' );
+        $wpdb->table_rows = array( 'wp_options' => array() );
+        $wpdb->create_sql = array( 'wp_options' => 'CREATE TABLE `wp_options` (`option_id` int(11) NOT NULL)' );
+
+        $backup = HSPSC_Maintenance::create_backup();
+
+        $this->assertTrue( $backup['ok'] );
+        $this->assertFileExists( $this->backup_dir . '/index.php' );
+        $this->assertFileExists( $this->backup_dir . '/.htaccess' );
+        $this->assertFileExists( $this->backup_dir . '/web.config' );
+        $this->assertStringContainsString( 'Require all denied', file_get_contents( $this->backup_dir . '/.htaccess' ) );
+        $this->assertStringContainsString( '<authorization>', file_get_contents( $this->backup_dir . '/web.config' ) );
+    }
+
     private function read_backup_contents( $path ) {
         $contents = file_get_contents( $path );
         if ( substr( $path, -3 ) === '.gz' ) {
@@ -611,6 +646,14 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         }
 
         return (string) $contents;
+    }
+
+    private function get_backup_dir() {
+        $ref = new ReflectionClass( 'HSPSC_Maintenance' );
+        $method = $ref->getMethod( 'get_backup_dir' );
+        $method->setAccessible( true );
+
+        return $method->invoke( null );
     }
 
     private function delete_dir_recursively( $dir ) {

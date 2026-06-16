@@ -2,7 +2,7 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.6.1
+ * Version: 0.7.0
  * Update URI: https://github.com/helmut-steiner/hsp-smart-cache
  * Author: Helmut Steiner
  * License: MIT
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSPSC_VERSION', '0.6.1' );
+define( 'HSPSC_VERSION', '0.7.0' );
 define( 'HSPSC_BASENAME', plugin_basename( __FILE__ ) );
 define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );
 define( 'HSPSC_URL', content_url( '/cache/hspsc' ) );
@@ -62,6 +62,10 @@ class HSPSC_Plugin {
         add_action( 'customize_save_after', array( __CLASS__, 'flush_all_caches' ) );
         add_action( 'upgrader_process_complete', array( __CLASS__, 'handle_upgrader_process_complete' ), 10, 2 );
         add_action( 'core_updated_successfully', array( __CLASS__, 'flush_all_caches' ) );
+        add_action( 'updated_option', array( __CLASS__, 'handle_updated_option' ), 10, 3 );
+        add_action( 'added_option', array( __CLASS__, 'handle_added_option' ), 10, 2 );
+        add_action( 'deleted_option', array( __CLASS__, 'handle_deleted_option' ), 10, 1 );
+        add_action( 'bricks/generate_css_file', array( __CLASS__, 'flush_render_caches' ) );
     }
 
     public static function activate() {
@@ -78,6 +82,11 @@ class HSPSC_Plugin {
         HSPSC_Page::clear_cache();
         HSPSC_Minify::clear_cache();
         HSPSC_Object::flush_cache();
+    }
+
+    public static function flush_render_caches() {
+        HSPSC_Page::clear_cache();
+        HSPSC_Minify::clear_cache();
     }
 
     public static function handle_post_change( $post_id, $post, $update ) {
@@ -124,6 +133,45 @@ class HSPSC_Plugin {
         if ( in_array( $type, array( 'plugin', 'theme', 'core' ), true ) ) {
             self::flush_all_caches();
         }
+    }
+
+    public static function handle_updated_option( $option, $old_value, $value ) {
+        if ( self::is_render_affecting_option( $option ) ) {
+            self::flush_render_caches();
+        }
+    }
+
+    public static function handle_added_option( $option, $value ) {
+        if ( self::is_render_affecting_option( $option ) ) {
+            self::flush_render_caches();
+        }
+    }
+
+    public static function handle_deleted_option( $option ) {
+        if ( self::is_render_affecting_option( $option ) ) {
+            self::flush_render_caches();
+        }
+    }
+
+    protected static function is_render_affecting_option( $option ) {
+        $option = (string) $option;
+        if ( $option === '' || $option === HSPSC_Settings::OPTION_KEY ) {
+            return false;
+        }
+
+        $prefixes = array(
+            'bricks_',
+            'brx_',
+            '_bricks_',
+        );
+
+        foreach ( $prefixes as $prefix ) {
+            if ( strpos( $option, $prefix ) === 0 ) {
+                return (bool) apply_filters( 'hspsc_is_render_affecting_option', true, $option );
+            }
+        }
+
+        return (bool) apply_filters( 'hspsc_is_render_affecting_option', false, $option );
     }
 }
 

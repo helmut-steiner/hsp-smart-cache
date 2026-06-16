@@ -48,14 +48,16 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'Docker CLI was not found. Install Docker Desktop or add docker.exe to PATH.'
 }
 
+$env:COMPOSE_PROJECT_NAME = if ($env:HSPSC_WP_ENV_PROJECT_NAME) { $env:HSPSC_WP_ENV_PROJECT_NAME } else { 'hsp-smart-cache' }
+
 $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
 if (-not $npmCommand) {
     $npmCommand = Get-Command npm -ErrorAction Stop
 }
 
-$npxCommand = Get-Command npx.cmd -ErrorAction SilentlyContinue
-if (-not $npxCommand) {
-    $npxCommand = Get-Command npx -ErrorAction Stop
+$nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+if (-not $nodeCommand) {
+    $nodeCommand = Get-Command node -ErrorAction Stop
 }
 
 function Invoke-CheckedCommand {
@@ -80,11 +82,11 @@ if (-not $SkipStart) {
 }
 
 Write-Host 'Installing Composer test dependencies...'
-Invoke-CheckedCommand $npxCommand.Source wp-env run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache composer install --no-interaction --prefer-dist
+Invoke-CheckedCommand $nodeCommand.Source ./bin/wp-env-named.js run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache composer install --no-interaction --prefer-dist
 
 # Build the wp-env command for tests-cli using plugin-relative cwd.
 $baseCommand = @(
-    'wp-env',
+    './bin/wp-env-named.js',
     'run',
     'tests-cli',
     '--env-cwd=wp-content/plugins/hsp-smart-cache',
@@ -98,4 +100,4 @@ if ($PhpUnitArgs -and $PhpUnitArgs.Count -gt 0) {
 }
 
 Write-Host 'Running PHPUnit in wp-env...'
-Invoke-CheckedCommand $npxCommand.Source @baseCommand
+Invoke-CheckedCommand $nodeCommand.Source @baseCommand

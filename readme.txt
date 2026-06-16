@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 0.6.1
+Stable tag: 0.7.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -50,6 +50,17 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.7.0 =
+* Add admin-bar cache status diagnostics for the current URL, including HIT, MISS, STALE, BYPASS, and OFF states.
+* Show topbar cache reasons plus cache age, TTL, and size details when available.
+* Harden page-cache eligibility for sensitive cookies, sensitive routes, search/404/password pages, unsafe status codes, `Set-Cookie`, and no-cache response headers.
+* Use atomic writes for page-cache files, minified assets, object-cache payloads, and database backup protection files.
+* Fix object-cache key collisions, falsey `wp_cache_add()` handling, and multisite blog context isolation.
+* Broaden page-cache invalidation for public post changes and Bricks-related render changes.
+* Prefer database backup storage outside the WordPress root when writable, while preserving legacy backup lookup.
+* Flush object-cache contents when settings change so TTL and object-cache configuration changes take effect cleanly.
+* Add regression coverage for object-cache falsey values and raw-key collisions.
 
 = 0.6.1 =
 * Fix object-cache drop-in bootstrap fatal by avoiding hard dependency on HSPSC_Settings before plugin classes are loaded.

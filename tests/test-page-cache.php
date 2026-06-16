@@ -57,6 +57,34 @@ class HSPSC_Page_Test extends WP_UnitTestCase {
         $this->assertNotSame( $base, $filtered );
     }
 
+    public function test_cache_info_reports_fresh_and_stale_files() {
+        update_option(
+            HSPSC_Settings::OPTION_KEY,
+            array_merge( HSPSC_Settings::defaults(), array( 'page_cache' => true, 'page_cache_ttl' => 60 ) )
+        );
+
+        HSPSC_Utils::ensure_cache_dirs();
+        $url = home_url( '/cache-info/' );
+        $file = HSPSC_Page::get_cache_file_path_for_url( $url );
+        file_put_contents( $file, '<html>cached</html>' );
+
+        $fresh = HSPSC_Page::get_cache_info_for_url( $url );
+        $this->assertTrue( $fresh['enabled'] );
+        $this->assertTrue( $fresh['exists'] );
+        $this->assertTrue( $fresh['fresh'] );
+        $this->assertSame( strlen( '<html>cached</html>' ), $fresh['size'] );
+
+        touch( $file, time() - 120 );
+        clearstatcache( true, $file );
+
+        $stale = HSPSC_Page::get_cache_info_for_url( $url );
+        $this->assertTrue( $stale['exists'] );
+        $this->assertFalse( $stale['fresh'] );
+        $this->assertGreaterThanOrEqual( 60, $stale['age'] );
+
+        wp_delete_file( $file );
+    }
+
     public function test_logged_in_cache_key_varies_by_user() {
         $_SERVER['HTTP_HOST'] = wp_parse_url( home_url(), PHP_URL_HOST );
         $_SERVER['REQUEST_URI'] = '/member-area/';

@@ -142,16 +142,21 @@ class HSPSC_Utils {
             self::$cacheable_request[ $signature ] = false;
             return self::$cacheable_request[ $signature ];
         }
+        if ( self::has_sensitive_cookies() || self::is_sensitive_request_uri() ) {
+            self::$cacheable_request[ $signature ] = false;
+            return self::$cacheable_request[ $signature ];
+        }
         $method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
         if ( $method !== 'GET' ) {
             self::$cacheable_request[ $signature ] = false;
             return self::$cacheable_request[ $signature ];
         }
-        if ( is_preview() || is_feed() || is_robots() || is_trackback() ) {
+        if ( is_preview() || is_feed() || is_robots() || is_trackback() || is_search() || is_404() || post_password_required() ) {
             self::$cacheable_request[ $signature ] = false;
             return self::$cacheable_request[ $signature ];
         }
-        self::$cacheable_request[ $signature ] = true;
+
+        self::$cacheable_request[ $signature ] = (bool) apply_filters( 'hspsc_is_request_cacheable', true );
         return self::$cacheable_request[ $signature ];
     }
 
@@ -315,6 +320,37 @@ class HSPSC_Utils {
         return $deleted;
     }
 
+    public static function atomic_write( $path, $contents ) {
+        $dir = dirname( $path );
+        if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
+            return false;
+        }
+
+        $tmp = wp_tempnam( basename( $path ), $dir );
+        if ( ! $tmp ) {
+            return false;
+        }
+
+        $bytes = file_put_contents( $tmp, $contents, LOCK_EX );
+        if ( $bytes === false || $bytes < strlen( $contents ) ) {
+            wp_delete_file( $tmp );
+            return false;
+        }
+
+        @chmod( $tmp, 0644 );
+        if ( @rename( $tmp, $path ) ) {
+            return true;
+        }
+
+        wp_delete_file( $path );
+        if ( @rename( $tmp, $path ) ) {
+            return true;
+        }
+
+        wp_delete_file( $tmp );
+        return false;
+    }
+
     public static function reset_request_cache() {
         self::$cacheable_request = array();
         self::$frontend_optimizations = array();
@@ -336,5 +372,66 @@ class HSPSC_Utils {
         );
 
         return md5( implode( '|', $server_parts ) );
+    }
+
+    protected static function has_sensitive_cookies() {
+        if ( empty( $_COOKIE ) || ! is_array( $_COOKIE ) ) {
+            return false;
+        }
+
+        $sensitive_prefixes = array(
+            'wordpress_logged_in_',
+            'wp-postpass_',
+            'wp_woocommerce_session_',
+        );
+
+        $sensitive_names = array(
+            'woocommerce_items_in_cart',
+            'woocommerce_cart_hash',
+            'edd_items_in_cart',
+            'easy_digital_downloads',
+        );
+
+        foreach ( array_keys( $_COOKIE ) as $cookie_name ) {
+            $cookie_name = (string) $cookie_name;
+            if ( in_array( $cookie_name, $sensitive_names, true ) ) {
+                return true;
+            }
+
+            foreach ( $sensitive_prefixes as $prefix ) {
+                if ( strpos( $cookie_name, $prefix ) === 0 ) {
+                    return true;
+                }
+            }
+        }
+
+        return (bool) apply_filters( 'hspsc_has_sensitive_cookies', false, $_COOKIE );
+    }
+
+    protected static function is_sensitive_request_uri() {
+        $uri = isset( $_SERVER['REQUEST_URI'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) ) : '';
+        if ( $uri === '' ) {
+            return false;
+        }
+
+        $sensitive_fragments = array(
+            '/cart',
+            '/checkout',
+            '/my-account',
+            '/account',
+            '/wp-json/',
+            'wc-ajax=',
+            'add-to-cart=',
+            'preview=',
+            'customize_changeset_uuid=',
+        );
+
+        foreach ( $sensitive_fragments as $fragment ) {
+            if ( strpos( $uri, $fragment ) !== false ) {
+                return true;
+            }
+        }
+
+        return (bool) apply_filters( 'hspsc_is_sensitive_request_uri', false, $uri );
     }
 }

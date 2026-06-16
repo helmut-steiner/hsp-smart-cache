@@ -16,6 +16,7 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
         protected $non_persistent_groups = array();
         protected $cache_dir;
         protected $cleanup_lock_file;
+        protected $blog_id = 0;
 
         protected function get_filesystem() {
             return null;
@@ -33,7 +34,7 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
         }
 
         protected function fs_put_contents( $path, $contents ) {
-            return file_put_contents( $path, $contents ) !== false;
+            return $this->atomic_write( $path, $contents );
         }
 
         protected function fs_exists( $path ) {
@@ -55,21 +56,23 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
         public function __construct() {
             $this->cache_dir = WP_CONTENT_DIR . '/cache/hspsc/object';
             $this->cleanup_lock_file = $this->cache_dir . '/.gc-lock';
+            $this->blog_id = $this->get_current_blog_id();
             if ( ! $this->fs_is_dir( $this->cache_dir ) ) {
                 $this->fs_mkdir( $this->cache_dir, 0755, true );
             }
         }
 
         public function add( $key, $data, $group = 'default', $expire = 0 ) {
-            if ( $this->get( $key, $group, false, $found ) && $found ) {
+            $this->get( $key, $group, false, $found );
+            if ( $found ) {
                 return false;
             }
             return $this->set( $key, $data, $group, $expire );
         }
 
         public function set( $key, $data, $group = 'default', $expire = 0 ) {
-            $group = $this->sanitize_group( $group );
-            $key   = $this->sanitize_key( $key );
+            $group = $this->normalize_group( $group );
+            $key   = $this->normalize_key( $key );
             $id    = $this->cache_key( $key, $group );
             $expire = $this->normalize_expire( $expire );
 
@@ -99,8 +102,8 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
         }
 
         public function get( $key, $group = 'default', $force = false, &$found = null ) {
-            $group = $this->sanitize_group( $group );
-            $key   = $this->sanitize_key( $key );
+            $group = $this->normalize_group( $group );
+            $key   = $this->normalize_key( $key );
             $id    = $this->cache_key( $key, $group );
 
             if ( isset( $this->cache[ $id ] ) && ! $force ) {
@@ -125,7 +128,7 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
                 return false;
             }
 
-            $payload = @unserialize( $raw );
+            $payload = @unserialize( $raw, array( 'allowed_classes' => true ) );
             if ( ! is_array( $payload ) || ! array_key_exists( 'value', $payload ) ) {
                 $found = false;
                 return false;
@@ -149,8 +152,8 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
         }
 
         public function delete( $key, $group = 'default' ) {
-            $group = $this->sanitize_group( $group );
-            $key   = $this->sanitize_key( $key );
+            $group = $this->normalize_group( $group );
+            $key   = $this->normalize_key( $key );
             $id    = $this->cache_key( $key, $group );
 
             unset( $this->cache[ $id ] );
@@ -195,27 +198,33 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
 
         public function add_global_groups( $groups ) {
             $groups = (array) $groups;
-            $this->global_groups = array_merge( $this->global_groups, $groups );
+            $this->global_groups = array_unique( array_merge( $this->global_groups, array_map( array( $this, 'normalize_group' ), $groups ) ) );
         }
 
         public function add_non_persistent_groups( $groups ) {
             $groups = (array) $groups;
-            $this->non_persistent_groups = array_merge( $this->non_persistent_groups, $groups );
+            $this->non_persistent_groups = array_unique( array_merge( $this->non_persistent_groups, array_map( array( $this, 'normalize_group' ), $groups ) ) );
+        }
+
+        public function switch_to_blog( $blog_id ) {
+            $this->blog_id = max( 0, (int) $blog_id );
+            $this->cache = array();
         }
 
         protected function cache_key( $key, $group ) {
-            $group = $this->sanitize_group( $group );
-            $key   = $this->sanitize_key( $key );
+            $group = $this->normalize_group( $group );
+            $key   = $this->normalize_key( $key );
+            $prefix = $this->get_blog_prefix( $group );
             if ( $this->is_global_group( $group ) ) {
-                return $group . ':' . $key;
+                return $prefix . $group . ':' . $key;
             }
-            return $group . ':' . $key;
+            return $prefix . $group . ':' . $key;
         }
 
         protected function get_file_path( $key, $group ) {
-            $group = $this->sanitize_group( $group );
-            $hash  = md5( $key );
-            return $this->cache_dir . '/' . $group . '/' . $hash . '.cache';
+            $group = $this->normalize_group( $group );
+            $hash  = md5( $this->cache_key( $this->normalize_key( $key ), $group ) );
+            return $this->cache_dir . '/' . $group . '/' . substr( $hash, 0, 2 ) . '/' . $hash . '.cache';
         }
 
         protected function normalize_expire( $expire ) {
@@ -324,7 +333,7 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
                     continue;
                 }
 
-                $payload = @unserialize( $raw );
+                $payload = @unserialize( $raw, array( 'allowed_classes' => true ) );
                 if ( ! is_array( $payload ) || ! array_key_exists( 'value', $payload ) ) {
                     if ( $this->fs_delete( $path ) ) {
                         $deleted++;
@@ -349,12 +358,42 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
             return $deleted;
         }
 
-        protected function sanitize_key( $key ) {
-            return preg_replace( '/[^A-Za-z0-9_\-:]/', '', (string) $key );
+        protected function normalize_key( $key ) {
+            if ( is_scalar( $key ) || ( is_object( $key ) && method_exists( $key, '__toString' ) ) ) {
+                return (string) $key;
+            }
+
+            return md5( serialize( $key ) );
         }
 
-        protected function sanitize_group( $group ) {
-            return preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $group );
+        protected function normalize_group( $group ) {
+            $group = (string) $group;
+            if ( $group === '' ) {
+                return 'default';
+            }
+
+            $group = preg_replace( '/[^A-Za-z0-9_\-]/', '_', $group );
+            return $group !== '' ? $group : 'default';
+        }
+
+        protected function get_blog_prefix( $group ) {
+            if ( $this->is_global_group( $group ) ) {
+                return 'global:';
+            }
+
+            if ( function_exists( 'is_multisite' ) && is_multisite() ) {
+                return 'blog:' . $this->blog_id . ':';
+            }
+
+            return 'site:';
+        }
+
+        protected function get_current_blog_id() {
+            if ( function_exists( 'get_current_blog_id' ) ) {
+                return (int) get_current_blog_id();
+            }
+
+            return 0;
         }
 
         protected function is_global_group( $group ) {
@@ -388,6 +427,47 @@ if ( ! class_exists( 'HSPSC_File_Object_Cache' ) ) {
                     $this->fs_delete( $path );
                 }
             }
+        }
+
+        protected function atomic_write( $path, $contents ) {
+            $dir = dirname( $path );
+            if ( ! $this->fs_is_dir( $dir ) && ! $this->fs_mkdir( $dir, 0755, true ) ) {
+                return false;
+            }
+
+            $tmp = tempnam( $dir, '.tmp-' );
+            if ( ! $tmp ) {
+                return false;
+            }
+
+            $handle = fopen( $tmp, 'wb' );
+            if ( ! $handle ) {
+                @unlink( $tmp );
+                return false;
+            }
+
+            $written = fwrite( $handle, $contents );
+            if ( $written === false || $written < strlen( $contents ) ) {
+                fclose( $handle );
+                @unlink( $tmp );
+                return false;
+            }
+
+            fflush( $handle );
+            fclose( $handle );
+            @chmod( $tmp, 0644 );
+
+            if ( @rename( $tmp, $path ) ) {
+                return true;
+            }
+
+            @unlink( $path );
+            if ( @rename( $tmp, $path ) ) {
+                return true;
+            }
+
+            @unlink( $tmp );
+            return false;
         }
     }
 }
@@ -466,6 +546,16 @@ if ( ! function_exists( 'wp_cache_decr' ) ) {
 
 if ( ! function_exists( 'wp_cache_close' ) ) {
     function wp_cache_close() {
+        return true;
+    }
+}
+
+if ( ! function_exists( 'wp_cache_switch_to_blog' ) ) {
+    function wp_cache_switch_to_blog( $blog_id ) {
+        global $wp_object_cache;
+        if ( is_object( $wp_object_cache ) && method_exists( $wp_object_cache, 'switch_to_blog' ) ) {
+            $wp_object_cache->switch_to_blog( $blog_id );
+        }
         return true;
     }
 }

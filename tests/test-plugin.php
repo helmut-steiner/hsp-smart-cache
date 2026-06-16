@@ -63,6 +63,35 @@ class HSPSC_Plugin_Test extends WP_UnitTestCase {
         wp_delete_file( $page_file );
     }
 
+    public function test_render_affecting_option_changes_flush_page_and_asset_caches() {
+        $page_file  = HSPSC_PATH . '/pages/render-option-page.html';
+        $asset_file = HSPSC_PATH . '/assets/render-option-asset.min.css';
+
+        file_put_contents( $page_file, 'cached page' );
+        file_put_contents( $asset_file, 'cached asset' );
+
+        HSPSC_Plugin::handle_updated_option( 'bricks_global_settings', array(), array() );
+
+        $this->assertFileDoesNotExist( $page_file );
+        $this->assertFileDoesNotExist( $asset_file );
+    }
+
+    public function test_non_render_affecting_option_does_not_flush_render_caches() {
+        $page_file  = HSPSC_PATH . '/pages/non-render-option-page.html';
+        $asset_file = HSPSC_PATH . '/assets/non-render-option-asset.min.css';
+
+        file_put_contents( $page_file, 'cached page' );
+        file_put_contents( $asset_file, 'cached asset' );
+
+        HSPSC_Plugin::handle_updated_option( 'unrelated_option', 'old', 'new' );
+
+        $this->assertFileExists( $page_file );
+        $this->assertFileExists( $asset_file );
+
+        wp_delete_file( $page_file );
+        wp_delete_file( $asset_file );
+    }
+
     public function test_init_registers_expected_hooks() {
         HSPSC_Plugin::init();
 
@@ -71,5 +100,9 @@ class HSPSC_Plugin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( has_action( 'save_post', array( 'HSPSC_Plugin', 'handle_post_change' ) ) );
         $this->assertNotFalse( has_action( 'deleted_post', array( 'HSPSC_Plugin', 'handle_post_delete' ) ) );
         $this->assertNotFalse( has_action( 'comment_post', array( 'HSPSC_Plugin', 'handle_comment_change' ) ) );
+        $this->assertNotFalse( has_action( 'updated_option', array( 'HSPSC_Plugin', 'handle_updated_option' ) ) );
+        $this->assertNotFalse( has_action( 'added_option', array( 'HSPSC_Plugin', 'handle_added_option' ) ) );
+        $this->assertNotFalse( has_action( 'deleted_option', array( 'HSPSC_Plugin', 'handle_deleted_option' ) ) );
+        $this->assertNotFalse( has_action( 'bricks/generate_css_file', array( 'HSPSC_Plugin', 'flush_render_caches' ) ) );
     }
 }

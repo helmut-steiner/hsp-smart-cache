@@ -74,10 +74,11 @@ class HSPSC_Page {
         $cache_file = self::get_cache_file_path();
         if ( $cache_file ) {
             HSPSC_Utils::ensure_cache_dirs();
-            file_put_contents( $cache_file, $html );
-            self::send_browser_cache_headers( $cache_file, true );
-            header( 'X-HSPSC-Cache: MISS' );
-            self::maybe_cleanup_expired_cache();
+            if ( HSPSC_Utils::atomic_write( $cache_file, $html ) ) {
+                self::send_browser_cache_headers( $cache_file, true );
+                header( 'X-HSPSC-Cache: MISS' );
+                self::maybe_cleanup_expired_cache();
+            }
         }
 
         ob_end_clean();
@@ -87,7 +88,7 @@ class HSPSC_Page {
 
     protected static function should_cache_response() {
         $status = function_exists( 'http_response_code' ) ? http_response_code() : 200;
-        if ( $status >= 300 && $status < 400 ) {
+        if ( $status < 200 || $status >= 300 ) {
             return false;
         }
 
@@ -95,9 +96,20 @@ class HSPSC_Page {
             if ( stripos( $header, 'Location:' ) === 0 ) {
                 return false;
             }
+
+            if ( stripos( $header, 'Set-Cookie:' ) === 0 ) {
+                return false;
+            }
+
+            if ( stripos( $header, 'Cache-Control:' ) === 0 ) {
+                $cache_control = strtolower( $header );
+                if ( strpos( $cache_control, 'no-store' ) !== false || strpos( $cache_control, 'private' ) !== false || strpos( $cache_control, 'no-cache' ) !== false ) {
+                    return false;
+                }
+            }
         }
 
-        return true;
+        return (bool) apply_filters( 'hspsc_should_cache_response', true, $status, headers_list() );
     }
 
     protected static function send_browser_cache_headers( $cache_file = null, $is_miss = false ) {
@@ -158,17 +170,36 @@ class HSPSC_Page {
         return HSPSC_PATH . '/pages/' . $key . '.html';
     }
 
-    protected static function get_cache_file_path_for_url( $url ) {
+    public static function get_cache_file_path_for_url( $url ) {
         $parts = wp_parse_url( $url );
         if ( empty( $parts['host'] ) ) {
             return null;
         }
-        $scheme = ! empty( $parts['scheme'] ) ? $parts['scheme'] : 'http';
+        $scheme = ! empty( $parts['scheme'] ) ? strtolower( $parts['scheme'] ) : 'http';
+        $host   = strtolower( (string) $parts['host'] );
         $path   = isset( $parts['path'] ) ? $parts['path'] : '/';
         $query  = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
         $uri    = self::normalize_cache_uri( $path . $query );
-        $key    = md5( $scheme . '://' . $parts['host'] . $uri );
+        $key    = md5( $scheme . '://' . $host . $uri );
         return HSPSC_PATH . '/pages/' . $key . '.html';
+    }
+
+    public static function get_cache_info_for_url( $url ) {
+        $file = self::get_cache_file_path_for_url( $url );
+        $ttl = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
+        $exists = $file && file_exists( $file );
+        $mtime = $exists ? filemtime( $file ) : false;
+        $age = $mtime ? max( 0, time() - $mtime ) : null;
+
+        return array(
+            'enabled' => (bool) HSPSC_Settings::get( 'page_cache' ),
+            'file'    => $file,
+            'exists'  => (bool) $exists,
+            'fresh'   => $exists && $age !== null && $age <= $ttl,
+            'age'     => $age,
+            'ttl'     => $ttl,
+            'size'    => $exists ? (int) filesize( $file ) : 0,
+        );
     }
 
     protected static function normalize_cache_uri( $uri ) {
@@ -295,6 +326,24 @@ class HSPSC_Page {
         }
 
         self::clear_cache_for_urls( array_unique( $urls ) );
+
+        if ( apply_filters( 'hspsc_flush_page_cache_on_post_change', self::should_flush_all_for_post_change( $post_id ), $post_id, $urls ) ) {
+            self::clear_cache();
+        }
+    }
+
+    protected static function should_flush_all_for_post_change( $post_id ) {
+        $post_type = get_post_type( $post_id );
+        if ( ! $post_type ) {
+            return true;
+        }
+
+        $post_type_object = get_post_type_object( $post_type );
+        if ( ! $post_type_object || empty( $post_type_object->public ) ) {
+            return false;
+        }
+
+        return true;
     }
 
     public static function warm_url( $url ) {

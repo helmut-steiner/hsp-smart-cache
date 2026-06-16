@@ -6,6 +6,10 @@ class HSPSC_Test_Object_Cache extends HSPSC_File_Object_Cache {
     public function file_path_for( $key, $group = 'default' ) {
         return $this->get_file_path( $key, $group );
     }
+
+    public function cache_key_for( $key, $group = 'default' ) {
+        return $this->cache_key( $key, $group );
+    }
 }
 
 class HSPSC_Object_Test extends WP_UnitTestCase {
@@ -107,6 +111,40 @@ class HSPSC_Object_Test extends WP_UnitTestCase {
         $this->assertArrayHasKey( 'expire', $payload );
         $this->assertGreaterThan( time(), (int) $payload['expire'] );
         $this->assertLessThanOrEqual( time() + HSPSC_Settings::get( 'object_cache_default_ttl', 604800 ) + 5, (int) $payload['expire'] );
+    }
+
+    public function test_add_does_not_overwrite_existing_falsey_value() {
+        $cache = new HSPSC_Test_Object_Cache();
+
+        $this->assertTrue( $cache->set( 'falsey-add-test', '0', 'default', 60 ) );
+        $this->assertFalse( $cache->add( 'falsey-add-test', 'replacement', 'default', 60 ) );
+
+        $this->assertSame( '0', $cache->get( 'falsey-add-test', 'default' ) );
+    }
+
+    public function test_object_cache_keeps_distinct_raw_keys() {
+        $cache = new HSPSC_Test_Object_Cache();
+
+        $cache->set( 'foo@bar', 'with-at', 'default', 60 );
+        $cache->set( 'foobar', 'plain', 'default', 60 );
+
+        $this->assertSame( 'with-at', $cache->get( 'foo@bar', 'default' ) );
+        $this->assertSame( 'plain', $cache->get( 'foobar', 'default' ) );
+        $this->assertNotSame( $cache->file_path_for( 'foo@bar' ), $cache->file_path_for( 'foobar' ) );
+    }
+
+    public function test_object_cache_sanitizes_group_for_paths_and_prefixes_global_groups() {
+        $cache = new HSPSC_Test_Object_Cache();
+
+        $cache->add_global_groups( array( 'global group' ) );
+        $cache->set( 'same-key', 'site-value', 'default', 60 );
+        $cache->set( 'same-key', 'global-value', 'global group', 60 );
+
+        $this->assertStringContainsString( '/global_group/', wp_normalize_path( $cache->file_path_for( 'same-key', 'global group' ) ) );
+        $this->assertStringStartsWith( 'global:', $cache->cache_key_for( 'same-key', 'global group' ) );
+        $this->assertNotSame( $cache->file_path_for( 'same-key', 'default' ), $cache->file_path_for( 'same-key', 'global group' ) );
+        $this->assertSame( 'site-value', $cache->get( 'same-key', 'default' ) );
+        $this->assertSame( 'global-value', $cache->get( 'same-key', 'global group' ) );
     }
 
     public function test_set_caps_long_ttl_to_maximum() {

@@ -57,6 +57,9 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         HSPSC_Admin::register_admin_bar( $bar );
 
         $this->assertNotNull( $bar->get_node( 'hspsc' ) );
+        $this->assertStringContainsString( 'HSP Cache:', $bar->get_node( 'hspsc' )->title );
+        $this->assertNotNull( $bar->get_node( 'hspsc-status' ) );
+        $this->assertNotNull( $bar->get_node( 'hspsc-status-reason' ) );
         $this->assertNotNull( $bar->get_node( 'hspsc-clear-all' ) );
 
         wp_set_current_user( 0 );

@@ -8,9 +8,10 @@
     "ajv": "^8.18.0"
   },
   "scripts": {
-    "wp-env:start": "wp-env start",
-    "wp-env:stop": "wp-env stop",
-    "wp-env:destroy": "wp-env destroy",
-    "wp-env:tests": "wp-env run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache vendor/bin/phpunit --configuration=phpunit.xml.dist"
+    "test:wp-env-wrapper": "node --test tests/node/wp-env-named.test.js",
+    "wp-env:start": "node ./bin/wp-env-named.js start",
+    "wp-env:stop": "node ./bin/wp-env-named.js stop",
+    "wp-env:destroy": "node ./bin/wp-env-named.js destroy",
+    "wp-env:tests": "node ./bin/wp-env-named.js run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache vendor/bin/phpunit --configuration=phpunit.xml.dist"
   }
 }

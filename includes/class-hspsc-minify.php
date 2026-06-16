@@ -72,8 +72,12 @@ class HSPSC_Minify {
                 return $src;
             }
             $minified = ( $type === 'css' ) ? self::minify_css( $contents ) : self::minify_js( $contents );
-            file_put_contents( $target, $minified );
-            self::maybe_cleanup_asset_cache();
+            if ( HSPSC_Utils::atomic_write( $target, $minified ) ) {
+                self::maybe_cleanup_asset_cache();
+            } else {
+                self::$asset_url_cache[ $cache_key ] = $src;
+                return $src;
+            }
         }
 
         self::$asset_url_cache[ $cache_key ] = HSPSC_URL . '/assets/' . $filename;

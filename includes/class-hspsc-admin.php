@@ -142,13 +142,56 @@ class HSPSC_Admin {
             return;
         }
 
+        $status = self::get_admin_bar_cache_status();
+
         $wp_admin_bar->add_node(
             array(
                 'id'    => 'hspsc',
-                'title' => __( 'HSP Cache', 'hsp-smart-cache' ),
+                'title' => sprintf(
+                    /* translators: %s is the current page cache status label. */
+                    __( 'HSP Cache: %s', 'hsp-smart-cache' ),
+                    $status['label']
+                ),
                 'href'  => admin_url( 'options-general.php?page=hsp-smart-cache' ),
             )
         );
+
+        $wp_admin_bar->add_node(
+            array(
+                'id'     => 'hspsc-status',
+                'parent' => 'hspsc',
+                'title'  => sprintf(
+                    /* translators: %s is the current page cache status label. */
+                    __( 'Status: %s', 'hsp-smart-cache' ),
+                    $status['label']
+                ),
+                'href'   => admin_url( 'options-general.php?page=hsp-smart-cache' ),
+            )
+        );
+
+        $wp_admin_bar->add_node(
+            array(
+                'id'     => 'hspsc-status-reason',
+                'parent' => 'hspsc',
+                'title'  => sprintf(
+                    /* translators: %s is a short reason explaining the current cache status. */
+                    __( 'Reason: %s', 'hsp-smart-cache' ),
+                    $status['reason']
+                ),
+                'href'   => admin_url( 'options-general.php?page=hsp-smart-cache' ),
+            )
+        );
+
+        if ( ! empty( $status['details'] ) ) {
+            $wp_admin_bar->add_node(
+                array(
+                    'id'     => 'hspsc-status-details',
+                    'parent' => 'hspsc',
+                    'title'  => $status['details'],
+                    'href'   => admin_url( 'options-general.php?page=hsp-smart-cache' ),
+                )
+            );
+        }
 
         $is_frontend = ! is_admin();
 
@@ -187,6 +230,84 @@ class HSPSC_Admin {
                 'title'  => __( 'Rebuild all caches', 'hsp-smart-cache' ),
                 'href'   => self::action_url( 'hspsc_rebuild_all' ),
             )
+        );
+    }
+
+    protected static function get_admin_bar_cache_status() {
+        $url = self::get_current_url();
+        if ( ! $url ) {
+            $url = home_url( '/' );
+        }
+
+        $info = HSPSC_Page::get_cache_info_for_url( $url );
+
+        if ( empty( $info['enabled'] ) ) {
+            return array(
+                'label'   => __( 'OFF', 'hsp-smart-cache' ),
+                'reason'  => __( 'Page cache is disabled.', 'hsp-smart-cache' ),
+                'details' => '',
+            );
+        }
+
+        if ( is_admin() ) {
+            return array(
+                'label'   => __( 'BYPASS', 'hsp-smart-cache' ),
+                'reason'  => __( 'WordPress admin requests are not cached.', 'hsp-smart-cache' ),
+                'details' => '',
+            );
+        }
+
+        if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
+            return array(
+                'label'   => ! empty( $info['fresh'] ) ? __( 'HIT', 'hsp-smart-cache' ) : __( 'BYPASS', 'hsp-smart-cache' ),
+                'reason'  => __( 'Admin view bypasses cache; shown status is for the public URL.', 'hsp-smart-cache' ),
+                'details' => self::format_cache_info_details( $info ),
+            );
+        }
+
+        if ( ! empty( $info['fresh'] ) ) {
+            return array(
+                'label'   => __( 'HIT', 'hsp-smart-cache' ),
+                'reason'  => __( 'Fresh cache file exists for this URL.', 'hsp-smart-cache' ),
+                'details' => self::format_cache_info_details( $info ),
+            );
+        }
+
+        if ( ! empty( $info['exists'] ) ) {
+            return array(
+                'label'   => __( 'STALE', 'hsp-smart-cache' ),
+                'reason'  => __( 'Cache file exists but is older than the page cache TTL.', 'hsp-smart-cache' ),
+                'details' => self::format_cache_info_details( $info ),
+            );
+        }
+
+        return array(
+            'label'   => __( 'MISS', 'hsp-smart-cache' ),
+            'reason'  => __( 'No cache file exists for this URL.', 'hsp-smart-cache' ),
+            'details' => self::format_cache_info_details( $info ),
+        );
+    }
+
+    protected static function format_cache_info_details( $info ) {
+        $ttl = isset( $info['ttl'] ) ? intval( $info['ttl'] ) : 0;
+        $size = ! empty( $info['size'] ) ? size_format( intval( $info['size'] ) ) : __( '0 B', 'hsp-smart-cache' );
+
+        if ( isset( $info['age'] ) && $info['age'] !== null ) {
+            $age = human_time_diff( time() - intval( $info['age'] ), time() );
+            return sprintf(
+                /* translators: 1: cache file age, 2: cache TTL in seconds, 3: cache file size. */
+                __( 'Age: %1$s | TTL: %2$ds | Size: %3$s', 'hsp-smart-cache' ),
+                $age,
+                $ttl,
+                $size
+            );
+        }
+
+        return sprintf(
+            /* translators: 1: cache TTL in seconds, 2: cache file size. */
+            __( 'TTL: %1$ds | Size: %2$s', 'hsp-smart-cache' ),
+            $ttl,
+            $size
         );
     }
 
@@ -1124,6 +1245,7 @@ class HSPSC_Admin {
 
     public static function handle_settings_update( $old_value, $new_value ) {
         HSPSC_Object::sync_dropin();
+        HSPSC_Object::flush_cache();
         HSPSC_Page::clear_cache();
         HSPSC_Minify::clear_cache();
     }

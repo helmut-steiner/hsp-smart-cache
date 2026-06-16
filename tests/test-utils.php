@@ -98,6 +98,53 @@ class HSPSC_Utils_Test extends WP_UnitTestCase {
         }
     }
 
+    public function test_sensitive_cookie_request_is_not_cacheable() {
+        $original_cookie = $_COOKIE;
+        $original_uri    = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : null;
+        $original_method = isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : null;
+
+        $_COOKIE = array( 'woocommerce_items_in_cart' => '1' );
+        $_SERVER['REQUEST_URI'] = '/shop/';
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        HSPSC_Utils::reset_request_cache();
+
+        $this->assertFalse( HSPSC_Utils::is_request_cacheable() );
+
+        $_COOKIE = $original_cookie;
+        if ( null === $original_uri ) {
+            unset( $_SERVER['REQUEST_URI'] );
+        } else {
+            $_SERVER['REQUEST_URI'] = $original_uri;
+        }
+        if ( null === $original_method ) {
+            unset( $_SERVER['REQUEST_METHOD'] );
+        } else {
+            $_SERVER['REQUEST_METHOD'] = $original_method;
+        }
+    }
+
+    public function test_sensitive_uri_request_is_not_cacheable() {
+        $original_uri    = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : null;
+        $original_method = isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : null;
+
+        $_SERVER['REQUEST_URI'] = '/checkout/';
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        HSPSC_Utils::reset_request_cache();
+
+        $this->assertFalse( HSPSC_Utils::is_request_cacheable() );
+
+        if ( null === $original_uri ) {
+            unset( $_SERVER['REQUEST_URI'] );
+        } else {
+            $_SERVER['REQUEST_URI'] = $original_uri;
+        }
+        if ( null === $original_method ) {
+            unset( $_SERVER['REQUEST_METHOD'] );
+        } else {
+            $_SERVER['REQUEST_METHOD'] = $original_method;
+        }
+    }
+
     public function test_apply_robots_rules_appends_ai_block_when_enabled() {
         update_option(
             HSPSC_Settings::OPTION_KEY,
@@ -160,5 +207,18 @@ class HSPSC_Utils_Test extends WP_UnitTestCase {
         $this->assertDirectoryExists( $root );
         $this->assertFileDoesNotExist( $root . '/a.txt' );
         $this->assertFileDoesNotExist( $nested . '/b.txt' );
+    }
+
+    public function test_atomic_write_creates_parent_directory_and_replaces_file() {
+        $path = HSPSC_PATH . '/pages/atomic-write-test/file.txt';
+
+        $this->assertTrue( HSPSC_Utils::atomic_write( $path, 'first' ) );
+        $this->assertSame( 'first', file_get_contents( $path ) );
+
+        $this->assertTrue( HSPSC_Utils::atomic_write( $path, 'second' ) );
+        $this->assertSame( 'second', file_get_contents( $path ) );
+
+        wp_delete_file( $path );
+        @rmdir( dirname( $path ) );
     }
 }

@@ -352,15 +352,18 @@ class HSPSC_Maintenance {
     }
 
     public static function list_backups() {
-        $dir = self::get_backup_dir();
-        if ( ! is_dir( $dir ) ) {
-            return array();
-        }
+        $files = array();
+        foreach ( self::get_backup_dirs() as $dir ) {
+            if ( ! is_dir( $dir ) ) {
+                continue;
+            }
 
-        $files = array_merge(
-            (array) glob( trailingslashit( $dir ) . 'hsp-db-backup-*.sql*' ),
-            (array) glob( trailingslashit( $dir ) . 'hspsc-db-backup-*.sql*' )
-        );
+            $files = array_merge(
+                $files,
+                (array) glob( trailingslashit( $dir ) . 'hsp-db-backup-*.sql*' ),
+                (array) glob( trailingslashit( $dir ) . 'hspsc-db-backup-*.sql*' )
+            );
+        }
         $files = array_values( array_unique( array_filter( $files ) ) );
         if ( empty( $files ) ) {
             return array();
@@ -406,19 +409,30 @@ class HSPSC_Maintenance {
             return false;
         }
 
-        $backup_dir_path = self::get_backup_dir();
-        $backup_dir = realpath( $backup_dir_path );
+        $backup_dir_path = null;
+        $backup_dir_check = '';
+        $path_check = '';
         $real_path = realpath( $path );
 
-        if ( $backup_dir && $real_path ) {
-            $backup_dir_check = trailingslashit( wp_normalize_path( $backup_dir ) );
-            $path_check = wp_normalize_path( $real_path );
-        } else {
-            $backup_dir_check = trailingslashit( wp_normalize_path( $backup_dir_path ) );
-            $path_check = wp_normalize_path( $path );
+        foreach ( self::get_backup_dirs() as $candidate_dir ) {
+            $candidate_real = realpath( $candidate_dir );
+            if ( $candidate_real && $real_path ) {
+                $candidate_check = trailingslashit( wp_normalize_path( $candidate_real ) );
+                $current_path_check = wp_normalize_path( $real_path );
+            } else {
+                $candidate_check = trailingslashit( wp_normalize_path( $candidate_dir ) );
+                $current_path_check = wp_normalize_path( $path );
+            }
+
+            if ( strpos( $current_path_check, $candidate_check ) === 0 ) {
+                $backup_dir_path = $candidate_dir;
+                $backup_dir_check = $candidate_check;
+                $path_check = $current_path_check;
+                break;
+            }
         }
 
-        if ( strpos( $path_check, $backup_dir_check ) !== 0 ) {
+        if ( ! $backup_dir_path ) {
             $error = self::build_backup_delete_error(
                 'path_outside_backup_dir',
                 $file,
@@ -690,7 +704,36 @@ class HSPSC_Maintenance {
     }
 
     protected static function get_backup_dir() {
-        return trailingslashit( HSPSC_PATH ) . self::BACKUP_DIR;
+        $default = self::get_default_backup_dir();
+        $dir = apply_filters( 'hspsc_db_backup_dir', $default );
+
+        return untrailingslashit( wp_normalize_path( (string) $dir ) );
+    }
+
+    protected static function get_default_backup_dir() {
+        $wordpress_root_parent = dirname( untrailingslashit( ABSPATH ) );
+        if ( is_dir( $wordpress_root_parent ) && wp_is_writable( $wordpress_root_parent ) ) {
+            return trailingslashit( $wordpress_root_parent ) . 'hspsc-' . self::BACKUP_DIR;
+        }
+
+        return trailingslashit( WP_CONTENT_DIR ) . 'hspsc-' . self::BACKUP_DIR;
+    }
+
+    protected static function get_legacy_backup_dir() {
+        return untrailingslashit( wp_normalize_path( trailingslashit( HSPSC_PATH ) . self::BACKUP_DIR ) );
+    }
+
+    protected static function get_backup_dirs() {
+        return array_values(
+            array_unique(
+                array_filter(
+                    array(
+                        self::get_backup_dir(),
+                        self::get_legacy_backup_dir(),
+                    )
+                )
+            )
+        );
     }
 
     protected static function get_backup_file_path( $file ) {
@@ -699,7 +742,17 @@ class HSPSC_Maintenance {
             return null;
         }
 
-        return trailingslashit( self::get_backup_dir() ) . $file;
+        $primary = trailingslashit( self::get_backup_dir() ) . $file;
+        if ( file_exists( $primary ) ) {
+            return $primary;
+        }
+
+        $legacy = trailingslashit( self::get_legacy_backup_dir() ) . $file;
+        if ( file_exists( $legacy ) ) {
+            return $legacy;
+        }
+
+        return $primary;
     }
 
     protected static function build_backup_delete_error( $code, $file, $path, $details = array() ) {
@@ -978,12 +1031,30 @@ class HSPSC_Maintenance {
 
         $index = trailingslashit( $dir ) . 'index.php';
         if ( ! file_exists( $index ) ) {
-            file_put_contents( $index, "<?php\n// Silence is golden.\n" );
+            HSPSC_Utils::atomic_write( $index, "<?php\n// Silence is golden.\n" );
         }
 
         $htaccess = trailingslashit( $dir ) . '.htaccess';
         if ( ! file_exists( $htaccess ) ) {
-            file_put_contents( $htaccess, "Deny from all\n" );
+            HSPSC_Utils::atomic_write( $htaccess, "Require all denied\nDeny from all\n" );
+        }
+
+        $web_config = trailingslashit( $dir ) . 'web.config';
+        if ( ! file_exists( $web_config ) ) {
+            HSPSC_Utils::atomic_write(
+                $web_config,
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                . "<configuration>\n"
+                . "  <system.webServer>\n"
+                . "    <security>\n"
+                . "      <authorization>\n"
+                . "        <remove users=\"*\" roles=\"\" verbs=\"\" />\n"
+                . "        <add accessType=\"Deny\" users=\"*\" />\n"
+                . "      </authorization>\n"
+                . "    </security>\n"
+                . "  </system.webServer>\n"
+                . "</configuration>\n"
+            );
         }
     }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1
+
+- Scope database backups to a site-specific directory so multiple WordPress installs on one server do not list, delete, or restore each other's backups.
+- Remove legacy shared backup directory lookup for database backup restore and delete operations.
+- Add regression coverage for site-scoped database backup listing and deletion behavior.
+- Document follow-up security hardening tasks for object-cache deserialization and database backup integrity checks.
+
 ## 0.7.0
 
 - Add admin-bar cache status diagnostics for the current URL, including HIT, MISS, STALE, BYPASS, and OFF states.

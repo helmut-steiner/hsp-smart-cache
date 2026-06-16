@@ -352,18 +352,15 @@ class HSPSC_Maintenance {
     }
 
     public static function list_backups() {
-        $files = array();
-        foreach ( self::get_backup_dirs() as $dir ) {
-            if ( ! is_dir( $dir ) ) {
-                continue;
-            }
-
-            $files = array_merge(
-                $files,
-                (array) glob( trailingslashit( $dir ) . 'hsp-db-backup-*.sql*' ),
-                (array) glob( trailingslashit( $dir ) . 'hspsc-db-backup-*.sql*' )
-            );
+        $dir = self::get_backup_dir();
+        if ( ! is_dir( $dir ) ) {
+            return array();
         }
+
+        $files = array_merge(
+            (array) glob( trailingslashit( $dir ) . 'hsp-db-backup-*.sql*' ),
+            (array) glob( trailingslashit( $dir ) . 'hspsc-db-backup-*.sql*' )
+        );
         $files = array_values( array_unique( array_filter( $files ) ) );
         if ( empty( $files ) ) {
             return array();
@@ -409,30 +406,19 @@ class HSPSC_Maintenance {
             return false;
         }
 
-        $backup_dir_path = null;
-        $backup_dir_check = '';
-        $path_check = '';
+        $backup_dir_path = self::get_backup_dir();
+        $backup_dir = realpath( $backup_dir_path );
         $real_path = realpath( $path );
 
-        foreach ( self::get_backup_dirs() as $candidate_dir ) {
-            $candidate_real = realpath( $candidate_dir );
-            if ( $candidate_real && $real_path ) {
-                $candidate_check = trailingslashit( wp_normalize_path( $candidate_real ) );
-                $current_path_check = wp_normalize_path( $real_path );
-            } else {
-                $candidate_check = trailingslashit( wp_normalize_path( $candidate_dir ) );
-                $current_path_check = wp_normalize_path( $path );
-            }
-
-            if ( strpos( $current_path_check, $candidate_check ) === 0 ) {
-                $backup_dir_path = $candidate_dir;
-                $backup_dir_check = $candidate_check;
-                $path_check = $current_path_check;
-                break;
-            }
+        if ( $backup_dir && $real_path ) {
+            $backup_dir_check = trailingslashit( wp_normalize_path( $backup_dir ) );
+            $path_check = wp_normalize_path( $real_path );
+        } else {
+            $backup_dir_check = trailingslashit( wp_normalize_path( $backup_dir_path ) );
+            $path_check = wp_normalize_path( $path );
         }
 
-        if ( ! $backup_dir_path ) {
+        if ( strpos( $path_check, $backup_dir_check ) !== 0 ) {
             $error = self::build_backup_delete_error(
                 'path_outside_backup_dir',
                 $file,
@@ -711,28 +697,30 @@ class HSPSC_Maintenance {
     }
 
     protected static function get_default_backup_dir() {
+        $site_dir = self::get_backup_site_dir_name();
         $wordpress_root_parent = dirname( untrailingslashit( ABSPATH ) );
         if ( is_dir( $wordpress_root_parent ) && wp_is_writable( $wordpress_root_parent ) ) {
-            return trailingslashit( $wordpress_root_parent ) . 'hspsc-' . self::BACKUP_DIR;
+            return trailingslashit( $wordpress_root_parent ) . 'hspsc-' . self::BACKUP_DIR . '/' . $site_dir;
         }
 
-        return trailingslashit( WP_CONTENT_DIR ) . 'hspsc-' . self::BACKUP_DIR;
+        return trailingslashit( WP_CONTENT_DIR ) . 'hspsc-' . self::BACKUP_DIR . '/' . $site_dir;
     }
 
-    protected static function get_legacy_backup_dir() {
-        return untrailingslashit( wp_normalize_path( trailingslashit( HSPSC_PATH ) . self::BACKUP_DIR ) );
-    }
+    protected static function get_backup_site_dir_name() {
+        $install_dir = basename( untrailingslashit( wp_normalize_path( ABSPATH ) ) );
+        if ( $install_dir === '' || $install_dir === '.' || $install_dir === DIRECTORY_SEPARATOR ) {
+            $install_dir = 'wordpress';
+        }
 
-    protected static function get_backup_dirs() {
-        return array_values(
-            array_unique(
-                array_filter(
-                    array(
-                        self::get_backup_dir(),
-                        self::get_legacy_backup_dir(),
-                    )
-                )
-            )
+        $host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+        $scope = trim( $host . '-' . $install_dir, '-' );
+        $scope = strtolower( preg_replace( '/[^A-Za-z0-9_-]+/', '-', $scope ) );
+        $scope = trim( $scope, '-' );
+
+        return sprintf(
+            '%s-%s',
+            $scope !== '' ? $scope : 'site',
+            substr( md5( wp_normalize_path( ABSPATH ) ), 0, 12 )
         );
     }
 
@@ -742,17 +730,7 @@ class HSPSC_Maintenance {
             return null;
         }
 
-        $primary = trailingslashit( self::get_backup_dir() ) . $file;
-        if ( file_exists( $primary ) ) {
-            return $primary;
-        }
-
-        $legacy = trailingslashit( self::get_legacy_backup_dir() ) . $file;
-        if ( file_exists( $legacy ) ) {
-            return $legacy;
-        }
-
-        return $primary;
+        return trailingslashit( self::get_backup_dir() ) . $file;
     }
 
     protected static function build_backup_delete_error( $code, $file, $path, $details = array() ) {

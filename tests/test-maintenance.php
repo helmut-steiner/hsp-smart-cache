@@ -605,17 +605,40 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertFileDoesNotExist( $path );
     }
 
-    public function test_list_backups_includes_legacy_backup_directory() {
-        $legacy_dir = HSPSC_PATH . '/db-backups';
-        wp_mkdir_p( $legacy_dir );
+    public function test_default_backup_dir_is_scoped_to_this_wordpress_install() {
+        $dir = $this->get_backup_dir();
+        $site_dir = $this->get_backup_site_dir_name();
+
+        $this->assertStringEndsWith( '/' . $site_dir, wp_normalize_path( $dir ) );
+        $this->assertNotSame( wp_normalize_path( dirname( untrailingslashit( $dir ) ) ), wp_normalize_path( $dir ) );
+    }
+
+    public function test_list_backups_ignores_files_in_shared_parent_backup_directory() {
+        $shared_parent = dirname( untrailingslashit( $this->backup_dir ) );
+        wp_mkdir_p( $shared_parent );
 
         $file = 'hsp-db-backup-2026-04-25_10-20-35.sql';
-        $path = $legacy_dir . '/' . $file;
-        file_put_contents( $path, '-- legacy backup' );
+        $path = $shared_parent . '/' . $file;
+        file_put_contents( $path, '-- backup from another site' );
 
         $backups = HSPSC_Maintenance::list_backups();
 
-        $this->assertNotEmpty( $backups );
+        $this->assertNotContains( $file, wp_list_pluck( $backups, 'file' ) );
+        $this->assertFalse( HSPSC_Maintenance::delete_backup( $file ) );
+        $this->assertFileExists( $path );
+
+        wp_delete_file( $path );
+    }
+
+    public function test_list_backups_includes_current_site_backup_directory() {
+        wp_mkdir_p( $this->backup_dir );
+
+        $file = 'hsp-db-backup-2026-04-25_10-20-36.sql';
+        $path = $this->backup_dir . '/' . $file;
+        file_put_contents( $path, '-- current site backup' );
+
+        $backups = HSPSC_Maintenance::list_backups();
+
         $this->assertContains( $file, wp_list_pluck( $backups, 'file' ) );
         $this->assertTrue( HSPSC_Maintenance::delete_backup( $file ) );
         $this->assertFileDoesNotExist( $path );
@@ -651,6 +674,14 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
     private function get_backup_dir() {
         $ref = new ReflectionClass( 'HSPSC_Maintenance' );
         $method = $ref->getMethod( 'get_backup_dir' );
+        $method->setAccessible( true );
+
+        return $method->invoke( null );
+    }
+
+    private function get_backup_site_dir_name() {
+        $ref = new ReflectionClass( 'HSPSC_Maintenance' );
+        $method = $ref->getMethod( 'get_backup_site_dir_name' );
         $method->setAccessible( true );
 
         return $method->invoke( null );

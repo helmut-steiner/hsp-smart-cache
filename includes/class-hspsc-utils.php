@@ -326,7 +326,7 @@ class HSPSC_Utils {
             return false;
         }
 
-        $tmp = wp_tempnam( basename( $path ), $dir );
+        $tmp = self::temp_file( $dir, basename( $path ) );
         if ( ! $tmp ) {
             return false;
         }
@@ -349,6 +349,18 @@ class HSPSC_Utils {
 
         wp_delete_file( $tmp );
         return false;
+    }
+
+    protected static function temp_file( $dir, $filename ) {
+        if ( ! function_exists( 'wp_tempnam' ) && defined( 'ABSPATH' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+        }
+
+        if ( function_exists( 'wp_tempnam' ) ) {
+            return wp_tempnam( $filename, $dir );
+        }
+
+        return tempnam( $dir, '.tmp-' );
     }
 
     public static function reset_request_cache() {

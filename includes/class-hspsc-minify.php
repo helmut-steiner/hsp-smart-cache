@@ -48,18 +48,29 @@ class HSPSC_Minify {
             return $src;
         }
 
-        $file_path = wp_normalize_path( ABSPATH . ltrim( $path, '/' ) );
-        if ( ! file_exists( $file_path ) || ! is_readable( $file_path ) ) {
+        $file_path = self::resolve_asset_file_path( $path, $type );
+        if ( ! $file_path ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
+            return $src;
+        }
+        if ( self::is_minified_asset( $file_path, $type ) ) {
             self::$asset_url_cache[ $cache_key ] = $src;
             return $src;
         }
 
-        if ( preg_match( '/\.min\.' . preg_quote( $type, '/' ) . '$/i', $file_path ) ) {
+        $mtime = filemtime( $file_path );
+        if ( $mtime === false ) {
             self::$asset_url_cache[ $cache_key ] = $src;
             return $src;
         }
 
-        $mtime    = filemtime( $file_path );
+        $file_size = filesize( $file_path );
+        $max_size  = (int) apply_filters( 'hspsc_max_minify_asset_size', 5 * 1024 * 1024, $type, $file_path );
+        if ( $file_size === false || $file_size > max( 1, $max_size ) ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
+            return $src;
+        }
+
         $hash     = md5( $file_path . '|' . $mtime );
         $filename = $hash . '.min.' . $type;
         $target   = HSPSC_PATH . '/assets/' . $filename;
@@ -82,6 +93,80 @@ class HSPSC_Minify {
 
         self::$asset_url_cache[ $cache_key ] = HSPSC_URL . '/assets/' . $filename;
         return self::$asset_url_cache[ $cache_key ];
+    }
+
+    protected static function resolve_asset_file_path( $url_path, $type ) {
+        $file_path = ABSPATH . ltrim( $url_path, '/' );
+        $real_path = realpath( $file_path );
+
+        if ( ! $real_path || ! is_file( $real_path ) || ! is_readable( $real_path ) ) {
+            return null;
+        }
+
+        if ( ! self::is_allowed_asset_extension( $real_path, $type ) ) {
+            return null;
+        }
+
+        if ( ! self::is_path_in_allowed_asset_root( $real_path ) ) {
+            return null;
+        }
+
+        return wp_normalize_path( $real_path );
+    }
+
+    protected static function is_allowed_asset_extension( $file_path, $type ) {
+        $extension = strtolower( pathinfo( $file_path, PATHINFO_EXTENSION ) );
+        $allowed   = apply_filters(
+            'hspsc_minify_asset_extensions',
+            array(
+                'css' => array( 'css' ),
+                'js'  => array( 'js', 'mjs' ),
+            )
+        );
+
+        if ( empty( $allowed[ $type ] ) || ! is_array( $allowed[ $type ] ) ) {
+            return false;
+        }
+
+        return in_array( $extension, array_map( 'strtolower', $allowed[ $type ] ), true );
+    }
+
+    protected static function is_minified_asset( $file_path, $type ) {
+        $extension = strtolower( pathinfo( $file_path, PATHINFO_EXTENSION ) );
+
+        return self::is_allowed_asset_extension( $file_path, $type )
+            && preg_match( '/\.min\.' . preg_quote( $extension, '/' ) . '$/i', $file_path );
+    }
+
+    protected static function is_path_in_allowed_asset_root( $file_path ) {
+        $roots = array( ABSPATH );
+
+        foreach ( array( 'WP_CONTENT_DIR', 'WP_PLUGIN_DIR', 'WPMU_PLUGIN_DIR' ) as $constant ) {
+            if ( defined( $constant ) ) {
+                $roots[] = constant( $constant );
+            }
+        }
+
+        if ( function_exists( 'get_theme_root' ) ) {
+            $roots[] = get_theme_root();
+        }
+
+        $roots     = (array) apply_filters( 'hspsc_minify_asset_roots', array_filter( array_unique( $roots ) ) );
+        $file_path = wp_normalize_path( $file_path );
+
+        foreach ( $roots as $root ) {
+            $real_root = realpath( $root );
+            if ( ! $real_root ) {
+                continue;
+            }
+
+            $real_root = rtrim( wp_normalize_path( $real_root ), '/' );
+            if ( $file_path === $real_root || strpos( $file_path, $real_root . '/' ) === 0 ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function maybe_send_asset_headers() {

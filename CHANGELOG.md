@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.2
+
+- Fix frontend cache writes by safely loading WordPress file helpers before using temporary files.
+- Harden lazy CSS/JS minification with realpath resolution, allowed asset roots, extension checks, and a filterable source-size limit.
+- Skip JSX assets by default while allowing extensions, asset roots, and max minify size to be customized with filters.
+- Add regression coverage for minify asset extension, root, and size-limit handling.
+
 ## 0.7.1
 
 - Scope database backups to a site-specific directory so multiple WordPress installs on one server do not list, delete, or restore each other's backups.

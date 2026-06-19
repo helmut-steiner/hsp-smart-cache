@@ -2,9 +2,9 @@
 Contributors: Helmut Steiner
 Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.7.1
+Stable tag: 0.7.2
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -50,6 +50,12 @@ Use the **Clear All Caches** button on the settings page.
 Use the **Run Cache Tests** button on the settings page.
 
 == Changelog ==
+
+= 0.7.2 =
+* Fix frontend cache writes by safely loading WordPress file helpers before using temporary files.
+* Harden lazy CSS/JS minification with realpath resolution, allowed asset roots, extension checks, and a filterable source-size limit.
+* Skip JSX assets by default while allowing extensions, asset roots, and max minify size to be customized with filters.
+* Add regression coverage for minify asset extension, root, and size-limit handling.
 
 = 0.7.1 =
 * Scope database backups to a site-specific directory so multiple WordPress installs on one server do not list, delete, or restore each other's backups.

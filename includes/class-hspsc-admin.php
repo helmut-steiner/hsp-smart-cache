@@ -257,13 +257,25 @@ class HSPSC_Admin {
             );
         }
 
-        if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
-            return array(
-                'label'   => ! empty( $info['fresh'] ) ? __( 'HIT', 'hsp-smart-cache' ) : __( 'BYPASS', 'hsp-smart-cache' ),
-                'reason'  => __( 'Admin view bypasses cache; shown status is for the public URL.', 'hsp-smart-cache' ),
-                'details' => self::format_cache_info_details( $info ),
-            );
-        }
+		if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
+			$public_status = __( 'MISS', 'hsp-smart-cache' );
+			if ( ! empty( $info['fresh'] ) ) {
+				$public_status = __( 'HIT', 'hsp-smart-cache' );
+			} elseif ( ! empty( $info['exists'] ) ) {
+				$public_status = __( 'STALE', 'hsp-smart-cache' );
+			}
+
+			return array(
+				'label'   => __( 'BYPASS', 'hsp-smart-cache' ),
+				'reason'  => __( 'Logged-in page caching is disabled.', 'hsp-smart-cache' ),
+				'details' => sprintf(
+					/* translators: 1: public cache status, 2: cache file age, TTL and size details. */
+					__( 'Public cache: %1$s | %2$s', 'hsp-smart-cache' ),
+					$public_status,
+					self::format_cache_info_details( $info )
+				),
+			);
+		}
 
         if ( ! empty( $info['fresh'] ) ) {
             return array(
@@ -582,7 +594,7 @@ class HSPSC_Admin {
         $options = self::apply_bricks_compatibility_preset();
 
         self::send_ajax_success(
-            __( 'Bricks compatibility preset applied. Enable matching native optimizations in Bricks > Settings > Performance.', 'hsp-smart-cache' ),
+            self::get_bricks_preset_message(),
             array( 'options' => $options )
         );
     }
@@ -808,6 +820,10 @@ class HSPSC_Admin {
             'missing_file' => __( 'The selected backup file was not found or did not match the allowed backup filename format.', 'hsp-smart-cache' ),
             'read_failed' => __( 'The backup file could not be read or decompressed.', 'hsp-smart-cache' ),
             'invalid_backup' => __( 'The backup file did not contain executable SQL statements.', 'hsp-smart-cache' ),
+            'missing_signature' => __( 'This backup has no integrity signature. Create a new backup with this version before restoring.', 'hsp-smart-cache' ),
+            'integrity_failed' => __( 'Backup integrity verification failed. The file, site, or signing keys have changed.', 'hsp-smart-cache' ),
+            'unsafe_statement' => __( 'The backup contains unsupported SQL. No statements were executed.', 'hsp-smart-cache' ),
+            'path_outside_backup_dir' => __( 'The backup must be a regular file in this site\'s backup directory.', 'hsp-smart-cache' ),
             'query_failed' => __( 'A database query failed while replaying the backup.', 'hsp-smart-cache' ),
             'no_tables_restored' => __( 'No WordPress tables were restored. The backup may use a different table prefix than this site.', 'hsp-smart-cache' ),
         );
@@ -1250,6 +1266,15 @@ class HSPSC_Admin {
         HSPSC_Minify::clear_cache();
     }
 
+	/**
+	 * Describes the native Bricks settings to review after applying the preset.
+	 *
+	 * @return string Translated confirmation shared by form and AJAX responses.
+	 */
+	protected static function get_bricks_preset_message() {
+		return __( 'Bricks compatibility preset applied. In Bricks > Settings > Performance, leave "Disable lazy loading" unchecked. Enable "Disable emojis" and "Disable embed" if those features are not needed. The preset also turns off HSP Smart Cache iframe lazy loading and script defer/async.', 'hsp-smart-cache' );
+	}
+
     public static function apply_bricks_compatibility_preset() {
         $options = HSPSC_Settings::get_all();
 
@@ -1335,7 +1360,7 @@ class HSPSC_Admin {
                 <div class="notice notice-success"><p><?php echo esc_html__( 'Defaults restored.', 'hsp-smart-cache' ); ?></p></div>
             <?php endif; ?>
             <?php if ( $settings_notice === 'bricks-preset' ) : ?>
-                <div class="notice notice-success"><p><?php echo esc_html__( 'Bricks compatibility preset applied. Enable matching native optimizations in Bricks > Settings > Performance.', 'hsp-smart-cache' ); ?></p></div>
+                <div class="notice notice-success"><p><?php echo esc_html( self::get_bricks_preset_message() ); ?></p></div>
             <?php endif; ?>
             <?php if ( $preload_notice === 'done' ) : ?>
                 <?php $preload_result = get_transient( 'hspsc_preload_result' ); ?>

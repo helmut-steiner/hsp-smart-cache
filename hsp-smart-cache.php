@@ -2,11 +2,10 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.7.2
+ * Version: 0.8.0
  * Update URI: https://github.com/helmut-steiner/hsp-smart-cache
  * Author: Helmut Steiner
- * License: MIT
- * License URI: https://opensource.org/licenses/MIT
+ * License: Proprietary
  * Text Domain: hsp-smart-cache
  */
 
@@ -14,13 +13,18 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSPSC_VERSION', '0.7.2' );
+define( 'HSPSC_VERSION', '0.8.0' );
 define( 'HSPSC_BASENAME', plugin_basename( __FILE__ ) );
 define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );
 define( 'HSPSC_URL', content_url( '/cache/hspsc' ) );
 
 require_once __DIR__ . '/includes/class-hspsc-settings.php';
 require_once __DIR__ . '/includes/class-hspsc-utils.php';
+require_once __DIR__ . '/includes/class-hspsc-wpml.php';
+require_once __DIR__ . '/includes/class-hspsc-commerce.php';
+require_once __DIR__ . '/includes/class-hspsc-analytics.php';
+require_once __DIR__ . '/includes/class-hspsc-seo.php';
+require_once __DIR__ . '/includes/class-hspsc-images.php';
 require_once __DIR__ . '/includes/class-hspsc-admin.php';
 require_once __DIR__ . '/includes/class-hspsc-minify.php';
 require_once __DIR__ . '/includes/class-hspsc-page.php';
@@ -35,8 +39,16 @@ require_once __DIR__ . '/includes/class-hspsc-preload.php';
 require_once __DIR__ . '/includes/class-hspsc-updater.php';
 
 class HSPSC_Plugin {
+    const CACHE_SCHEMA = 4;
+
     public static function init() {
+        self::maybe_upgrade_cache_schema();
         HSPSC_Settings::init();
+        HSPSC_WPML::init();
+        HSPSC_Commerce::init();
+        HSPSC_Analytics::init();
+        HSPSC_SEO::init();
+        HSPSC_Images::init();
         HSPSC_Admin::init();
         HSPSC_Minify::init();
         HSPSC_Page::init();
@@ -59,6 +71,8 @@ class HSPSC_Plugin {
         add_action( 'edit_comment', array( __CLASS__, 'handle_comment_change' ) );
         add_action( 'deleted_comment', array( __CLASS__, 'handle_comment_change' ) );
         add_action( 'switch_theme', array( __CLASS__, 'flush_all_caches' ) );
+        add_action( 'activated_plugin', array( __CLASS__, 'flush_render_caches' ), 10, 0 );
+        add_action( 'deactivated_plugin', array( __CLASS__, 'flush_render_caches' ), 10, 0 );
         add_action( 'customize_save_after', array( __CLASS__, 'flush_all_caches' ) );
         add_action( 'upgrader_process_complete', array( __CLASS__, 'handle_upgrader_process_complete' ), 10, 2 );
         add_action( 'core_updated_successfully', array( __CLASS__, 'flush_all_caches' ) );
@@ -66,6 +80,15 @@ class HSPSC_Plugin {
         add_action( 'added_option', array( __CLASS__, 'handle_added_option' ), 10, 2 );
         add_action( 'deleted_option', array( __CLASS__, 'handle_deleted_option' ), 10, 1 );
         add_action( 'bricks/generate_css_file', array( __CLASS__, 'flush_render_caches' ) );
+    }
+
+    public static function maybe_upgrade_cache_schema() {
+        if ( (int) get_option( 'hspsc_cache_schema', 0 ) >= self::CACHE_SCHEMA ) {
+            return;
+        }
+
+        self::flush_render_caches();
+        update_option( 'hspsc_cache_schema', self::CACHE_SCHEMA, false );
     }
 
     public static function activate() {
@@ -157,6 +180,10 @@ class HSPSC_Plugin {
         $option = (string) $option;
         if ( $option === '' || $option === HSPSC_Settings::OPTION_KEY ) {
             return false;
+        }
+
+        if ( in_array( $option, array( 'fluent_cart_store_settings', 'woocommerce_cart_page_id', 'woocommerce_checkout_page_id', 'woocommerce_myaccount_page_id', 'woocommerce_currency', 'woocommerce_prices_include_tax', 'woocommerce_tax_display_shop' ), true ) ) {
+            return true;
         }
 
         $prefixes = array(

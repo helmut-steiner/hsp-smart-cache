@@ -6,35 +6,117 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class HSPSC_Minify {
     protected static $asset_url_cache = array();
+    protected static $original_script_urls = array();
+    protected static $original_style_urls = array();
 
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'filter_style_src' ), 20, 2 );
         add_filter( 'script_loader_src', array( __CLASS__, 'filter_script_src' ), 20, 2 );
+        add_filter( 'script_loader_tag', array( __CLASS__, 'restore_excluded_script_url' ), PHP_INT_MAX, 3 );
+        add_filter( 'style_loader_tag', array( __CLASS__, 'restore_excluded_style_url' ), PHP_INT_MAX, 4 );
     }
 
     public static function filter_style_src( $src, $handle ) {
+        global $wp_styles;
+
         if ( ! HSPSC_Settings::get( 'minify_css' ) ) {
             return $src;
         }
+        if ( $wp_styles instanceof WP_Styles && isset( $wp_styles->registered[ $handle ] ) && self::has_excluded_metadata( (array) $wp_styles->registered[ $handle ]->extra ) ) {
+            return $src;
+        }
+        self::$original_style_urls[ $handle ] = $src;
         return self::maybe_minify_asset( $src, 'css' );
     }
 
     public static function filter_script_src( $src, $handle ) {
-        if ( ! HSPSC_Settings::get( 'minify_js' ) ) {
+        if ( ! HSPSC_Settings::get( 'minify_js' ) || self::is_script_excluded( $handle, $src ) ) {
             return $src;
         }
+        self::$original_script_urls[ $handle ] = $src;
         return self::maybe_minify_asset( $src, 'js' );
     }
 
+    public static function is_script_excluded( $handle, $src = '' ) {
+        global $wp_scripts;
+
+        $patterns = (array) apply_filters(
+            'hspsc_script_optimization_exclusions',
+			array(
+				'jquery',
+				'jquery-*',
+				'wc-*',
+				'woocommerce*',
+				'fluent-cart-*',
+				'fluentcart-*',
+				'fct-*',
+				'wpml-*',
+				'sitepress-*',
+				'wcml-*',
+				'browser-redirect',
+				'jquery-cookie',
+				'stripe*',
+				'paypal*',
+				'cloudflare-turnstile',
+			)
+        );
+        foreach ( $patterns as $pattern ) {
+            $pattern = (string) $pattern;
+            if ( $pattern === $handle || ( substr( $pattern, -1 ) === '*' && strpos( $handle, substr( $pattern, 0, -1 ) ) === 0 ) ) {
+                return true;
+            }
+        }
+
+        if ( preg_match( '~(?:js\.stripe\.com|paypal\.com/sdk/|challenges\.cloudflare\.com/)~i', $src ) ) {
+            return true;
+        }
+
+        if ( $wp_scripts instanceof WP_Scripts && isset( $wp_scripts->registered[ $handle ] ) ) {
+            $extra = (array) $wp_scripts->registered[ $handle ]->extra;
+            return self::has_excluded_metadata( $extra );
+        }
+
+        return false;
+    }
+
+    protected static function has_excluded_metadata( $extra ) {
+        $attributes = isset( $extra['attributes'] ) && is_array( $extra['attributes'] ) ? $extra['attributes'] : array();
+        foreach ( array( $extra, $attributes ) as $metadata ) {
+            if ( array_key_exists( 'data-no-optimize', $metadata ) || array_key_exists( 'data-cfasync', $metadata ) || ( isset( $metadata['type'] ) && strtolower( $metadata['type'] ) === 'module' ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static function restore_excluded_script_url( $tag, $handle, $src ) {
+        if ( isset( self::$original_script_urls[ $handle ] ) && ( ! HSPSC_Utils::should_apply_frontend_optimizations() || self::has_optimization_exclusion( $tag ) || strtolower( self::get_tag_attribute( $tag, 'type' ) ) === 'module' ) ) {
+            return str_replace( esc_url( $src ), esc_url( self::$original_script_urls[ $handle ] ), $tag );
+        }
+        return $tag;
+    }
+
+    public static function restore_excluded_style_url( $tag, $handle, $href, $media = '' ) {
+        if ( isset( self::$original_style_urls[ $handle ] ) && ( ! HSPSC_Utils::should_apply_frontend_optimizations() || self::has_optimization_exclusion( $tag ) ) ) {
+            return str_replace( esc_url( $href ), esc_url( self::$original_style_urls[ $handle ] ), $tag );
+        }
+        return $tag;
+    }
+
+    protected static function has_optimization_exclusion( $attrs ) {
+        return (bool) preg_match( '/\sdata-(?:no-optimize|cfasync)(?:\s|=|>|$)/i', $attrs );
+    }
+
     protected static function maybe_minify_asset( $src, $type ) {
+        // Sessions and no-cache signals can change after an earlier asset lookup.
+        // Check them before memoization, and never memoize an eligibility bypass.
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
+            return $src;
+        }
+
         $cache_key = $type . '|' . $src;
         if ( array_key_exists( $cache_key, self::$asset_url_cache ) ) {
             return self::$asset_url_cache[ $cache_key ];
-        }
-
-        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
-            self::$asset_url_cache[ $cache_key ] = $src;
-            return $src;
         }
 
         if ( empty( $src ) ) {
@@ -71,17 +153,23 @@ class HSPSC_Minify {
             return $src;
         }
 
-        $hash     = md5( $file_path . '|' . $mtime );
+        // Invalidate assets generated by the previous, unsafe minifiers.
+        $hash     = md5( 'hspsc-assets-v2|' . $file_path . '|' . $mtime );
         $filename = $hash . '.min.' . $type;
         $target   = HSPSC_PATH . '/assets/' . $filename;
 
+        if ( is_link( $target ) || ( file_exists( $target ) && ( ! is_file( $target ) || ! is_readable( $target ) ) ) ) {
+            self::$asset_url_cache[ $cache_key ] = $src;
+            return $src;
+        }
         if ( ! file_exists( $target ) ) {
-            HSPSC_Utils::ensure_cache_dirs();
-            $contents = file_get_contents( $file_path );
-            if ( $contents === false ) {
+            // Existing v2 entries have already passed the source relocation checks.
+            $contents = static::read_asset_contents( $file_path );
+            if ( $contents === false || ! self::can_relocate_asset( $contents, $file_path, $type ) ) {
                 self::$asset_url_cache[ $cache_key ] = $src;
                 return $src;
             }
+            HSPSC_Utils::ensure_cache_dirs();
             $minified = ( $type === 'css' ) ? self::minify_css( $contents ) : self::minify_js( $contents );
             if ( HSPSC_Utils::atomic_write( $target, $minified ) ) {
                 self::maybe_cleanup_asset_cache();
@@ -93,6 +181,27 @@ class HSPSC_Minify {
 
         self::$asset_url_cache[ $cache_key ] = HSPSC_URL . '/assets/' . $filename;
         return self::$asset_url_cache[ $cache_key ];
+    }
+
+	/**
+	 * Reads an asset only when a generated entry needs to be built.
+	 *
+	 * @param string $file_path Validated local asset path.
+	 * @return string|false Source contents, or false on failure.
+	 */
+	protected static function read_asset_contents( $file_path ) {
+		return file_get_contents( $file_path );
+	}
+
+    protected static function can_relocate_asset( $contents, $file_path, $type ) {
+        if ( $type === 'css' ) {
+            // Relative references resolve against the original stylesheet URL.
+            return ! preg_match( '/(?:url\s*\(|@import\b)/i', $contents );
+        }
+
+        // Module URLs and relative chunks must stay in their original directory.
+        return strtolower( pathinfo( $file_path, PATHINFO_EXTENSION ) ) !== 'mjs'
+            && ! preg_match( '/\b(?:import|export)\b|currentScript/', $contents );
     }
 
     protected static function resolve_asset_file_path( $url_path, $type ) {
@@ -180,8 +289,7 @@ class HSPSC_Minify {
             return;
         }
 
-        $path = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
-        if ( strpos( $path, '/wp-content/cache/hspsc/assets/' ) === false ) {
+        if ( ! self::is_generated_asset_request() ) {
             return;
         }
 
@@ -189,77 +297,44 @@ class HSPSC_Minify {
         header( 'Cache-Control: public, max-age=' . $ttl . ', immutable' );
     }
 
-    public static function minify_html( $html ) {
-        if ( HSPSC_Settings::get( 'minify_css' ) ) {
-            $html = preg_replace_callback(
-                '/<style\b([^>]*)>([\s\S]*?)<\/style>/i',
-                function( $matches ) {
-                    $attrs   = $matches[1];
-                    $content = $matches[2];
-
-                    if ( ! self::is_inline_style_minifiable( $attrs ) ) {
-                        return $matches[0];
-                    }
-
-                    return '<style' . $attrs . '>' . self::minify_css( $content ) . '</style>';
-                },
-                $html
-            );
-        }
-
-        if ( HSPSC_Settings::get( 'minify_js' ) ) {
-            $html = preg_replace_callback(
-                '/<script\b([^>]*)>([\s\S]*?)<\/script>/i',
-                function( $matches ) {
-                    $attrs   = $matches[1];
-                    $content = $matches[2];
-
-                    if ( ! self::is_inline_script_minifiable( $attrs ) ) {
-                        return $matches[0];
-                    }
-
-                    return '<script' . $attrs . '>' . self::minify_js( $content ) . '</script>';
-                },
-                $html
-            );
-        }
-
-        $html = preg_replace( '/<!--[\s\S]*?-->/', '', $html );
-        $html = preg_replace( '/>\s+</', '><', $html );
-        return trim( $html );
-    }
-
-    protected static function is_inline_style_minifiable( $attrs ) {
-        $type = self::get_tag_attribute( $attrs, 'type' );
-        if ( ! $type ) {
-            return true;
-        }
-
-        $type = strtolower( trim( explode( ';', $type )[0] ) );
-        return ( $type === 'text/css' || $type === 'css' || strpos( $type, 'css' ) !== false );
-    }
-
-    protected static function is_inline_script_minifiable( $attrs ) {
-        if ( preg_match( '/\ssrc\s*=\s*/i', $attrs ) ) {
+    protected static function is_generated_asset_request() {
+        $method = isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET';
+        if ( $method !== 'GET' || ! isset( $_SERVER['REQUEST_URI'] ) || ! is_string( $_SERVER['REQUEST_URI'] ) ) {
             return false;
         }
-
-        $type = self::get_tag_attribute( $attrs, 'type' );
-        if ( ! $type ) {
-            return true;
+        $path = wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH );
+        $prefix = wp_parse_url( HSPSC_URL . '/assets/', PHP_URL_PATH );
+        if ( ! is_string( $path ) || ! $prefix || ! preg_match( '~^' . preg_quote( $prefix, '~' ) . '[a-f0-9]{32}\.min\.(?:css|js)$~D', $path ) ) {
+            return false;
         }
+        $target = HSPSC_PATH . '/assets/' . basename( $path );
+        $root = realpath( HSPSC_PATH . '/assets' );
+        $real = realpath( $target );
+        return $root && $real && ! is_link( $target ) && is_file( $real )
+            && strpos( wp_normalize_path( $real ), trailingslashit( wp_normalize_path( $root ) ) ) === 0;
+    }
 
-        $type = strtolower( trim( explode( ';', $type )[0] ) );
-        $allowed = array(
-            'text/javascript',
-            'application/javascript',
-            'application/x-javascript',
-            'text/ecmascript',
-            'application/ecmascript',
-            'module',
+    public static function minify_html( $html ) {
+        if ( preg_match( '/<(?:template|plaintext|xmp|listing)\b/i', $html ) ) {
+            // Templates may nest and contain markup with significant whitespace.
+            return $html;
+        }
+        // Protect text-sensitive elements before processing any inline markup.
+        $protected = array();
+        $prefix = 'HSPSC' . wp_generate_password( 20, false, false );
+        $html = preg_replace_callback(
+            '~<(pre|textarea|template|script|style)\b[^>]*>[\s\S]*?</\1\s*>~i',
+            static function ( $matches ) use ( &$protected, $prefix ) {
+                $key = $prefix . count( $protected );
+                $protected[ $key ] = $matches[0];
+                return $key;
+            },
+            $html
         );
 
-        return in_array( $type, $allowed, true );
+        // Scripts and styles are preserved here: their contents are not HTML.
+        $html = preg_replace( '/<!--(?!\s*(?:\[if|\/?(?:wp:|ko\b)))[\s\S]*?-->/', '', $html );
+        return strtr( trim( $html ), $protected );
     }
 
     protected static function get_tag_attribute( $attrs, $name ) {
@@ -279,24 +354,28 @@ class HSPSC_Minify {
     }
 
     public static function minify_css( $css ) {
-        $css = preg_replace( '!/\*.*?\*/!s', '', $css );
+        // Complex CSS needs a parser; preserve strings, escapes and custom values.
+        if ( preg_match( '~[\'"\\\\]|/\*|--~', $css ) ) {
+            return trim( $css );
+        }
         $css = preg_replace( '/\s+/', ' ', $css );
-        $css = str_replace( array( " \n", "\n ", "\n", "\t" ), '', $css );
-        $css = preg_replace( '/\s*([{}|:;,])\s+/', '$1', $css );
+        $css = preg_replace( '/\s*([{};,])\s*/', '$1', $css );
+        $css = preg_replace( '/:\s+/', ':', $css );
         $css = preg_replace( '/;}/', '}', $css );
         return trim( $css );
     }
 
     public static function minify_js( $js ) {
-        // Conservative minifier to avoid breaking JS (e.g., regex literals, template strings).
-        $js = preg_replace( '/\/\*[\s\S]*?\*\//', '', $js );
-        $js = str_replace( "\r", "", $js );
+        // Without a JavaScript parser, comments cannot be distinguished reliably
+        // from strings, template literals and regular expressions.
         return trim( $js );
     }
 
     public static function clear_cache() {
         HSPSC_Utils::delete_dir_contents( HSPSC_PATH . '/assets' );
         self::$asset_url_cache = array();
+        self::$original_script_urls = array();
+        self::$original_style_urls = array();
     }
 
     protected static function maybe_cleanup_asset_cache() {

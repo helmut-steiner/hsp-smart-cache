@@ -9,6 +9,80 @@ class HSPSC_Utils_Test extends WP_UnitTestCase {
         $this->assertDirectoryExists( HSPSC_PATH . '/object' );
     }
 
+	/**
+	 * Known private requests avoid expensive language and storefront discovery.
+	 */
+	public function test_private_requests_skip_language_and_commerce_lookups() {
+		$server   = $_SERVER;
+		$cookies  = $_COOKIE;
+		$query    = $_GET;
+		$user_id  = get_current_user_id();
+		$pagenow  = isset( $GLOBALS['pagenow'] ) ? $GLOBALS['pagenow'] : null;
+		$settings = get_option( HSPSC_Settings::OPTION_KEY );
+		$lookups  = 0;
+		$commerce = 0;
+		$language_api = static function () use ( &$lookups ) {
+			++$lookups;
+			return null;
+		};
+		$private_pages = static function ( $ids ) use ( &$commerce ) {
+			++$commerce;
+			return $ids;
+		};
+		$hooks = array( 'wpml_current_language', 'wpml_default_language', 'wpml_active_languages', 'wpml_permalink' );
+
+		$this->go_to( home_url( '/' ) );
+		wp_set_current_user( 0 );
+		update_option( HSPSC_Settings::OPTION_KEY, HSPSC_Settings::defaults() );
+		$GLOBALS['pagenow'] = 'index.php';
+		$_GET              = array();
+		$_SERVER['QUERY_STRING'] = '';
+		foreach ( $hooks as $hook ) {
+			add_filter( $hook, $language_api );
+		}
+		add_filter( 'hspsc_private_commerce_page_ids', $private_pages );
+		try {
+			$this->assertNull( HSPSC_WPML::request_context() );
+			$this->assertSame( 1, $lookups, 'The optional language API is active for this test.' );
+			$lookups = 0;
+			$contexts = array(
+				array( 'POST', '/', array() ),
+				array( 'GET', '/', array( 'fct_cart_hash' => 'private-shopper' ) ),
+				array( 'GET', '/checkout/', array() ),
+			);
+			foreach ( $contexts as $context ) {
+				$_SERVER['REQUEST_METHOD'] = $context[0];
+				$_SERVER['REQUEST_URI']    = $context[1];
+				$_COOKIE                  = $context[2];
+				$this->assertFalse( HSPSC_Utils::is_request_cacheable() );
+				$this->assertFalse( HSPSC_Utils::should_apply_frontend_optimizations() );
+				$this->assertSame( 0, $lookups );
+			}
+			$_SERVER['REQUEST_URI'] = '/';
+			wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+			$this->assertFalse( HSPSC_Utils::is_request_cacheable() );
+			$this->assertFalse( HSPSC_Utils::should_apply_frontend_optimizations() );
+			$this->assertSame( 0, $lookups );
+			$this->assertSame( 0, $commerce );
+		} finally {
+			foreach ( $hooks as $hook ) {
+				remove_filter( $hook, $language_api );
+			}
+			remove_filter( 'hspsc_private_commerce_page_ids', $private_pages );
+			$_SERVER = $server;
+			$_COOKIE = $cookies;
+			$_GET = $query;
+			$GLOBALS['pagenow'] = $pagenow;
+			wp_set_current_user( $user_id );
+			if ( false === $settings ) {
+				delete_option( HSPSC_Settings::OPTION_KEY );
+			} else {
+				update_option( HSPSC_Settings::OPTION_KEY, $settings );
+			}
+			HSPSC_Settings::reset_cache();
+		}
+	}
+
     public function test_normalize_url_path() {
         $path = HSPSC_Utils::normalize_url_path( content_url( '/style.css?ver=1' ) );
         $this->assertSame( '/wp-content/style.css', $path );
@@ -65,6 +139,31 @@ class HSPSC_Utils_Test extends WP_UnitTestCase {
             unset( $_SERVER['REQUEST_URI'] );
         } else {
             $_SERVER['REQUEST_URI'] = $original_uri;
+        }
+    }
+
+    public function test_expired_file_count_does_not_depend_on_delete_return_value() {
+        HSPSC_Utils::ensure_cache_dirs();
+        $root = HSPSC_PATH . '/pages/delete-result-test';
+        wp_mkdir_p( $root );
+        $file = $root . '/expired.html';
+        file_put_contents( $file, 'expired' );
+        touch( $file, time() - 7200 );
+        $delete_without_result = static function ( $path ) use ( $file ) {
+            if ( $path === $file ) {
+                unlink( $path );
+                return '';
+            }
+            return $path;
+        };
+        add_filter( 'wp_delete_file', $delete_without_result );
+        try {
+            $this->assertSame( 1, HSPSC_Utils::delete_old_files( $root, 3600, '.html' ) );
+            $this->assertFileDoesNotExist( $file );
+        } finally {
+            remove_filter( 'wp_delete_file', $delete_without_result );
+            HSPSC_Utils::delete_dir_contents( $root );
+            rmdir( $root );
         }
     }
 
@@ -220,5 +319,34 @@ class HSPSC_Utils_Test extends WP_UnitTestCase {
 
         wp_delete_file( $path );
         @rmdir( dirname( $path ) );
+    }
+
+    public function test_cache_cleanup_does_not_follow_directory_symlinks() {
+        $root = HSPSC_PATH . '/pages/symlink-cleanup';
+        $outside = HSPSC_PATH . '/assets/symlink-preserved';
+        wp_mkdir_p( $root );
+        wp_mkdir_p( $outside );
+        $file = $outside . '/private.html';
+        file_put_contents( $file, 'keep' );
+        touch( $file, time() - 7200 );
+        $link = $root . '/outside';
+
+        try {
+            if ( ! function_exists( 'symlink' ) || ! @symlink( $outside, $link ) ) {
+                $this->markTestSkipped( 'Directory symlinks are unavailable.' );
+            }
+            $this->assertSame( 0, HSPSC_Utils::delete_old_files( $root, 3600, '.html' ) );
+            $this->assertFileExists( $file );
+            HSPSC_Utils::delete_dir_contents( $root );
+            $this->assertFileExists( $file );
+            $this->assertFalse( is_link( $link ) );
+        } finally {
+            if ( is_link( $link ) ) {
+                unlink( $link );
+            }
+            wp_delete_file( $file );
+            @rmdir( $root );
+            @rmdir( $outside );
+        }
     }
 }

@@ -28,6 +28,9 @@ class HSPSC_Performance {
     }
 
     public static function filter_image_attributes( $attr, $attachment, $size ) {
+        if ( ! HSPSC_Settings::get( 'perf_decoding_async', true ) || ! empty( $attr['decoding'] ) ) {
+            return $attr;
+        }
         if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return $attr;
         }
@@ -49,13 +52,13 @@ class HSPSC_Performance {
     }
 
     public static function maybe_disable_emojis() {
+        if ( ! HSPSC_Settings::get( 'perf_disable_emojis' ) ) {
+            return;
+        }
         if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
 
-        if ( ! HSPSC_Settings::get( 'perf_disable_emojis' ) ) {
-            return;
-        }
         remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
         remove_action( 'admin_print_scripts', 'print_emoji_detection_script' );
         remove_action( 'wp_print_styles', 'print_emoji_styles' );
@@ -84,13 +87,13 @@ class HSPSC_Performance {
     }
 
     public static function maybe_disable_embeds() {
+        if ( ! HSPSC_Settings::get( 'perf_disable_embeds' ) ) {
+            return;
+        }
         if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return;
         }
 
-        if ( ! HSPSC_Settings::get( 'perf_disable_embeds' ) ) {
-            return;
-        }
         remove_action( 'wp_head', 'wp_oembed_add_discovery_links' );
         remove_action( 'wp_head', 'wp_oembed_add_host_js' );
         remove_filter( 'oembed_dataparse', 'wp_filter_oembed_result', 10 );

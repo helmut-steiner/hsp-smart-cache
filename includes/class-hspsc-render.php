@@ -6,43 +6,82 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class HSPSC_Render {
     protected static $parsed_list_cache = array();
+    protected static $managed_strategies = array();
 
     public static function init() {
-        add_filter( 'script_loader_tag', array( __CLASS__, 'filter_script_tag' ), 10, 3 );
+        add_action( 'wp_print_scripts', array( __CLASS__, 'apply_script_strategies' ), PHP_INT_MAX );
+        add_action( 'wp_print_footer_scripts', array( __CLASS__, 'apply_script_strategies' ), 0 );
+        add_filter( 'script_loader_tag', array( __CLASS__, 'filter_script_tag' ), PHP_INT_MAX - 1, 3 );
         add_action( 'wp_head', array( __CLASS__, 'output_preconnects' ), 1 );
         add_action( 'wp_head', array( __CLASS__, 'output_preloads' ), 2 );
         add_action( 'wp_head', array( __CLASS__, 'output_critical_css' ), 3 );
     }
 
-    public static function filter_script_tag( $tag, $handle, $src ) {
-        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
-            return $tag;
-        }
-
-        if ( self::script_has_inline_extras( $handle ) ) {
-            return $tag;
-        }
+    public static function apply_script_strategies() {
+        global $wp_scripts;
 
         $defer = HSPSC_Settings::get( 'render_defer_js' );
         $async = HSPSC_Settings::get( 'render_async_js' );
-
         if ( ! $defer && ! $async ) {
-            return $tag;
+            return;
+        }
+        if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
+            return;
+        }
+
+        // WordPress 6.3+ resolves eligible strategies across the dependency tree.
+        // Older versions must keep their blocking tags instead of guessing order.
+        if ( ! ( $wp_scripts instanceof WP_Scripts ) || ! method_exists( $wp_scripts, 'get_eligible_loading_strategy' ) ) {
+            return;
         }
 
         $defer_exclusions = self::parse_list( HSPSC_Settings::get( 'render_defer_exclusions', '' ) );
         $async_exclusions = self::parse_list( HSPSC_Settings::get( 'render_async_exclusions', '' ) );
 
-        if ( in_array( $handle, $defer_exclusions, true ) || in_array( $handle, $async_exclusions, true ) ) {
-            return $tag;
+        // Resolve dependency membership once, including scripts registered for later output.
+        $has_dependents = array();
+        foreach ( $wp_scripts->registered as $registered ) {
+            foreach ( (array) $registered->deps as $dependency ) {
+                $has_dependents[ $dependency ] = true;
+            }
         }
-
-        if ( $defer && strpos( $tag, ' defer' ) === false ) {
-            $tag = str_replace( ' src=', ' defer src=', $tag );
-        } elseif ( $async && strpos( $tag, ' async' ) === false ) {
-            $tag = str_replace( ' src=', ' async src=', $tag );
+        foreach ( $wp_scripts->registered as $handle => $registered ) {
+            if ( ! $registered->src || in_array( $handle, $wp_scripts->done, true ) || $wp_scripts->get_data( $handle, 'strategy' ) ) {
+                continue;
+            }
+            if ( in_array( $handle, $defer_exclusions, true ) || in_array( $handle, $async_exclusions, true ) || self::script_has_inline_extras( $handle ) || isset( $has_dependents[ $handle ] ) || HSPSC_Minify::is_script_excluded( $handle, $registered->src ) ) {
+                continue;
+            }
+            $strategy = $defer ? 'defer' : 'async';
+            if ( wp_script_add_data( $handle, 'strategy', $strategy ) ) {
+                self::$managed_strategies[ $handle ] = array( 'script' => $registered, 'strategy' => $strategy );
+            }
         }
+    }
 
+    public static function filter_script_tag( $tag, $handle, $src ) {
+        global $wp_scripts;
+
+        $managed = isset( self::$managed_strategies[ $handle ] ) ? self::$managed_strategies[ $handle ] : null;
+        $owns_strategy = $managed && $wp_scripts instanceof WP_Scripts && isset( $wp_scripts->registered[ $handle ] )
+            && $managed['script'] === $wp_scripts->registered[ $handle ] && $managed['strategy'] === $wp_scripts->get_data( $handle, 'strategy' );
+        if ( $owns_strategy && ( ! HSPSC_Utils::should_apply_frontend_optimizations() || preg_match( '/\s(?:data-no-optimize|data-cfasync|type\s*=\s*[\'\"]?module)(?:\s|=|[\'\"]|>)/i', $tag ) ) ) {
+            // Late opt-out attributes can come from another tag filter. Only leaf
+            // scripts receive our strategies, so returning to blocking is safe.
+            wp_script_add_data( $handle, 'strategy', '' );
+            unset( self::$managed_strategies[ $handle ] );
+            $attribute = preg_quote( $managed['strategy'], '/' );
+            return preg_replace_callback(
+                '/<script\b[^>]*>/i',
+                static function ( $matches ) use ( $attribute ) {
+                    if ( ! preg_match( '/\ssrc\s*=/i', $matches[0] ) ) {
+                        return $matches[0];
+                    }
+                    return preg_replace( '/\s' . $attribute . '(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?(?=\s|>)/i', '', $matches[0] );
+                },
+                $tag
+            );
+        }
         return $tag;
     }
 

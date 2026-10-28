@@ -7,6 +7,8 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 function hspsc_uninstall() {
     delete_option( 'hspsc_settings' );
+    delete_option( 'hspsc_cache_schema' );
+    delete_option( 'hspsc_object_cache_security_revision' );
 
     if ( ! defined( 'HSPSC_PATH' ) ) {
         define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );

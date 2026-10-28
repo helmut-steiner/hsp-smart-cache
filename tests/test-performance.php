@@ -23,6 +23,30 @@ class HSPSC_Performance_Test extends WP_UnitTestCase {
         $this->assertSame( 'async', $attr['decoding'] );
     }
 
+	/**
+	 * Disabled cleanup and completed decoding do not query optional integrations.
+	 */
+	public function test_disabled_features_skip_frontend_eligibility_checks() {
+		$this->go_to( home_url( '/' ) );
+		wp_set_current_user( 0 );
+		$this->assertTrue( HSPSC_Utils::should_apply_frontend_optimizations() );
+		$calls = 0;
+		$count = static function ( $eligible ) use ( &$calls ) {
+			++$calls;
+			return $eligible;
+		};
+		add_filter( 'hspsc_should_apply_frontend_optimizations', $count );
+		try {
+			HSPSC_Performance::maybe_disable_emojis();
+			HSPSC_Performance::maybe_disable_embeds();
+			$attr = array( 'decoding' => 'sync' );
+			$this->assertSame( $attr, HSPSC_Performance::filter_image_attributes( $attr, null, 'full' ) );
+			$this->assertSame( 0, $calls );
+		} finally {
+			remove_filter( 'hspsc_should_apply_frontend_optimizations', $count );
+		}
+	}
+
     public function test_dns_prefetch_hints_added() {
         update_option( HSPSC_Settings::OPTION_KEY, array_merge( HSPSC_Settings::defaults(), array(
             'perf_dns_prefetch_urls' => "//example.com\n//cdn.example.com",

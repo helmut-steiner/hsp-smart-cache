@@ -89,4 +89,49 @@ class HSPSC_CDN_Test extends WP_UnitTestCase {
 
         $this->assertSame( $url, $rewritten );
     }
+
+	/**
+	 * A disabled feature must not repeat frontend integration discovery per URL.
+	 */
+	public function test_disabled_cdn_skips_frontend_eligibility_checks() {
+		update_option( HSPSC_Settings::OPTION_KEY, HSPSC_Settings::defaults() );
+		$this->go_to( home_url( '/' ) );
+		wp_set_current_user( 0 );
+		$this->assertTrue( HSPSC_Utils::should_apply_frontend_optimizations() );
+		$calls = 0;
+		$count = static function ( $eligible ) use ( &$calls ) {
+			++$calls;
+			return $eligible;
+		};
+		add_filter( 'hspsc_should_apply_frontend_optimizations', $count );
+		try {
+			$url = content_url( '/themes/example/style.css' );
+			$this->assertSame( $url, HSPSC_CDN::rewrite_url( $url ) );
+			$this->assertSame( $url, HSPSC_CDN::rewrite_script_url( $url, 'example' ) );
+			$this->assertSame( 0, $calls );
+		} finally {
+			remove_filter( 'hspsc_should_apply_frontend_optimizations', $count );
+		}
+	}
+
+	/**
+	 * The full source filter preserves language scripts before CDN rewriting.
+	 */
+	public function test_script_loader_src_preserves_wpml_sources_and_rewrites_eligible_scripts() {
+		$url     = content_url( '/plugins/hspsc-cdn-fixture/language.js?lang=de' );
+		$handles = array(
+			'wpml-browser-redirect',
+			'wcml-multi-currency',
+			'sitepress-language-switcher',
+		);
+
+		foreach ( $handles as $handle ) {
+			$this->assertSame( $url, apply_filters( 'script_loader_src', $url, $handle ) );
+		}
+
+		$this->assertSame(
+			'https://cdn.example.com/plugins/hspsc-cdn-fixture/language.js?lang=de',
+			apply_filters( 'script_loader_src', $url, 'hspsc-cdn-ordinary-script' )
+		);
+	}
 }

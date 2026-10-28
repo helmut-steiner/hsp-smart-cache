@@ -32,7 +32,13 @@ class HSPSC_Preload {
     }
 
     protected static function fetch_sitemap_urls( $sitemap_url, $limit ) {
-        $response = wp_remote_get( $sitemap_url, array( 'timeout' => 8 ) );
+		$response = wp_remote_get(
+			$sitemap_url,
+			array(
+				'timeout'     => 8,
+				'redirection' => 0,
+			)
+		);
         if ( is_wp_error( $response ) ) {
             return array();
         }
@@ -48,7 +54,7 @@ class HSPSC_Preload {
 
         $urls = array();
         foreach ( $matches[1] as $url ) {
-            $url = esc_url_raw( trim( $url ) );
+			$url = esc_url_raw( html_entity_decode( trim( $url ), ENT_QUOTES | ENT_XML1, 'UTF-8' ) );
             if ( $url && HSPSC_Page::is_warmable_url( $url ) ) {
                 $urls[] = $url;
             }

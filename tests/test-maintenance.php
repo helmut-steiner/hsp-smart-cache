@@ -32,14 +32,6 @@ class HSPSC_Maintenance_WPDB_Mock {
         return addcslashes( $text, '_%\\' );
     }
 
-    public function _escape( $data ) {
-        if ( is_array( $data ) ) {
-            return array_map( array( $this, '_escape' ), $data );
-        }
-
-        return addslashes( (string) $data );
-    }
-
     public function prepare( $query, ...$args ) {
         $parts = explode( '%', $query );
         $built = array_shift( $parts );
@@ -52,13 +44,17 @@ class HSPSC_Maintenance_WPDB_Mock {
             if ( $specifier === 'd' ) {
                 $built .= (string) intval( $value );
             } else {
-                $built .= "'" . str_replace( "'", "''", (string) $value ) . "'";
+                $built .= "'" . addslashes( (string) $value ) . "'";
             }
 
             $built .= $rest;
         }
 
         return $built;
+    }
+
+    public function remove_placeholder_escape( $query ) {
+        return $query;
     }
 
     public function get_col( $sql ) {
@@ -189,7 +185,7 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertGreaterThanOrEqual( 11, count( $wpdb->queries ) );
         $this->assertStringContainsString( 'wp_postmeta', implode( "\n", $wpdb->queries ) );
         $this->assertStringContainsString( 'wp_term_relationships', implode( "\n", $wpdb->queries ) );
-        $this->assertStringContainsString( 'site\\_transient\\_timeout', implode( "\n", $wpdb->queries ) );
+        $this->assertStringContainsString( "option_name LIKE '\\\\_site\\\\_transient\\\\_timeout\\\\_%'", implode( "\n", $wpdb->queries ) );
     }
 
     public function test_optimize_tables_returns_true_and_runs_optimize_per_table() {
@@ -412,6 +408,89 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertStringContainsString( "Semi; colon and \\'quote\\'", $contents );
     }
 
+    /**
+     * Checks SQL dump replay without the writer's placeholder-unescape filters.
+     */
+    public function test_real_database_backup_preserves_percent_values_in_another_query_context() {
+        global $wpdb;
+
+        $original = $wpdb;
+        $database = new wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
+        $prefix = $original->prefix . 'hspsc_export_' . wp_rand( 10000, 99999 ) . '_';
+        $database->set_prefix( $prefix );
+        $table = $prefix . 'items';
+        $value = "Sale 50% _item_ and 'quote' with \\ backslash";
+        $original_callback = array( $original, 'remove_placeholder_escape' );
+        $writer_callback = array( $database, 'remove_placeholder_escape' );
+        $original_priority = false;
+        $reader_context_installed = false;
+        $reader_filter = static function ( $query ) {
+            return str_replace( '{hspsc-different-reader-placeholder}', '%', $query );
+        };
+        $temporary_table_filters = array(
+            '_create_temporary_tables' => has_filter( 'query', array( $this, '_create_temporary_tables' ) ),
+            '_drop_temporary_tables' => has_filter( 'query', array( $this, '_drop_temporary_tables' ) ),
+        );
+
+        // Prime normal site state before temporarily narrowing the active table prefix.
+        wp_salt( 'auth' );
+        HSPSC_Settings::get_all();
+        HSPSC_Utils::get_filesystem();
+
+        try {
+            // This independent connection owns one permanent fixture table; the test
+            // framework's temporary-table rewrites would change SHOW CREATE output.
+            foreach ( $temporary_table_filters as $callback => $priority ) {
+                if ( false !== $priority ) {
+                    remove_filter( 'query', array( $this, $callback ), $priority );
+                }
+            }
+            $this->assertNotFalse( $database->query( "CREATE TABLE `{$table}` (`id` bigint NOT NULL, `value` longtext)" ) );
+            $this->assertSame( 1, $database->insert( $table, array( 'id' => 1, 'value' => $value ) ) );
+            $schema = $database->get_row( 'SHOW CREATE TABLE ' . $table, ARRAY_A );
+            $this->assertStringStartsWith( 'CREATE TABLE ', $schema['Create Table'] );
+            $wpdb = $database;
+
+            $backup = HSPSC_Maintenance::create_backup();
+            $this->assertTrue( $backup['ok'] );
+            $this->assertSame( 1, $backup['tables'] );
+            $contents = $this->read_backup_contents( $backup['path'] );
+            $this->assertStringContainsString( '50% _item_', $contents );
+            $this->assertStringNotContainsString( $database->placeholder_escape(), $contents );
+            $this->assertNotFalse( $database->query( "DELETE FROM `{$table}`" ) );
+
+            // Another request has a different placeholder marker and cannot repair old tokens.
+            $original_priority = has_filter( 'query', $original_callback );
+            if ( false !== $original_priority ) {
+                remove_filter( 'query', $original_callback, $original_priority );
+            }
+            remove_filter( 'query', $writer_callback, 0 );
+            add_filter( 'query', $reader_filter, 0 );
+            $reader_context_installed = true;
+
+            $result = HSPSC_Maintenance::restore_backup( $backup['file'] );
+            $this->assertTrue( $result['ok'] );
+            $this->assertSame( $value, $database->get_var( "SELECT `value` FROM `{$table}` WHERE `id` = 1" ) );
+        } finally {
+            $database->query( "DROP TABLE IF EXISTS `{$table}`" );
+            foreach ( $temporary_table_filters as $callback => $priority ) {
+                if ( false !== $priority ) {
+                    add_filter( 'query', array( $this, $callback ), $priority );
+                }
+            }
+            if ( $reader_context_installed ) {
+                remove_filter( 'query', $reader_filter, 0 );
+                if ( false !== $original_priority ) {
+                    add_filter( 'query', $original_callback, $original_priority );
+                }
+            }
+            remove_filter( 'query', $writer_callback, 0 );
+            $database->close();
+            $wpdb = $original;
+            HSPSC_Settings::reset_cache();
+        }
+    }
+
     public function test_restore_backup_reinserts_rows() {
         global $wpdb;
         $wpdb = new HSPSC_Maintenance_WPDB_Mock();
@@ -451,7 +530,7 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
             . "SET FOREIGN_KEY_CHECKS=1;\n"
         );
 
-        $restore = HSPSC_Maintenance::restore_backup( $file );
+        $restore = $this->restore_signed_fixture( $file );
 
         $this->assertTrue( $restore['ok'] );
         $this->assertSame( 3, $restore['statements'] );
@@ -469,7 +548,7 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         wp_mkdir_p( $this->backup_dir );
         file_put_contents( $path, "INSERT INTO `wp_posts` (`ID`) VALUES ('1');\n" );
 
-        $restore = HSPSC_Maintenance::restore_backup( $file );
+        $restore = $this->restore_signed_fixture( $file );
 
         $this->assertTrue( $restore['ok'] );
         $this->assertSame( 1, $restore['statements'] );
@@ -477,7 +556,7 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertNotEmpty( $restore['warnings'] );
     }
 
-    public function test_restore_backup_skips_non_wordpress_table_statements() {
+    public function test_restore_backup_rejects_non_wordpress_tables_before_any_query() {
         global $wpdb;
         $wpdb = new HSPSC_Maintenance_WPDB_Mock();
 
@@ -492,15 +571,15 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
             . "INSERT INTO `wp_posts` (`ID`) VALUES ('2');\n"
         );
 
-        $restore = HSPSC_Maintenance::restore_backup( $file );
+        $restore = $this->restore_signed_fixture( $file );
 
-        $this->assertTrue( $restore['ok'] );
-        $this->assertSame( 1, $restore['statements'] );
+        $this->assertFalse( $restore['ok'] );
+        $this->assertSame( 'unsafe_statement', $restore['error'] );
+        $this->assertSame( 0, $restore['executed'] );
         $this->assertSame( 3, $restore['skipped'] );
         $this->assertCount( 3, $restore['skipped_statements'] );
         $this->assertSame( 'non_wordpress_table', $restore['skipped_statements'][0]['reason'] );
-        $this->assertNotEmpty( $restore['warnings'] );
-        $this->assertSame( array( "INSERT INTO `wp_posts` (`ID`) VALUES ('2');" ), $wpdb->queries );
+        $this->assertSame( array(), $wpdb->queries );
     }
 
     public function test_restore_backup_fails_when_no_wordpress_tables_are_restored() {
@@ -519,14 +598,14 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
             . "SET FOREIGN_KEY_CHECKS=1;\n"
         );
 
-        $restore = HSPSC_Maintenance::restore_backup( $file );
+        $restore = $this->restore_signed_fixture( $file );
 
         $this->assertFalse( $restore['ok'] );
-        $this->assertSame( 'no_tables_restored', $restore['error'] );
-        $this->assertSame( 2, $restore['statements'] );
+        $this->assertSame( 'unsafe_statement', $restore['error'] );
+        $this->assertSame( 0, $restore['executed'] );
         $this->assertSame( 3, $restore['skipped'] );
         $this->assertNotEmpty( $restore['skipped_statements'] );
-        $this->assertNotEmpty( $restore['warnings'] );
+        $this->assertSame( array(), $wpdb->queries );
     }
 
     public function test_restore_backup_reports_query_failures() {
@@ -539,7 +618,7 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         wp_mkdir_p( $this->backup_dir );
         file_put_contents( $path, "INSERT INTO `wp_posts` (`ID`) VALUES ('1');\n" );
 
-        $restore = HSPSC_Maintenance::restore_backup( $file );
+        $restore = $this->restore_signed_fixture( $file );
 
         $this->assertFalse( $restore['ok'] );
         $this->assertSame( 'query_failed', $restore['error'] );
@@ -659,6 +738,136 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertFileExists( $this->backup_dir . '/web.config' );
         $this->assertStringContainsString( 'Require all denied', file_get_contents( $this->backup_dir . '/.htaccess' ) );
         $this->assertStringContainsString( '<authorization>', file_get_contents( $this->backup_dir . '/web.config' ) );
+    }
+
+    public function test_backup_has_a_signature_and_modified_bytes_are_rejected() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_posts' );
+        $backup = HSPSC_Maintenance::create_backup();
+        $this->assertTrue( $backup['ok'] );
+        $this->assertFileExists( $backup['path'] . '.sig' );
+        file_put_contents( $backup['path'], 'modified bytes', FILE_APPEND );
+        $wpdb->queries = array();
+        $result = HSPSC_Maintenance::restore_backup( $backup['file'] );
+        $this->assertFalse( $result['ok'] );
+        $this->assertSame( 'integrity_failed', $result['error'] );
+        $this->assertSame( array(), $wpdb->queries );
+    }
+
+    public function test_unsigned_legacy_backup_is_rejected_before_sql() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        wp_mkdir_p( $this->backup_dir );
+        $file = 'hsp-db-backup-2026-04-25_10-20-40.sql';
+        file_put_contents( $this->backup_dir . '/' . $file, "DROP TABLE IF EXISTS `wp_posts`;" );
+        $result = HSPSC_Maintenance::restore_backup( $file );
+        $this->assertSame( 'missing_signature', $result['error'] );
+        $this->assertSame( array(), $wpdb->queries );
+    }
+
+    public function test_signature_is_bound_to_filename_and_site() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_posts' );
+        $backup = HSPSC_Maintenance::create_backup();
+        $file = 'hsp-db-backup-2026-04-25_10-20-41.sql' . ( $backup['compressed'] ? '.gz' : '' );
+        copy( $backup['path'], $this->backup_dir . '/' . $file );
+        copy( $backup['path'] . '.sig', $this->backup_dir . '/' . $file . '.sig' );
+        $wpdb->queries = array();
+        $this->assertSame( 'integrity_failed', HSPSC_Maintenance::restore_backup( $file )['error'] );
+        $this->assertSame( array(), $wpdb->queries );
+    }
+
+    public function test_generated_boolean_null_and_reserved_column_values_restore() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_flags' );
+        $wpdb->create_sql = array( 'wp_flags' => 'CREATE TABLE `wp_flags` (`select` tinyint, `connection` tinyint, `note` text)' );
+        $wpdb->table_rows = array( 'wp_flags' => array( array( 'select' => true, 'connection' => false, 'note' => null ) ) );
+        $backup = HSPSC_Maintenance::create_backup();
+        $this->assertTrue( $backup['ok'] );
+        $result = HSPSC_Maintenance::restore_backup( $backup['file'] );
+        $this->assertTrue( $result['ok'] );
+        $this->assertSame( 1, $result['tables']['wp_flags']['insert'] );
+    }
+
+    public function test_a_different_site_cannot_restore_the_same_signed_bytes() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_posts' );
+        $backup = HSPSC_Maintenance::create_backup();
+        $directory = $this->backup_dir;
+        $same_directory = static function () use ( $directory ) {
+            return $directory;
+        };
+        $different_site = static function () {
+            return 'https://another-store.example';
+        };
+        add_filter( 'hspsc_db_backup_dir', $same_directory );
+        add_filter( 'home_url', $different_site );
+        $wpdb->queries = array();
+        try {
+            $result = HSPSC_Maintenance::restore_backup( $backup['file'] );
+            $this->assertSame( 'integrity_failed', $result['error'] );
+            $this->assertSame( array(), $wpdb->queries );
+        } finally {
+            remove_filter( 'hspsc_db_backup_dir', $same_directory );
+            remove_filter( 'home_url', $different_site );
+        }
+    }
+
+    /** @dataProvider unsafe_restore_statements */
+    public function test_sql_preflight_rejects_secondary_table_targets_and_expressions( $sql ) {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        wp_mkdir_p( $this->backup_dir );
+        $file = 'hsp-db-backup-2026-04-25_10-20-42.sql';
+        file_put_contents( $this->backup_dir . '/' . $file, "DROP TABLE IF EXISTS `wp_posts`;\n" . $sql );
+        $result = $this->restore_signed_fixture( $file );
+        $this->assertFalse( $result['ok'] );
+        $this->assertSame( 'unsafe_statement', $result['error'] );
+        $this->assertSame( array(), $wpdb->queries );
+    }
+
+    public function unsafe_restore_statements() {
+        return array(
+            array( 'DROP TABLE IF EXISTS `wp_posts`, `other_logs`;' ),
+            array( 'INSERT INTO `wp_posts` (`ID`) SELECT `id` FROM `other_logs`;' ),
+            array( 'INSERT INTO `wp_posts` (`ID`) VALUES (SLEEP(1));' ),
+            array( 'CREATE TABLE `wp_posts` AS SELECT * FROM `other_logs`;' ),
+            array( 'CREATE TABLE `wp_posts` (`ID` int, FOREIGN KEY (`ID`) REFERENCES `other_logs` (`id`));' ),
+            array( 'CREATE TABLE `wp_posts` (`ID` int, FOREIGN KEY (`ID`) REFERENCES `wp_other`.`secret` (`id`));' ),
+        );
+    }
+
+    public function test_restore_rejects_symlink_to_another_directory() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        wp_mkdir_p( $this->backup_dir );
+        $outside = tempnam( sys_get_temp_dir(), 'hspsc-backup-' );
+        $file = 'hsp-db-backup-2026-04-25_10-20-43.sql';
+        $path = $this->backup_dir . '/' . $file;
+        try {
+            file_put_contents( $outside, 'DROP TABLE IF EXISTS `wp_posts`;' );
+            if ( ! function_exists( 'symlink' ) || ! @symlink( $outside, $path ) ) {
+                $this->markTestSkipped( 'Symlinks are unavailable.' );
+            }
+            $this->assertSame( 'path_outside_backup_dir', HSPSC_Maintenance::restore_backup( $file )['error'] );
+            $this->assertSame( array(), $wpdb->queries );
+        } finally {
+            if ( is_link( $path ) ) {
+                unlink( $path );
+            }
+            unlink( $outside );
+        }
+    }
+
+    private function restore_signed_fixture( $file ) {
+        $method = new ReflectionMethod( 'HSPSC_Maintenance', 'sign_backup' );
+        $method->setAccessible( true );
+        $this->assertTrue( $method->invoke( null, $this->backup_dir . '/' . $file ) );
+        return HSPSC_Maintenance::restore_backup( $file );
     }
 
     private function read_backup_contents( $path ) {

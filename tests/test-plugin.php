@@ -105,4 +105,29 @@ class HSPSC_Plugin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( has_action( 'deleted_option', array( 'HSPSC_Plugin', 'handle_deleted_option' ) ) );
         $this->assertNotFalse( has_action( 'bricks/generate_css_file', array( 'HSPSC_Plugin', 'flush_render_caches' ) ) );
     }
+
+    public function test_cache_schema_upgrade_purges_legacy_pages_and_assets_only_once() {
+        $page = HSPSC_PATH . '/pages/legacy-schema.html';
+        $asset = HSPSC_PATH . '/assets/legacy-schema.min.js';
+        $object = HSPSC_PATH . '/object/schema-preserved.txt';
+        file_put_contents( $page, 'legacy page' );
+        file_put_contents( $asset, 'legacy asset' );
+        file_put_contents( $object, 'object' );
+        delete_option( 'hspsc_cache_schema' );
+        try {
+            HSPSC_Plugin::maybe_upgrade_cache_schema();
+            $this->assertFileDoesNotExist( $page );
+            $this->assertFileDoesNotExist( $asset );
+            $this->assertFileExists( $object );
+            $this->assertSame( HSPSC_Plugin::CACHE_SCHEMA, (int) get_option( 'hspsc_cache_schema' ) );
+
+            file_put_contents( $page, 'fresh page' );
+            HSPSC_Plugin::maybe_upgrade_cache_schema();
+            $this->assertFileExists( $page );
+        } finally {
+            wp_delete_file( $page );
+            wp_delete_file( $asset );
+            wp_delete_file( $object );
+        }
+    }
 }

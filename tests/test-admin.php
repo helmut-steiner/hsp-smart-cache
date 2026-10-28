@@ -65,6 +65,69 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         wp_set_current_user( 0 );
     }
 
+	/**
+	 * A public cache file must not be presented as a hit for the admin's request.
+	 */
+	public function test_logged_in_toolbar_shows_bypass_with_separate_public_cache_status() {
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+		$file = $this->create_public_cache_for_toolbar();
+
+		try {
+			$bar = new WP_Admin_Bar();
+			$bar->initialize();
+			HSPSC_Admin::register_admin_bar( $bar );
+
+			$this->assertFalse( HSPSC_Utils::is_request_cacheable() );
+			$this->assertSame( 'HSP Cache: BYPASS', $bar->get_node( 'hspsc' )->title );
+			$this->assertSame( 'Status: BYPASS', $bar->get_node( 'hspsc-status' )->title );
+			$this->assertStringContainsString( 'Logged-in page caching is disabled.', $bar->get_node( 'hspsc-status-reason' )->title );
+			$this->assertStringContainsString( 'Public cache: HIT', $bar->get_node( 'hspsc-status-details' )->title );
+		} finally {
+			wp_delete_file( $file );
+			wp_set_current_user( 0 );
+		}
+	}
+
+	/**
+	 * Anonymous URL diagnostics continue to recognize a fresh public cache file.
+	 */
+	public function test_public_cache_status_remains_hit_for_an_anonymous_request() {
+		wp_set_current_user( 0 );
+		$file = $this->create_public_cache_for_toolbar();
+
+		try {
+			$method = new ReflectionMethod( 'HSPSC_Admin', 'get_admin_bar_cache_status' );
+			$method->setAccessible( true );
+			$status = $method->invoke( null );
+
+			$this->assertSame( 'HIT', $status['label'] );
+			$this->assertSame( 'Fresh cache file exists for this URL.', $status['reason'] );
+		} finally {
+			wp_delete_file( $file );
+		}
+	}
+
+	/**
+	 * Creates a fresh anonymous cache file for the current frontend URL.
+	 *
+	 * @return string Cache filename.
+	 */
+	private function create_public_cache_for_toolbar() {
+		$this->go_to( home_url( '/' ) );
+		$home = wp_parse_url( home_url() );
+
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+		$_SERVER['HTTP_HOST']      = $home['host'] . ( isset( $home['port'] ) ? ':' . $home['port'] : '' );
+		$_SERVER['HTTPS']          = 'https' === $home['scheme'] ? 'on' : 'off';
+		$_SERVER['SERVER_PORT']    = isset( $home['port'] ) ? $home['port'] : ( 'https' === $home['scheme'] ? 443 : 80 );
+		$_SERVER['REQUEST_URI']    = '/';
+		update_option( HSPSC_Settings::OPTION_KEY, HSPSC_Settings::defaults() );
+		$file = HSPSC_Page::get_cache_file_path_for_url( home_url( '/' ) );
+		file_put_contents( $file, '<html>public page</html>' );
+		return $file;
+	}
+
     public function test_handle_settings_update_clears_page_and_asset_caches() {
         $page_file  = HSPSC_PATH . '/pages/admin-test-page.html';
         $asset_file = HSPSC_PATH . '/assets/admin-test.min.js';

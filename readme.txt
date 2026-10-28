@@ -4,9 +4,8 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.7.2
-License: MIT
-License URI: https://opensource.org/licenses/MIT
+Stable tag: 0.8.0
+License: Proprietary
 Fast page caching and asset optimization for WordPress with simple controls.
 
 == Description ==
@@ -15,8 +14,10 @@ HSP Smart Cache is an all-in-one performance plugin for WordPress with practical
 It includes the following functionality:
 
 * **Page caching** with configurable TTL and optional caching for logged-in users.
+* **Optional WPML integration** with language-isolated page output and translated private commerce page exclusions.
+* **Optional analytics, SEO, and image compatibility** with targeted Independent Analytics, Slim SEO, and WebP Express output invalidation and negotiated HTML variants.
 * **Automatic cache invalidation** when posts, comments, terms, themes, customizer settings, plugins, or core updates change site output.
-* **HTML/CSS/JS minification**, including inline CSS/JS minification in HTML output.
+* **HTML/CSS/JS optimization** that preserves inline CSS/JS payloads and sensitive markup.
 * **Asset minification cache** with generated minified files served from the plugin cache directory.
 * **CDN URL rewriting** for static assets (CSS, JS, images, fonts).
 * **File-based object cache drop-in** with automatic install/remove syncing based on settings.
@@ -49,7 +50,51 @@ Use the **Clear All Caches** button on the settings page.
 = How do I test the cache? =
 Use the **Run Cache Tests** button on the settings page.
 
+= How does WPML integration work? =
+When WPML is active, documented APIs isolate page output for language directories, separate domains, and query URLs such as `?lang=de`. Unknown or conflicting language contexts bypass caching and frontend transformations. Language-only WPML pages remain cacheable. Translated WooCommerce/FluentCart private pages stay excluded. WCML currency cookies or its registered multicurrency API bypass page caching and frontend transformations, including first visits before cookies exist, when geolocation may personalize prices. WPML scripts keep their source URLs, localization data, and loading behavior; visitor-language redirect opt-outs remain under WPML's control. Translation, string removal, source-language/source-string edits, and language-setting changes invalidate cached pages. Ordinary frontend string registration leaves cached pages intact.
+
+Manual preload preserves XML-escaped language query arguments and fetches only exact configured home, site, or currently API-resolvable WPML language origins, without following redirects. Early/admin preload may skip other language domains before WPML's full active-language map is available. Page-cache namespace and render-cache schema 4 purge older page and asset cache files when the schema changes.
+
+Normal PHPUnit and CI coverage uses API fixtures without requiring WPML/WCML, Independent Analytics, Slim SEO, or WebP Express plugins, private ZIP files, or license keys. Optional live integration checks run separately on a local development installation, with tested versions and configurations reported separately. These checks do not establish WPML certification.
+
+= Does it work with Independent Analytics, Slim SEO, and WebP Express? =
+Optional integrations clear cached pages when tracking, Complianz consent-integration, counter, SEO, or image-rewriting configuration changes. Inline tracking scripts, consent attributes, campaign URLs, JSON-LD, and picture markup are preserved. Independent Analytics ignore-visitor cookies bypass page caching and frontend transformations, while ordinary tracked public pages remain eligible. Server-rendered public view counters are snapshots until the page TTL expires or pages are cleared.
+
+HTML cache variants use the exact request Accept header and send Vary: Accept on hits and misses. URL purges clear every variant, and warming forwards the initiating request's Accept header. Preloading warms only that representation; an admin AJAX Accept: */* request does not warm a different browser-navigation header. Markdown, XML, REST tracking, and POST responses remain uncached. HTML browser responses remain private and require revalidation.
+
+Source review covered supplied Independent Analytics Pro 2.14.10 and Slim SEO Pro 1.11.2 archives and official WebP Express 0.25.16 source. API-shaped fixtures cover relevant contracts without those plugins. This is not live premium-feature validation or certification, and license activation is not bypassed.
+
+= How can I diagnose a page-cache bypass? =
+When headers can still be sent, X-HSPSC-Cache reports HIT, MISS, or BYPASS. X-HSPSC-Cache-Reason uses fixed codes: private-request, response-headers, request-key, buffer-conflict, late-private-response, or write-failed. These headers reveal no cookie values, signing secrets, or filesystem paths. The option reference explains each code. Absence of a header alone does not identify the source of a slow request.
+
 == Changelog ==
+
+= 0.8.0 =
+* Fix the logged-in toolbar status: show BYPASS when logged-in page caching is disabled and list the public cache status separately.
+* Fix page-cache buffer conflicts with WordPress 6.9+ template enhancements and nested plugin output. Capture completed output without closing foreign buffers; preserve late privacy checks and reject incomplete or discarded HSP output.
+* Prevent recursive object-cache settings lookups after a flush that could stall requests or exhaust memory.
+* Reduce repeated object signing-key work and completed legacy-migration scans; prevent full scans when garbage-collection scheduling fails.
+* Reuse generated assets without rereading source contents on warm hits, index script dependencies, and skip disabled features and known private requests early.
+* Resolve WPML checks with one fresh language catalog while retaining late privacy and language checks.
+* Add targeted Independent Analytics, Slim SEO, and WebP Express invalidation; preserve tracker consent gating, campaign URLs, JSON-LD, and picture markup. Honor ignore-visitor cookies, invalidate Complianz integration changes, and document public-counter TTL limits.
+* Isolate exact Accept-header HTML variants, replay Vary: Accept, invalidate all variants per URL, and forward Accept during warming. Keep Markdown/XML uncached.
+* Add fixed cache-bypass reason headers without exposing visitor data or cache paths.
+* Add plugin-independent integration fixtures and source review for Independent Analytics Pro 2.14.10, Slim SEO Pro 1.11.2, and WebP Express 0.25.16 without activation bypass or live premium certification claims.
+* List the exact native Bricks Performance settings in both preset confirmation paths.
+* Replace the project license with a proprietary copyright notice; earlier copies retain their previously granted permissions.
+* Add optional WPML language isolation, translated private commerce pages, and WCML currency bypasses.
+* Bypass registered WCML multicurrency contexts before first-visitor cookies exist, including geolocated prices; language-only WPML remains cacheable.
+* Preserve WPML scripts and sitemap language query arguments; invalidate translated output and bypass unknown/conflicting language contexts.
+* Restrict warming to exact configured home/site/API-resolvable WPML origins without redirects; early/admin preload may skip other domains. Purge older render caches under cache schema 4.
+* Invalidate cached translations after string removal, source-language changes, and source-string edits while preserving cache during ordinary frontend registration.
+* Keep WPML/WCML API-contract fixtures independent of plugins, private ZIP files, and license keys; optional live integration checks remain separate.
+* Protect object-cache files with guarded, authenticated storage and legacy cleanup.
+* Add WooCommerce/FluentCart dynamic-request exclusions and catalog invalidation.
+* Harden page-cache keys, response handling, revalidation, and late privacy checks.
+* Preserve asset dependencies, inline payloads, optimization opt-outs, and script loading order.
+* Require signed database backups and complete SQL preflight for built-in restore.
+* Add security, commerce, asset, and cache regression coverage.
+* Preserve SQL backup percentage values, translate restore warnings, and handle deletion results on older supported WordPress versions.
 
 = 0.7.2 =
 * Fix frontend cache writes by safely loading WordPress file helpers before using temporary files.

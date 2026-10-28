@@ -88,4 +88,56 @@ class HSPSC_Preload_Test extends WP_UnitTestCase {
         $this->assertSame( 'invalid_sitemap_url', $result['error'] );
         $this->assertSame( 0, $result['count'] );
     }
+
+	/**
+	 * Sitemap XML entities are decoded without losing language query arguments.
+	 */
+	public function test_sitemap_urls_decode_xml_entities_and_preserve_language_queries() {
+		$sitemap_url  = home_url( '/sitemap.xml' );
+		$expected_url = add_query_arg( array( 'page' => 2, 'lang' => 'de' ), home_url( '/catalog/' ) );
+		$warmed_urls  = array();
+		$sitemap_args = array();
+
+		update_option(
+			HSPSC_Settings::OPTION_KEY,
+			array_merge(
+				HSPSC_Settings::defaults(),
+				array(
+					'page_cache'          => true,
+					'preload_enabled'     => true,
+					'preload_sitemap_url' => $sitemap_url,
+				)
+			)
+		);
+
+		$mock_http = static function ( $preempt, $args, $url ) use ( &$warmed_urls, &$sitemap_args, $sitemap_url, $expected_url ) {
+			$body = 'ok';
+			if ( $sitemap_url === $url ) {
+				$sitemap_args = $args;
+				$body         = '<urlset><url><loc>' . htmlspecialchars( $expected_url, ENT_QUOTES | ENT_XML1, 'UTF-8' ) . '</loc></url></urlset>';
+			} else {
+				$warmed_urls[] = $url;
+			}
+
+			return array(
+				'headers'  => array(),
+				'body'     => $body,
+				'response' => array( 'code' => 200, 'message' => 'OK' ),
+				'cookies'  => array(),
+				'filename' => null,
+			);
+		};
+		add_filter( 'pre_http_request', $mock_http, 10, 3 );
+
+		try {
+			$result = HSPSC_Preload::run();
+		} finally {
+			remove_filter( 'pre_http_request', $mock_http, 10 );
+		}
+
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 1, $result['count'] );
+		$this->assertSame( array( $expected_url ), $warmed_urls );
+		$this->assertSame( 0, $sitemap_args['redirection'] );
+	}
 }

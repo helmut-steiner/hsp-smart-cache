@@ -1,4 +1,33 @@
-# Changelog
+﻿# Changelog
+
+## 0.8.0
+
+- Show BYPASS in the logged-in toolbar when authenticated page caching is disabled, and report the anonymous URL cache separately in the details.
+- Capture completed nested output buffers, including WordPress 6.9+ template enhancements, without consuming another component's buffer. Recheck final privacy and representation, and reject incomplete or discarded HSP output.
+- Prevent recursive settings lookups after flushing the file object cache, which could stall requests and exhaust memory.
+- Reduce repeated object-cache signing-key derivation and idle legacy-storage scans; require a writable garbage-collection marker before scanning.
+- Reuse generated assets without rereading source contents on warm hits, index script dependencies once per render pass, and skip disabled features and known private requests before optional integration discovery.
+- Resolve each WPML request check from one fresh language catalog while retaining late language, cookie, currency, and privacy checks.
+- Add optional Independent Analytics, Slim SEO, and WebP Express output invalidation while preserving inline trackers, campaign URLs, JSON-LD, and picture markup. Invalidate pages after Complianz integration changes to preserve tracker consent gating. Ignore-visitor cookies bypass caching; public server-rendered view counts retain page-cache TTL limits.
+- Isolate negotiated HTML by the exact request `Accept` header, replay `Vary: Accept`, clear all representations per URL, and forward `Accept` when warming. Keep Markdown/XML responses uncached.
+- Expose fixed page-cache bypass reason headers for diagnosis without revealing visitor data or cache paths.
+- Cover integration contracts with plugin-independent fixtures; review supplied Independent Analytics Pro 2.14.10 and Slim SEO Pro 1.11.2 archives and official WebP Express 0.25.16 source without bypassing activation or claiming live premium certification.
+- List the exact native Bricks Performance settings in both preset confirmation paths, including the lazy-loading checkbox state.
+- Replace the project license with a proprietary copyright notice; earlier copies retain their previously granted permissions.
+- Add optional WPML language isolation for directory, domain, and query URLs, translated WooCommerce/FluentCart private-page exclusions, and WCML currency bypasses.
+- Bypass registered WCML multicurrency contexts before first-visitor cookies exist, including geolocated prices; language-only WPML remains cacheable.
+- Preserve WPML scripts and sitemap language query arguments; invalidate pages after translation and language-setting changes and bypass unknown or conflicting language contexts.
+- Restrict sitemap/page warming to exact configured home, site, or currently API-resolvable WPML origins without following redirects; early/admin preload may skip other language domains. Move page-cache namespace and render-cache schema to 4 and purge older render files.
+- Invalidate cached translations after string removal, source-language changes, and source-string edits while preserving cache during ordinary frontend registration.
+- Keep WPML/WCML API-contract regression fixtures independent of plugins, private ZIP files, and license keys; optional live integration checks remain separate.
+- Validate local HTTP integration with WPML 5.2.0, String Translation 5.2.0, WCML 5.7.0, and WooCommerce 11.2.1 for EN/DE URL modes, translated private pages, currency isolation, and string update/removal invalidation.
+- Protect persistent object files with PHP guards, authenticated payloads, legacy cleanup, and safer atomic cache operations.
+- Add WooCommerce/FluentCart session, currency, private-page, and catalog invalidation integration.
+- Recheck dynamic requests before page-cache writes, preserve encoded URL keys, honor response metadata, and require HTML revalidation.
+- Preserve module/relative asset dependencies, inline payloads, optimization opt-outs, and native script loading order.
+- Authenticate database backups and preflight all restore statements before executing SQL; unsigned older backups require a new signed backup for built-in restore.
+- Add security, commerce, response, asset, object-cache API, and concurrency regression coverage.
+- Preserve percentage values in SQL backups through public WordPress database APIs, translate restore warnings, and support deletion results on WordPress versions before 6.7.
 
 ## 0.7.2
 

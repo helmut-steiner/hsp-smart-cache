@@ -9,11 +9,31 @@ class HSPSC_CDN {
 
     public static function init() {
         add_filter( 'style_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );
-        add_filter( 'script_loader_src', array( __CLASS__, 'rewrite_url' ), 30 );
+        add_filter( 'script_loader_src', array( __CLASS__, 'rewrite_script_url' ), 30, 2 );
         add_filter( 'wp_get_attachment_url', array( __CLASS__, 'rewrite_url' ), 30 );
     }
 
+	/**
+	 * Preserves integration script URLs before applying optional CDN rewriting.
+	 *
+	 * @param string $url    Script source URL.
+	 * @param string $handle Registered script handle.
+	 * @return string Original or rewritten URL.
+	 */
+	public static function rewrite_script_url( $url, $handle ) {
+		if ( ! HSPSC_Settings::get( 'cdn_enabled' ) || ! HSPSC_Settings::get( 'cdn_url' ) ) {
+			return $url;
+		}
+		if ( HSPSC_Minify::is_script_excluded( $handle, $url ) ) {
+			return $url;
+		}
+		return self::rewrite_url( $url );
+	}
+
     public static function rewrite_url( $url ) {
+        if ( ! HSPSC_Settings::get( 'cdn_enabled' ) || ! HSPSC_Settings::get( 'cdn_url' ) || ! HSPSC_Static_Assets::is_cacheable_asset_url( $url ) ) {
+            return $url;
+        }
         if ( ! HSPSC_Utils::should_apply_frontend_optimizations() ) {
             return $url;
         }

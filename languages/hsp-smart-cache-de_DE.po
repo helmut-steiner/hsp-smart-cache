@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: HSP Smart Cache 0.1.0\n"
+"Project-Id-Version: HSP Smart Cache 0.8.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-01-26 00:00+0000\n"
 "PO-Revision-Date: 2026-01-26 00:00+0000\n"
@@ -21,6 +21,9 @@ msgstr "Cache geleert."
 msgid "Defaults restored."
 msgstr "Standardwerte wiederhergestellt."
 
+msgid "Bricks compatibility preset applied. In Bricks > Settings > Performance, leave \"Disable lazy loading\" unchecked. Enable \"Disable emojis\" and \"Disable embed\" if those features are not needed. The preset also turns off HSP Smart Cache iframe lazy loading and script defer/async."
+msgstr "Bricks-Kompatibilitätsvorgabe angewendet. Lassen Sie unter Bricks > Einstellungen > Performance die Option \"Disable lazy loading\" deaktiviert. Aktivieren Sie \"Disable emojis\" und \"Disable embed\", wenn diese Funktionen nicht benötigt werden. Die Vorgabe schaltet außerdem das Lazy Loading für Iframes sowie defer/async für Skripte in HSP Smart Cache aus."
+
 msgid "Cache tests completed."
 msgstr "Cache-Tests abgeschlossen."
 
@@ -32,6 +35,13 @@ msgstr "Cache-TTL (Sekunden)"
 
 msgid "Allow page caching for logged-in users"
 msgstr "Seiten-Cache für eingeloggte Benutzer erlauben"
+
+msgid "Logged-in page caching is disabled."
+msgstr "Seiten-Caching für eingeloggte Benutzer ist deaktiviert."
+
+#. translators: 1: public cache status, 2: cache file age, TTL and size details.
+msgid "Public cache: %1$s | %2$s"
+msgstr "Öffentlicher Cache: %1$s | %2$s"
 
 msgid "Browser Cache Headers"
 msgstr "Browser-Cache-Header"

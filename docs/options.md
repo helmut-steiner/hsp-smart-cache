@@ -115,6 +115,12 @@ These integrations are optional and require no additional HSP Smart Cache settin
 
 Plugin activation and deactivation clear render caches so newly enabled or removed output is not hidden by existing pages. Source review covered supplied Independent Analytics Pro 2.14.10 and Slim SEO Pro 1.11.2 archives and official WebP Express 0.25.16 source. API-shaped regressions run without these plugins, private ZIP files, or license keys. Source review and fixtures do not establish live premium-feature validation or certification; license activation is not bypassed.
 
+Browser HTML revalidation accepts matching server-added gzip/Brotli validators as well as ordinary validators. Only an eligible, fresh page-cache hit can return `304 Not Modified`; login, cart, analytics opt-out, and representation checks still run first. Malformed conditional headers and unsupported compression suffixes receive a normal response. This saves repeat HTML downloads while WordPress startup and privacy checks still run.
+
+This PHP revalidation path applies to HTML pages. CSS and JavaScript served directly by the web server use its own conditional-request handling; their long-lived immutable cache headers avoid normal revalidation before expiry. Apache's default compression suffix can affect those files too. Static-file ETag/compression policy must be configured in the web server, outside the HTML matcher. Nginx's native gzip normally uses weak ETags instead of Apache-style suffixes; 0.8.1 preserves these weak validators. Standalone nginx ignores `.htaccess`, so its static cache headers and compression need nginx configuration. A proxy/CDN layer can introduce separate behavior.
+
+Local verification covered WordPress behind Apache gzip and nginx 1.30.6 proxying Apache with upstream compression disabled. Matching revalidation returned 304 with zero body, compatible ETag/Vary metadata, and privacy bypasses intact. The nginx proxy check confirmed that PHP generated the 304; it was not a PHP-FPM/FastCGI integration test. Brotli suffix behavior is covered by regression fixtures and source review.
+
 ## Cache Diagnostics
 
 Eligible responses expose `X-HSPSC-Cache: HIT` or `MISS`. A bypass exposes `X-HSPSC-Cache: BYPASS` and a fixed `X-HSPSC-Cache-Reason` code when headers can still be sent:

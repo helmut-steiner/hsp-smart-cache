@@ -1,10 +1,10 @@
 === HSP Smart Cache ===
 Contributors: Helmut Steiner
 Tags: cache, caching, performance, minify, cdn
-Requires at least: 6.0
-Tested up to: 7.0
-Requires PHP: 7.4
-Stable tag: 0.8.0
+Requires at least: 7.1.3
+Tested up to: 7.1.3
+Requires PHP: 8.4
+Stable tag: 0.8.1
 License: Proprietary
 Fast page caching and asset optimization for WordPress with simple controls.
 
@@ -68,6 +68,11 @@ Source review covered supplied Independent Analytics Pro 2.14.10 and Slim SEO Pr
 When headers can still be sent, X-HSPSC-Cache reports HIT, MISS, or BYPASS. X-HSPSC-Cache-Reason uses fixed codes: private-request, response-headers, request-key, buffer-conflict, late-private-response, or write-failed. These headers reveal no cookie values, signing secrets, or filesystem paths. The option reference explains each code. Absence of a header alone does not identify the source of a slow request.
 
 == Changelog ==
+
+= 0.8.1 =
+* Require WordPress 7.1.3+ and PHP 8.4+; align the main plugin header, update information, readme and test environments with the supported baseline.
+* Preserve nginx-style weak validators and validate accepted codings; cache misses and private or different negotiated responses never return a cached 304.
+* Fix compressed HTML revalidation for server-added gzip/Brotli ETag suffixes; preserve matching 304 metadata and keep privacy and representation checks ahead of conditional responses.
 
 = 0.8.0 =
 * Fix the logged-in toolbar status: show BYPASS when logged-in page caching is disabled and list the public cache status separately.

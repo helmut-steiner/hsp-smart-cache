@@ -6,7 +6,7 @@
 - Main plugin file: `hsp-smart-cache.php`.
 - Public plugin slug and text domain: `hsp-smart-cache`.
 - Read the current version from the plugin header, `HSPSC_VERSION`, and `readme.txt` stable tag; do not rely on an outdated version snapshot in documentation.
-- Runtime baseline: WordPress 6.0+ and PHP 7.4+. Do not introduce PHP 8-only syntax.
+- Runtime baseline: WordPress 7.1.3+ and PHP 8.4+. Keep requirements synchronized across the main header, readme and updater metadata; use current maintenance/security patches. CI exercises PHP 8.4 and 8.5 against WordPress 7.1.3.
 - Internal PHP/code prefix: `HSPSC`.
 - Cache directory: `wp-content/cache/hspsc`.
 - Primary code lives in `includes/class-hspsc-*.php`.
@@ -37,6 +37,7 @@
 - Keep `cache_logged_in` and `optimize_logged_in` separate; both default off. Page caching and frontend optimization use different eligibility helpers. The logged-in admin toolbar must show BYPASS when authenticated page caching is disabled; show any anonymous URL HIT/STALE/MISS separately in its details.
 - Preserve bypasses for backend/login/AJAX, builders/previews, non-GET methods, password-protected content, sensitive cookies/URIs, and `DONOTCACHEPAGE`. Response checks reject redirects, non-success status, `Set-Cookie`, and private/no-cache/no-store responses. These checks are not a complete commerce integration.
 - Cache only HTML responses. Preserve supported `Vary: Accept` / `Accept-Encoding` handling and emit `Vary: Accept` on cached hits and misses; unsupported variation fields, malformed/oversized `Accept`, Markdown, and XML must remain uncacheable. Browser HTML remains private and requires revalidation.
+- Conditional HTML revalidation must run after request privacy, response eligibility, variant resolution, and cache freshness checks. Validate raw `If-None-Match` syntax without rewriting opaque tags; recognize only exact validators and documented single gzip/Brotli suffixes for acceptable request codings. Preserve the matching ETag, coding, and Vary metadata on compressed 304 responses without triggering double suffixes downstream. Cache misses and private responses must never take the 304 path.
 - Cache-status headers use fixed bypass codes (`private-request`, `response-headers`, `request-key`, `buffer-conflict`, `late-private-response`, `write-failed`). Never expose visitor cookie values, filesystem paths, or signing secrets in diagnostics.
 - Commerce compatibility must cover actual assigned cart/checkout/account pages, session cookies, request parameters, and dynamic widgets on public pages. English URL fragments alone are insufficient. Add guest-cart and multiple-shopper regression coverage when changing these boundaries.
 - Keep warming restricted through `HSPSC_Page::is_warmable_url()` before fetching sitemaps/pages. Accept only exact configured home, site, or WPML language origins, including scheme and port; reject userinfo and do not follow redirects. Decode XML `<loc>` entities before URL validation and preserve language query arguments. Preloading is manual and disabled by default.
@@ -94,7 +95,7 @@ Useful variants:
 - On Windows, stop afterward with `npm.cmd run wp-env:stop` (`npm run wp-env:stop` elsewhere).
 - `npm run wp-env:tests` directly invokes PHPUnit and assumes the environment/dependencies are already prepared.
 - All wp-env npm scripts use `bin/wp-env-named.js` for a stable Compose project name (`hsp-smart-cache`). Use `HSPSC_WP_ENV_PROJECT_NAME` consistently across start/run/stop if overriding it. Prefer this wrapper over direct `npx wp-env`.
-- `.wp-env.json` mounts this plugin at `wp-content/plugins/hsp-smart-cache`; development port is 8898 and test port is 8899.
+- `.wp-env.json` mounts this plugin at `wp-content/plugins/hsp-smart-cache`; development port is 8898 and test port is 8899. It pins WordPress 7.1.3 and PHP 8.4. `WP_ENV_PHP_VERSION=8.5` selects the second supported CI/test runtime without changing the default baseline.
 - Run `npm.cmd run test:wp-env-wrapper` when changing the Node wrapper, npm scripts, or environment naming. It needs no Docker.
 - `phpunit.xml.dist` discovers `tests/test-*.php` through `tests/bootstrap.php`. Tests extend `WP_UnitTestCase` and need the WordPress test library (`WP_TESTS_DIR`); plain host PHPUnit is insufficient.
 - Normal PHPUnit and CI runs use API-shaped WPML/WCML, Independent Analytics, Slim SEO, and WebP Express fixtures and must not require those plugins, private ZIP files, or license keys. Keep supplied plugin archives outside the repository and out of `.wp-env.json` and CI dependencies.
@@ -127,7 +128,7 @@ cmd.exe /d /c "set PATH=C:\Program Files\Docker\Docker\resources\bin;%PATH%&& np
   - `npm ci`
   - `./bin/run-wp-env-tests.ps1`
   - `npm run wp-env:stop` in an `always()` cleanup step
-- Node is version 24. The separate Node wrapper regression script is not currently called by this workflow.
+- Node is version 24. PHP 8.4 and 8.5 run as separate matrix jobs through `WP_ENV_PHP_VERSION`, against the pinned WordPress 7.1.3 baseline. The separate Node wrapper regression script is not currently called by this workflow.
 - `.github/workflows/release.yml` builds a ZIP rooted at `hsp-smart-cache/` on published releases or manual dispatch; asset upload requires a tag ref.
 
 ## Release Checklist
@@ -138,7 +139,7 @@ cmd.exe /d /c "set PATH=C:\Program Files\Docker\Docker\resources\bin;%PATH%&& np
 - Add changelog entries to both `CHANGELOG.md` and the `readme.txt` changelog.
 - Keep `CHANGELOG.md` newest-first.
 - Do not bump versions for unrelated changes unless a release is requested.
-- Keep compatibility metadata consistent between `readme.txt` and `HSPSC_Updater` when changing it.
+- Keep minimum-version metadata consistent across the main plugin header (`Requires at least` / `Requires PHP`), `readme.txt`, and `HSPSC_Updater` response fields (`requires` / `requires_php`). WordPress ZIP replacement screens read the main header, not the readme. Keep tested-version metadata consistent between `readme.txt` and `HSPSC_Updater` when changing it.
 - Preserve ZIP folder/public slug/updater assumptions. Updates come from `helmut-steiner/hsp-smart-cache`; the updater prefers release ZIP assets and reads tagged `readme.txt` using `v<version>`.
 
 ## WordPress Plugin Practices

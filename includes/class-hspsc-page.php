@@ -70,9 +70,9 @@ class HSPSC_Page {
         if ( file_exists( $cache_file ) ) {
             $age = time() - filemtime( $cache_file );
             if ( $age <= $ttl ) {
-                self::send_browser_cache_headers( $cache_file );
                 header( 'Content-Type: text/html; charset=' . get_option( 'blog_charset', 'UTF-8' ) );
                 header( 'X-HSPSC-Cache: HIT' );
+				self::send_browser_cache_headers( $cache_file );
                 self::stream_cache_file( $cache_file );
                 exit;
             }
@@ -269,13 +269,170 @@ class HSPSC_Page {
             $etag = '"' . md5( $cache_file . '|' . filemtime( $cache_file ) ) . '"';
             header( 'ETag: ' . $etag );
 
-            $if_none_match = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : '';
-            if ( ! $is_miss && $if_none_match === $etag ) {
-                status_header( 304 );
-                exit;
-            }
+			if ( ! $is_miss ) {
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Fully validate opaque entity tags without changing their bytes.
+				$if_none_match = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) : null;
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- The coding parser validates the complete field before accepting an alias.
+				$accept_encoding = isset( $_SERVER['HTTP_ACCEPT_ENCODING'] ) ? wp_unslash( $_SERVER['HTTP_ACCEPT_ENCODING'] ) : null;
+
+				$match = self::get_revalidation_match( $if_none_match, $etag, $accept_encoding );
+				if ( null !== $match ) {
+					// Empty 304 responses can skip the server's normal ETag/Vary rewrite.
+					header( 'ETag: ' . $match['etag'] );
+					header( 'Vary: Accept-Encoding', false );
+					if ( '' !== $match['encoding'] ) {
+						// Prevent downstream compression from appending another suffix.
+						header( 'Content-Encoding: ' . $match['encoding'] );
+					}
+					status_header( 304 );
+					exit;
+				}
+			}
         }
     }
+
+	/**
+	 * Matches a complete conditional field against the selected cache validator.
+	 *
+	 * Apache can append a known compression suffix after PHP has sent its ETag.
+	 * Accept only those exact aliases, for a coding the current request accepts.
+	 * Returned header values are built from the trusted validator, never input.
+	 *
+	 * @param mixed  $if_none_match   Unslashed If-None-Match field.
+	 * @param string $etag            Current trusted, quoted cache validator.
+	 * @param mixed  $accept_encoding Unslashed Accept-Encoding field.
+	 * @return array|null Trusted ETag and content coding, or null for no match.
+	 */
+	protected static function get_revalidation_match( $if_none_match, $etag, $accept_encoding = null ) {
+		if ( ! is_string( $if_none_match ) || strlen( $if_none_match ) > 8192
+			|| preg_match( '/[\x00-\x08\x0a-\x1f\x7f]/', $if_none_match )
+			|| ! is_string( $etag ) || ! preg_match( '/\A"([a-f0-9]{32})"\z/', $etag, $current ) ) {
+			return null;
+		}
+
+		$field = trim( $if_none_match, " \t" );
+		if ( '*' === $field ) {
+			return self::is_revalidation_encoding_accepted( $accept_encoding, 'identity' )
+				? array(
+					'etag'     => $etag,
+					'encoding' => '',
+				) : null;
+		}
+
+		$tags   = array();
+		$length = strlen( $field );
+		$offset = 0;
+		while ( $offset < $length ) {
+			// Recipients ignore empty comma-separated list members and optional whitespace.
+			while ( $offset < $length && false !== strpos( " \t,", $field[ $offset ] ) ) {
+				++$offset;
+			}
+			if ( $offset === $length ) {
+				break;
+			}
+			$weak = false;
+			if ( 'W/' === substr( $field, $offset, 2 ) ) {
+				$weak    = true;
+				$offset += 2;
+			}
+			if ( $offset === $length || '"' !== $field[ $offset ] ) {
+				return null;
+			}
+			++$offset;
+			$start = $offset;
+			while ( $offset < $length && '"' !== $field[ $offset ] ) {
+				$byte = ord( $field[ $offset ] );
+				if ( 0x21 !== $byte && ! ( $byte >= 0x23 && $byte <= 0x7e ) && $byte < 0x80 ) {
+					return null;
+				}
+				++$offset;
+			}
+			if ( $offset === $length ) {
+				return null;
+			}
+			$tags[] = array(
+				'value' => substr( $field, $start, $offset - $start ),
+				'weak'  => $weak,
+			);
+			++$offset;
+			while ( $offset < $length && false !== strpos( " \t", $field[ $offset ] ) ) {
+				++$offset;
+			}
+			if ( $offset < $length && ',' !== $field[ $offset ] ) {
+				return null;
+			}
+		}
+
+		// Validate the whole list before considering any member a match.
+		$accepted = array();
+		$suffixes = array(
+			'identity' => '',
+			'gzip'     => '-gzip',
+			'br'       => '-br',
+		);
+		foreach ( $tags as $tag ) {
+			foreach ( $suffixes as $encoding => $suffix ) {
+				if ( $current[1] . $suffix !== $tag['value'] ) {
+					continue;
+				}
+				if ( ! array_key_exists( $encoding, $accepted ) ) {
+					$accepted[ $encoding ] = self::is_revalidation_encoding_accepted( $accept_encoding, $encoding );
+				}
+				if ( $accepted[ $encoding ] ) {
+					return array(
+						'etag'     => ( $tag['weak'] ? 'W/' : '' ) . '"' . $current[1] . $suffix . '"',
+						'encoding' => 'identity' === $encoding ? '' : $encoding,
+					);
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Checks whether a compression alias is acceptable for this request.
+	 *
+	 * Explicit coding weights override the wildcard. Malformed fields or duplicate
+	 * codings are ambiguous, so they require a normal response instead of a 304.
+	 *
+	 * @param mixed  $accept_encoding Unslashed Accept-Encoding field.
+	 * @param string $encoding        Known content coding to check.
+	 * @return bool Whether the coding has an unambiguous, positive weight.
+	 */
+	protected static function is_revalidation_encoding_accepted( $accept_encoding, $encoding ) {
+		if ( null === $accept_encoding ) {
+			return 'identity' === $encoding;
+		}
+		if ( ! is_string( $accept_encoding ) || strlen( $accept_encoding ) > 8192
+			|| preg_match( '/[\x00-\x08\x0a-\x1f\x7f]/', $accept_encoding ) ) {
+			return false;
+		}
+
+		$weights = array();
+		foreach ( explode( ',', $accept_encoding ) as $member ) {
+			$member = trim( $member, " \t" );
+			if ( '' === $member ) {
+				continue;
+			}
+			if ( ! preg_match( '/\A([!#$%&\'*+\-.^_`|~0-9a-z]+)(?:[ \t]*;[ \t]*q=(0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?))?\z/i', $member, $parts ) ) {
+				return false;
+			}
+			$coding = strtolower( $parts[1] );
+			if ( array_key_exists( $coding, $weights ) ) {
+				return false;
+			}
+			$weights[ $coding ] = isset( $parts[2] ) ? (float) $parts[2] : 1.0;
+		}
+
+		if ( array_key_exists( $encoding, $weights ) ) {
+			return $weights[ $encoding ] > 0;
+		}
+		if ( 'identity' === $encoding ) {
+			return ! isset( $weights['*'] ) || $weights['*'] > 0;
+		}
+		return isset( $weights['*'] ) && $weights['*'] > 0;
+	}
 
     protected static function get_cache_key() {
         $host = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( (string) wp_unslash( $_SERVER['HTTP_HOST'] ) ) : wp_parse_url( home_url(), PHP_URL_HOST );

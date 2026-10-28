@@ -14,8 +14,10 @@ Page caching, HTML/CSS/JS minification, CDN rewriting, and file-based object cac
 
 ## Requirements
 
-- WordPress 6.x+
-- PHP 7.4+
+- WordPress 7.1.3+
+- PHP 8.4+ (PHP 8.5 is also supported)
+
+Install the latest maintenance/security patches for WordPress and your chosen PHP branch. The declared PHP minimum identifies the supported branch; it does not replace ongoing patch updates. This baseline was reviewed on 2026-10-28 using the [WordPress release archive](https://wordpress.org/download/releases/) and [PHP support schedule](https://www.php.net/supported-versions.php).
 
 ## Installation
 
@@ -62,7 +64,7 @@ Local HTTP validation used WPML 5.2.0, String Translation 5.2.0, WCML 5.7.0, and
 - Manual preload preserves XML-escaped language query arguments and accepts only exact configured home, site, or currently API-resolvable WPML language origins. Admin preload may skip other language domains before WPML's full language map is available. Sitemap and page requests do not follow redirects.
 - Page-cache namespace and render-cache schema 4 discard older page and asset cache files when the schema changes. URL purges clear every `Accept` variant, and warming forwards the initiating request's `Accept` header. Preloading warms only that representation: an admin AJAX request using `Accept: */*` does not warm a visitor's different browser-navigation header.
 - Page capture allows nested plugin buffers and WordPress 6.9+ template enhancements to finish naturally before saving the complete response. Late privacy and representation checks still apply; incomplete or discarded HSP output remains uncached.
-- HTML responses are private and revalidated before reuse. Server-side page caching remains available for eligible public pages.
+- HTML responses are private and revalidated before reuse. Matching gzip/Brotli validators added by server compression can return `304 Not Modified` without downloading the HTML again; private requests still bypass caching. Server-side page caching remains available for eligible public pages.
 - Persistent object files are guarded and authenticated; legacy plaintext entries are discarded automatically. Keep WordPress auth keys configured for persistent storage.
 - Repeated work is reduced through request-local signing-key reuse, completed legacy-migration tracking, bounded object-cache cleanup, generated-asset reuse, and indexed script dependencies. Request privacy and late language/session changes are still rechecked.
 - Response diagnostics expose `X-HSPSC-Cache: HIT`, `MISS`, or `BYPASS`. Bypasses include a fixed `X-HSPSC-Cache-Reason` code without exposing cache paths or cookie values; see the [option reference](docs/options.md#cache-diagnostics).

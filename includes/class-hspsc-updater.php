@@ -58,9 +58,9 @@ class HSPSC_Updater {
                 'new_version'  => $latest_version,
                 'url'          => self::repo_url(),
                 'package'      => $package_url,
-                'requires'     => '6.0',
-                'tested'       => '6.9',
-                'requires_php' => '7.4',
+                'requires'     => '7.1.3',
+                'tested'       => '7.1.3',
+                'requires_php' => '8.4',
             );
         } else {
             unset( $transient->response[ $plugin_file ] );
@@ -71,9 +71,9 @@ class HSPSC_Updater {
                 'new_version'  => HSPSC_VERSION,
                 'url'          => self::repo_url(),
                 'package'      => '',
-                'requires'     => '6.0',
-                'tested'       => '6.9',
-                'requires_php' => '7.4',
+                'requires'     => '7.1.3',
+                'tested'       => '7.1.3',
+                'requires_php' => '8.4',
             );
         }
 
@@ -111,9 +111,9 @@ class HSPSC_Updater {
             'version'       => $version !== '' ? $version : HSPSC_VERSION,
             'author'        => '<a href="https://github.com/' . esc_attr( self::OWNER ) . '">Helmut Steiner</a>',
             'author_profile'=> 'https://github.com/' . self::OWNER,
-            'requires'      => '6.0',
-            'tested'        => '6.9',
-            'requires_php'  => '7.4',
+            'requires'      => '7.1.3',
+            'tested'        => '7.1.3',
+            'requires_php'  => '8.4',
             'last_updated'  => $published_at !== '' ? gmdate( 'Y-m-d', strtotime( $published_at ) ) : '',
             'homepage'      => self::repo_url(),
             'download_link' => self::resolve_package_url( $release ),

@@ -43,6 +43,42 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
         parent::tear_down();
     }
 
+	/**
+	 * WordPress reads requirements from the main header during ZIP replacement.
+	 */
+	public function test_wordpress_recognizes_the_supported_runtime_requirements() {
+		if ( ! function_exists( 'get_plugin_data' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$plugin_data = get_plugin_data( dirname( __DIR__ ) . '/hsp-smart-cache.php', false, false );
+		$readme_data = get_file_data(
+			dirname( __DIR__ ) . '/readme.txt',
+			array(
+				'RequiresWP'  => 'Requires at least',
+				'RequiresPHP' => 'Requires PHP',
+				'Tested'      => 'Tested up to',
+			)
+		);
+
+		$this->assertSame( '7.1.3', $plugin_data['RequiresWP'] );
+		$this->assertSame( '8.4', $plugin_data['RequiresPHP'] );
+		$this->assertSame( $plugin_data['RequiresWP'], $readme_data['RequiresWP'] );
+		$this->assertSame( $plugin_data['RequiresPHP'], $readme_data['RequiresPHP'] );
+		$this->assertSame( '7.1.3', $readme_data['Tested'] );
+	}
+
+	/**
+	 * Checks the runtime policy exposed by every custom updater response.
+	 *
+	 * @param object $metadata Update or plugin-information metadata.
+	 * @return void
+	 */
+	private function assert_supported_requirements( $metadata ) {
+		$this->assertSame( '7.1.3', $metadata->requires );
+		$this->assertSame( '8.4', $metadata->requires_php );
+		$this->assertSame( '7.1.3', $metadata->tested );
+	}
+
     public function test_filter_update_transient_adds_response_for_newer_release() {
         set_site_transient(
             HSPSC_Updater::RELEASE_TRANSIENT,
@@ -62,6 +98,7 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
 
         $this->assertNotEmpty( $result->response[ HSPSC_BASENAME ] );
         $this->assertSame( '9.9.9', $result->response[ HSPSC_BASENAME ]->new_version );
+		$this->assert_supported_requirements( $result->response[ HSPSC_BASENAME ] );
     }
 
     public function test_filter_update_transient_adds_no_update_for_same_version() {
@@ -83,6 +120,7 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
 
         $this->assertNotEmpty( $result->no_update[ HSPSC_BASENAME ] );
         $this->assertSame( HSPSC_VERSION, $result->no_update[ HSPSC_BASENAME ]->new_version );
+		$this->assert_supported_requirements( $result->no_update[ HSPSC_BASENAME ] );
     }
 
     public function test_filter_update_transient_clears_stale_response_for_same_version() {
@@ -142,6 +180,7 @@ class HSPSC_Updater_Test extends WP_UnitTestCase {
         $this->assertStringContainsString( 'Remote GitHub release description', $result->sections['description'] );
         $this->assertStringContainsString( '1.2.3', $result->sections['changelog'] );
         $this->assertStringContainsString( 'Remote GitHub changelog entry', $result->sections['changelog'] );
+		$this->assert_supported_requirements( $result );
     }
 
     public function test_filter_upgrader_source_selection_moves_release_folder() {

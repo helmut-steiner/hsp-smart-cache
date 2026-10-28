@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 0.8.1
+
+- Raise the supported baseline to WordPress 7.1.3+ and PHP 8.4+; keep plugin headers, updater metadata, documentation and test environments aligned. Use current maintenance/security patches within supported PHP branches.
+- Preserve weak validators used by nginx and require acceptable compression codings before returning 304; keep cache misses, private responses, and other negotiated variants on the normal response path.
+- Fix compressed HTML revalidation by recognizing Apache gzip/Brotli validators, preserving matching 304 metadata, and validating conditional header lists without bypassing privacy or representation checks.
+
 ## 0.8.0
 
 - Show BYPASS in the logged-in toolbar when authenticated page caching is disabled, and report the anonymous URL cache separately in the details.

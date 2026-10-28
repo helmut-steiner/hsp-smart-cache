@@ -1,4 +1,6 @@
 {
+  "core": "WordPress/WordPress#7.1.3",
+  "phpVersion": "8.4",
   "port": 8898,
   "testsPort": 8899,
   "plugins": [

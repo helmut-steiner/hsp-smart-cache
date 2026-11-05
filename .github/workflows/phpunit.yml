@@ -26,9 +26,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check admin asset formatting
+        if: matrix.php == '8.4'
+        run: npm run lint:assets
+
       - name: Run PHPUnit in wp-env
         shell: pwsh
         run: ./bin/run-wp-env-tests.ps1
+
+      - name: Check WordPress Coding Standards
+        if: matrix.php == '8.4'
+        run: node ./bin/wp-env-named.js run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache composer lint:php
 
       - name: Stop wp-env
         if: always()

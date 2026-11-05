@@ -1,176 +1,1347 @@
+# Copyright (C) 2026 Helmut Steiner
+# This file is distributed under the HSP Personal Noncommercial Contribution License 1.0.
 msgid ""
 msgstr ""
-"Project-Id-Version: HSP Smart Cache 0.8.1\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-26 00:00+0000\n"
-"PO-Revision-Date: 2026-01-26 00:00+0000\n"
-"Last-Translator: HSPDev\n"
+"Project-Id-Version: HSP Smart Cache 0.9.1\n"
+"Report-Msgid-Bugs-To: https://github.com/helmut-steiner/hsp-smart-cache/issues\n"
+"POT-Creation-Date: 2026-11-05T16:04:43+00:00\n"
+"PO-Revision-Date: 2026-11-05 16:05+0000\n"
+"Last-Translator: HSP Smart Cache contributors\n"
 "Language-Team: German\n"
 "Language: de_DE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Domain: hsp-smart-cache\n"
 
+#. Plugin Name of the plugin
+#: hsp-smart-cache.php includes/class-hspsc-admin.php:136
+#: includes/class-hspsc-admin.php:137 includes/class-hspsc-admin.php:1708
 msgid "HSP Smart Cache"
 msgstr "HSP Smart Cache"
 
-msgid "Cache cleared."
-msgstr "Cache geleert."
+#. Description of the plugin
+#: hsp-smart-cache.php
+msgid ""
+"Page caching, minification, CDN rewriting, and file-based object cache with "
+"settings UI."
+msgstr ""
+"Seiten-Caching, Minifizierung, CDN-URL-Umschreibung und dateibasierter "
+"Objekt-Cache mit Einstellungsoberfläche."
 
-msgid "Defaults restored."
-msgstr "Standardwerte wiederhergestellt."
+#. Author of the plugin
+#: hsp-smart-cache.php
+msgid "Helmut Steiner"
+msgstr "Helmut Steiner"
 
-msgid "Bricks compatibility preset applied. In Bricks > Settings > Performance, leave \"Disable lazy loading\" unchecked. Enable \"Disable emojis\" and \"Disable embed\" if those features are not needed. The preset also turns off HSP Smart Cache iframe lazy loading and script defer/async."
-msgstr "Bricks-Kompatibilitätsvorgabe angewendet. Lassen Sie unter Bricks > Einstellungen > Performance die Option \"Disable lazy loading\" deaktiviert. Aktivieren Sie \"Disable emojis\" und \"Disable embed\", wenn diese Funktionen nicht benötigt werden. Die Vorgabe schaltet außerdem das Lazy Loading für Iframes sowie defer/async für Skripte in HSP Smart Cache aus."
+#: includes/class-hspsc-admin.php:76
+msgid "Action failed. Please try again."
+msgstr "Aktion fehlgeschlagen. Bitte versuchen Sie es erneut."
 
-msgid "Cache tests completed."
-msgstr "Cache-Tests abgeschlossen."
+#: includes/class-hspsc-admin.php:77
+msgid "Action completed."
+msgstr "Aktion abgeschlossen."
 
-msgid "Enable page caching for anonymous visitors"
-msgstr "Seiten-Cache für anonyme Besucher aktivieren"
+#: includes/class-hspsc-admin.php:125 includes/class-hspsc-admin.php:2115
+msgid "Settings"
+msgstr "Einstellungen"
 
-msgid "Cache TTL (seconds)"
-msgstr "Cache-TTL (Sekunden)"
+#: includes/class-hspsc-admin.php:228
+msgid "Rebuilding all cache files failed."
+msgstr "Die Neuerstellung aller Cache-Dateien ist fehlgeschlagen."
 
-msgid "Allow page caching for logged-in users"
-msgstr "Seiten-Cache für eingeloggte Benutzer erlauben"
+#: includes/class-hspsc-admin.php:229
+msgid "All cache files were rebuilt."
+msgstr "Alle Cache-Dateien wurden neu erstellt."
 
-msgid "Logged-in page caching is disabled."
-msgstr "Seiten-Caching für eingeloggte Benutzer ist deaktiviert."
+#. translators: %s is the current page cache status label.
+#: includes/class-hspsc-admin.php:261
+#, php-format
+msgid "HSP Cache: %s"
+msgstr "HSP Cache: %s"
 
-#. translators: 1: public cache status, 2: cache file age, TTL and size details.
-msgid "Public cache: %1$s | %2$s"
-msgstr "Öffentlicher Cache: %1$s | %2$s"
+#. translators: %s is the current page cache status label.
+#: includes/class-hspsc-admin.php:274
+#, php-format
+msgid "Status: %s"
+msgstr "Status: %s"
 
-msgid "Browser Cache Headers"
-msgstr "Browser-Cache-Header"
+#. translators: %s is a short reason explaining the current cache status.
+#: includes/class-hspsc-admin.php:287
+#, php-format
+msgid "Reason: %s"
+msgstr "Grund: %s"
 
-msgid "Send Cache-Control headers for cacheable pages"
-msgstr "Cache-Control-Header für cachebare Seiten senden"
-
-msgid "HTML cache TTL (seconds)"
-msgstr "HTML-Cache-TTL (Sekunden)"
-
-msgid "Asset cache TTL (seconds)"
-msgstr "Asset-Cache-TTL (Sekunden)"
-
-msgid "Static Asset Caching"
-msgstr "Statisches Asset-Caching"
-
-msgid "Enable browser caching for WordPress/theme/plugin assets"
-msgstr "Browser-Cache für WordPress/Theme/Plugin-Assets aktivieren"
-
-msgid "Static asset TTL (seconds)"
-msgstr "Statischer Asset-TTL (Sekunden)"
-
-msgid "Add immutable directive where supported"
-msgstr "Immutable-Direktive hinzufügen (wenn unterstützt)"
-
-msgid "Auto-write .htaccess rules when possible"
-msgstr ".htaccess-Regeln automatisch schreiben (wenn möglich)"
-
-msgid "Apache .htaccess snippet"
-msgstr "Apache-.htaccess-Snippet"
-
-msgid "Render Blocking Optimization"
-msgstr "Optimierung der Render-Blockierung"
-
-msgid "Add defer to enqueued scripts"
-msgstr "defer zu eingebundenen Skripten hinzufügen"
-
-msgid "Defer exclusions (script handles, one per line)"
-msgstr "Defer-Ausnahmen (Script-Handles, je Zeile)"
-
-msgid "Add async to enqueued scripts (if defer is off)"
-msgstr "async zu eingebundenen Skripten hinzufügen (wenn defer aus ist)"
-
-msgid "Async exclusions (script handles, one per line)"
-msgstr "Async-Ausnahmen (Script-Handles, je Zeile)"
-
-msgid "Preconnect URLs (one per line)"
-msgstr "Preconnect-URLs (eine pro Zeile)"
-
-msgid "Preload font URLs (one per line)"
-msgstr "Font-Preload-URLs (eine pro Zeile)"
-
-msgid "Preload CSS URLs (one per line)"
-msgstr "CSS-Preload-URLs (eine pro Zeile)"
-
-msgid "Inline critical CSS"
-msgstr "Kritisches CSS inline"
-
-msgid "Additional Performance"
-msgstr "Zusätzliche Performance"
-
-msgid "Enable native lazy-loading for images"
-msgstr "Native Lazy-Loading für Bilder aktivieren"
-
-msgid "Enable native lazy-loading for iframes"
-msgstr "Native Lazy-Loading für iFrames aktivieren"
-
-msgid "Add decoding=\"async\" to images"
-msgstr "decoding=\"async\" zu Bildern hinzufügen"
-
-msgid "Disable emoji scripts and styles"
-msgstr "Emoji-Skripte und -Styles deaktivieren"
-
-msgid "Disable WordPress embeds"
-msgstr "WordPress-Embeds deaktivieren"
-
-msgid "Disable Dashicons for guests"
-msgstr "Dashicons für Gäste deaktivieren"
-
-msgid "DNS prefetch URLs (one per line)"
-msgstr "DNS-Prefetch-URLs (eine pro Zeile)"
-
-msgid "Minification"
-msgstr "Minifizierung"
-
-msgid "Minify HTML"
-msgstr "HTML minifizieren"
-
-msgid "Minify CSS files"
-msgstr "CSS-Dateien minifizieren"
-
-msgid "Minify JS files"
-msgstr "JS-Dateien minifizieren"
-
-msgid "Object Cache"
-msgstr "Objekt-Cache"
-
-msgid "Enable file-based persistent object cache (drop-in)"
-msgstr "Dateibasierten persistenten Objekt-Cache (Drop-in) aktivieren"
-
-msgid "CDN"
-msgstr "CDN"
-
-msgid "Enable CDN URL rewriting for static assets"
-msgstr "CDN-URL-Umschreibung für statische Assets aktivieren"
-
-msgid "CDN Base URL"
-msgstr "CDN-Basis-URL"
-
-msgid "Clear All Caches"
-msgstr "Alle Caches leeren"
-
-msgid "Run Cache Tests"
-msgstr "Cache-Tests ausführen"
-
-msgid "Restore Defaults"
-msgstr "Standardwerte wiederherstellen"
-
+#: includes/class-hspsc-admin.php:312
 msgid "Delete cache of current page"
 msgstr "Cache der aktuellen Seite löschen"
 
-msgid "Delete all cache files"
-msgstr "Alle Cache-Dateien löschen"
-
+#: includes/class-hspsc-admin.php:320
 msgid "Rebuild current page cache"
 msgstr "Cache der aktuellen Seite neu erstellen"
 
+#: includes/class-hspsc-admin.php:330
+msgid "Delete all cache files"
+msgstr "Alle Cache-Dateien löschen"
+
+#: includes/class-hspsc-admin.php:339
 msgid "Rebuild all caches"
 msgstr "Alle Caches neu erstellen"
 
+#: includes/class-hspsc-admin.php:360
+msgid "OFF"
+msgstr "AUS"
+
+#: includes/class-hspsc-admin.php:361
+msgid "Page cache is disabled."
+msgstr "Der Seiten-Cache ist deaktiviert."
+
+#: includes/class-hspsc-admin.php:368 includes/class-hspsc-admin.php:376
+#: includes/class-hspsc-admin.php:391
+msgid "BYPASS"
+msgstr "BYPASS"
+
+#: includes/class-hspsc-admin.php:369
+msgid "WordPress admin requests are not cached."
+msgstr ""
+"Anfragen an den WordPress-Administrationsbereich werden nicht "
+"zwischengespeichert."
+
+#: includes/class-hspsc-admin.php:377
+msgid "This page path is excluded from page caching."
+msgstr "Dieser Seitenpfad ist vom Seiten-Caching ausgeschlossen."
+
+#: includes/class-hspsc-admin.php:383 includes/class-hspsc-admin.php:419
+msgid "MISS"
+msgstr "MISS"
+
+#: includes/class-hspsc-admin.php:385 includes/class-hspsc-admin.php:404
+msgid "HIT"
+msgstr "HIT"
+
+#: includes/class-hspsc-admin.php:387 includes/class-hspsc-admin.php:412
+msgid "STALE"
+msgstr "STALE"
+
+#: includes/class-hspsc-admin.php:392
+msgid "Logged-in page caching is disabled."
+msgstr "Seiten-Caching für angemeldete Benutzer ist deaktiviert."
+
+#. translators: 1: public cache status, 2: cache file age, TTL and size
+#. details.
+#: includes/class-hspsc-admin.php:395
+#, php-format
+msgid "Public cache: %1$s | %2$s"
+msgstr "Öffentlicher Cache: %1$s | %2$s"
+
+#: includes/class-hspsc-admin.php:405
+msgid "Fresh cache file exists for this URL."
+msgstr "Für diese URL ist eine aktuelle Cache-Datei vorhanden."
+
+#: includes/class-hspsc-admin.php:413
+msgid "Cache file exists but is older than the page cache TTL."
+msgstr ""
+"Eine Cache-Datei ist vorhanden, aber älter als die Gültigkeitsdauer des "
+"Seiten-Caches."
+
+#: includes/class-hspsc-admin.php:420
+msgid "No cache file exists for this URL."
+msgstr "Für diese URL ist keine Cache-Datei vorhanden."
+
+#: includes/class-hspsc-admin.php:433
+msgid "0 B"
+msgstr "0 B"
+
+#. translators: 1: cache file age, 2: cache TTL in seconds, 3: cache file size.
+#: includes/class-hspsc-admin.php:439
+#, php-format
+msgid "Age: %1$s | TTL: %2$ds | Size: %3$s"
+msgstr "Alter: %1$s | Gültigkeitsdauer: %2$ds | Größe: %3$s"
+
+#. translators: 1: cache TTL in seconds, 2: cache file size.
+#: includes/class-hspsc-admin.php:448
+#, php-format
+msgid "TTL: %1$ds | Size: %2$s"
+msgstr "Gültigkeitsdauer: %1$ds | Größe: %2$s"
+
+#: includes/class-hspsc-admin.php:745
+msgid "Settings saved. Related caches were refreshed."
+msgstr "Einstellungen gespeichert. Die zugehörigen Caches wurden aktualisiert."
+
+#: includes/class-hspsc-admin.php:758
+msgid "All caches cleared."
+msgstr "Alle Caches geleert."
+
+#: includes/class-hspsc-admin.php:771 includes/class-hspsc-admin.php:1768
+msgid "Cache tests completed."
+msgstr "Cache-Tests abgeschlossen."
+
+#: includes/class-hspsc-admin.php:791 includes/class-hspsc-admin.php:1713
+msgid "Defaults restored."
+msgstr "Standardeinstellungen wiederhergestellt."
+
+#. translators: %d is the number of warmed URLs.
+#: includes/class-hspsc-admin.php:823
+#, php-format
+msgid "Preload completed. %d URL warmed."
+msgid_plural "Preload completed. %d URLs warmed."
+msgstr[0] "Vorladen abgeschlossen. %d URL wurde vorgeladen."
+msgstr[1] "Vorladen abgeschlossen. %d URLs wurden vorgeladen."
+
+#: includes/class-hspsc-admin.php:840 includes/class-hspsc-admin.php:1740
+msgid "Database analysis completed."
+msgstr "Datenbankanalyse abgeschlossen."
+
+#: includes/class-hspsc-admin.php:853 includes/class-hspsc-admin.php:1731
+msgid "Database cleanup failed. Some queries did not complete."
+msgstr ""
+"Datenbankbereinigung fehlgeschlagen. Einige Abfragen wurden nicht "
+"abgeschlossen."
+
+#: includes/class-hspsc-admin.php:860 includes/class-hspsc-admin.php:1728
+msgid "Database cleanup completed."
+msgstr "Datenbankbereinigung abgeschlossen."
+
+#: includes/class-hspsc-admin.php:876
+msgid "Database backup failed."
+msgstr "Datenbanksicherung fehlgeschlagen."
+
+#: includes/class-hspsc-admin.php:882 includes/class-hspsc-admin.php:1746
+msgid "Database backup created."
+msgstr "Datenbanksicherung erstellt."
+
+#: includes/class-hspsc-admin.php:898 includes/class-hspsc-admin.php:1743
+msgid "Database backup failed. Optimization was not executed."
+msgstr ""
+"Datenbanksicherung fehlgeschlagen. Die Optimierung wurde nicht ausgeführt."
+
+#: includes/class-hspsc-admin.php:905 includes/class-hspsc-admin.php:1737
+msgid "Database optimization failed. Some tables were not optimized."
+msgstr ""
+"Datenbankoptimierung fehlgeschlagen. Einige Tabellen wurden nicht optimiert."
+
+#: includes/class-hspsc-admin.php:912 includes/class-hspsc-admin.php:1734
+msgid "Database optimization completed."
+msgstr "Datenbankoptimierung abgeschlossen."
+
+#: includes/class-hspsc-admin.php:962 includes/class-hspsc-admin.php:1761
+msgid "Database backup deleted."
+msgstr "Datenbanksicherung gelöscht."
+
+#: includes/class-hspsc-admin.php:976 includes/class-hspsc-admin.php:1570
 msgid "Unauthorized"
-msgstr "Nicht autorisiert"
+msgstr "Nicht berechtigt"
+
+#: includes/class-hspsc-admin.php:980
+msgid "Security check failed. Refresh the page and try again."
+msgstr ""
+"Sicherheitsprüfung fehlgeschlagen. Laden Sie die Seite neu und versuchen Sie "
+"es erneut."
+
+#: includes/class-hspsc-admin.php:1024
+msgid "Database backup restored."
+msgstr "Datenbanksicherung wiederhergestellt."
+
+#. translators: 1: number of restored tables, 2: number of executed SQL
+#. statements.
+#: includes/class-hspsc-admin.php:1033
+#, php-format
+msgid ""
+"Database backup restored with warnings. Tables: %1$d. SQL statements: %2$d."
+msgstr ""
+"Datenbanksicherung mit Warnungen wiederhergestellt. Tabellen: %1$d. SQL-"
+"Anweisungen: %2$d."
+
+#. translators: 1: number of restored tables, 2: number of executed SQL
+#. statements.
+#: includes/class-hspsc-admin.php:1041
+#, php-format
+msgid "Database backup restored. Tables: %1$d. SQL statements: %2$d."
+msgstr ""
+"Datenbanksicherung wiederhergestellt. Tabellen: %1$d. SQL-Anweisungen: %2$d."
+
+#. translators: %s is a restore warning.
+#: includes/class-hspsc-admin.php:1063 includes/class-hspsc-admin.php:1139
+#, php-format
+msgid "Warning: %s"
+msgstr "Warnung: %s"
+
+#: includes/class-hspsc-admin.php:1080
+msgid "Database backup restore failed. No diagnostic details were returned."
+msgstr ""
+"Wiederherstellung der Datenbanksicherung fehlgeschlagen. Es wurden keine "
+"Diagnosedetails zurückgegeben."
+
+#: includes/class-hspsc-admin.php:1085
+msgid ""
+"The selected backup file was not found or did not match the allowed backup "
+"filename format."
+msgstr ""
+"Die ausgewählte Sicherungsdatei wurde nicht gefunden oder entsprach nicht dem"
+" zulässigen Dateinamenformat für Sicherungen."
+
+#: includes/class-hspsc-admin.php:1086
+msgid "The backup file could not be read or decompressed."
+msgstr "Die Sicherungsdatei konnte nicht gelesen oder dekomprimiert werden."
+
+#: includes/class-hspsc-admin.php:1087
+msgid "The backup file did not contain executable SQL statements."
+msgstr "Die Sicherungsdatei enthielt keine ausführbaren SQL-Anweisungen."
+
+#: includes/class-hspsc-admin.php:1088
+msgid ""
+"This backup has no integrity signature. Create a new backup with this version"
+" before restoring."
+msgstr ""
+"Diese Sicherung hat keine Integritätssignatur. Erstellen Sie vor der "
+"Wiederherstellung eine neue Sicherung mit dieser Version."
+
+#: includes/class-hspsc-admin.php:1089
+msgid ""
+"Backup integrity verification failed. The file, site, or signing keys have "
+"changed."
+msgstr ""
+"Die Integritätsprüfung der Sicherung ist fehlgeschlagen. Die Datei, die "
+"Website oder die Signaturschlüssel haben sich geändert."
+
+#: includes/class-hspsc-admin.php:1090
+msgid "The backup contains unsupported SQL. No statements were executed."
+msgstr ""
+"Die Sicherung enthält nicht unterstützte SQL-Anweisungen. Es wurden keine "
+"Anweisungen ausgeführt."
+
+#: includes/class-hspsc-admin.php:1091
+msgid "The backup must be a regular file in this site's backup directory."
+msgstr ""
+"Die Sicherung muss eine reguläre Datei im Sicherungsverzeichnis dieser "
+"Website sein."
+
+#: includes/class-hspsc-admin.php:1092
+msgid "A database query failed while replaying the backup."
+msgstr ""
+"Eine Datenbankabfrage ist beim Einspielen der Sicherung fehlgeschlagen."
+
+#: includes/class-hspsc-admin.php:1093
+msgid ""
+"No WordPress tables were restored. The backup may use a different table "
+"prefix than this site."
+msgstr ""
+"Es wurden keine WordPress-Tabellen wiederhergestellt. Die Sicherung verwendet"
+" möglicherweise ein anderes Tabellenpräfix als diese Website."
+
+#: includes/class-hspsc-admin.php:1096
+msgid "Unknown restore failure."
+msgstr "Unbekannter Fehler bei der Wiederherstellung."
+
+#. translators: 1: internal diagnostic code, 2: human-readable diagnostic
+#. detail.
+#: includes/class-hspsc-admin.php:1100
+#, php-format
+msgid "Database backup restore failed. Code: %1$s. %2$s"
+msgstr ""
+"Wiederherstellung der Datenbanksicherung fehlgeschlagen. Code: %1$s. %2$s"
+
+#. translators: %d is the failed SQL statement number.
+#: includes/class-hspsc-admin.php:1122
+#, php-format
+msgid "Failed statement number: %d"
+msgstr "Nummer der fehlgeschlagenen Anweisung: %d"
+
+#. translators: %s is a shortened SQL statement.
+#: includes/class-hspsc-admin.php:1130
+#, php-format
+msgid "Failed SQL: %s"
+msgstr "Fehlgeschlagene SQL-Anweisung: %s"
+
+#. translators: %s is a backup file name.
+#: includes/class-hspsc-admin.php:1163 includes/class-hspsc-admin.php:1265
+#, php-format
+msgid "File: %s"
+msgstr "Datei: %s"
+
+#. translators: %s is an absolute filesystem path.
+#: includes/class-hspsc-admin.php:1171 includes/class-hspsc-admin.php:1273
+#, php-format
+msgid "Path: %s"
+msgstr "Pfad: %s"
+
+#. translators: 1: executed statements, 2: total parsed statements, 3: skipped
+#. statements.
+#: includes/class-hspsc-admin.php:1178
+#, php-format
+msgid "SQL statements: %1$d executed, %2$d parsed, %3$d skipped."
+msgstr "SQL-Anweisungen: %1$d ausgeführt, %2$d analysiert, %3$d übersprungen."
+
+#. translators: 1: table name, 2: drop count, 3: create count, 4: insert count.
+#: includes/class-hspsc-admin.php:1188
+#, php-format
+msgid "Table %1$s: DROP=%2$d CREATE=%3$d INSERT=%4$d."
+msgstr "Tabelle %1$s: DROP=%2$d CREATE=%3$d INSERT=%4$d."
+
+#. translators: 1: skip reason, 2: SQL preview.
+#: includes/class-hspsc-admin.php:1204
+#, php-format
+msgid "Skipped SQL (%1$s): %2$s"
+msgstr "Übersprungene SQL-Anweisung (%1$s): %2$s"
+
+#: includes/class-hspsc-admin.php:1240
+msgid "Deleting database backup failed. No diagnostic details were returned."
+msgstr ""
+"Löschen der Datenbanksicherung fehlgeschlagen. Es wurden keine "
+"Diagnosedetails zurückgegeben."
+
+#: includes/class-hspsc-admin.php:1245
+msgid ""
+"The posted backup filename did not match the allowed backup filename format."
+msgstr ""
+"Der übermittelte Dateiname der Sicherung entsprach nicht dem zulässigen "
+"Dateinamenformat für Sicherungen."
+
+#: includes/class-hspsc-admin.php:1246
+msgid "The backup file was not found at the expected path."
+msgstr "Die Sicherungsdatei wurde nicht am erwarteten Pfad gefunden."
+
+#: includes/class-hspsc-admin.php:1247
+msgid "The resolved backup path is outside the configured backup directory."
+msgstr ""
+"Der aufgelöste Sicherungspfad liegt außerhalb des konfigurierten "
+"Sicherungsverzeichnisses."
+
+#: includes/class-hspsc-admin.php:1248
+msgid ""
+"WordPress filesystem deletion, wp_delete_file(), and unlink() did not remove "
+"the file."
+msgstr ""
+"Die Datei konnte weder über die WordPress-Dateisystemfunktion noch mit "
+"wp_delete_file() oder unlink() gelöscht werden."
+
+#: includes/class-hspsc-admin.php:1251
+msgid "Unknown backup deletion failure."
+msgstr "Unbekannter Fehler beim Löschen der Sicherung."
+
+#: includes/class-hspsc-admin.php:1253
+msgid "Deleting database backup failed."
+msgstr "Löschen der Datenbanksicherung fehlgeschlagen."
+
+#. translators: %s is an internal diagnostic code.
+#: includes/class-hspsc-admin.php:1256
+#, php-format
+msgid "Code: %s"
+msgstr "Code: %s"
+
+#. translators: %s is an absolute filesystem path.
+#: includes/class-hspsc-admin.php:1281
+#, php-format
+msgid "Backup directory: %s"
+msgstr "Sicherungsverzeichnis: %s"
+
+#. translators: %s is an absolute filesystem path used for validation.
+#: includes/class-hspsc-admin.php:1289
+#, php-format
+msgid "Validated path: %s"
+msgstr "Geprüfter Pfad: %s"
+
+#. translators: %s is an absolute filesystem path used for validation.
+#: includes/class-hspsc-admin.php:1297
+#, php-format
+msgid "Validated backup directory: %s"
+msgstr "Geprüftes Sicherungsverzeichnis: %s"
+
+#. translators: %s is yes or no.
+#: includes/class-hspsc-admin.php:1305
+#, php-format
+msgid "Backup directory writable: %s"
+msgstr "Sicherungsverzeichnis beschreibbar: %s"
+
+#: includes/class-hspsc-admin.php:1306 includes/class-hspsc-admin.php:1314
+msgid "yes"
+msgstr "ja"
+
+#: includes/class-hspsc-admin.php:1306 includes/class-hspsc-admin.php:1314
+msgid "no"
+msgstr "nein"
+
+#. translators: %s is yes or no.
+#: includes/class-hspsc-admin.php:1313
+#, php-format
+msgid "File writable: %s"
+msgstr "Datei beschreibbar: %s"
+
+#. translators: %s is a four-digit octal permissions value.
+#: includes/class-hspsc-admin.php:1321
+#, php-format
+msgid "Permissions: %s"
+msgstr "Berechtigungen: %s"
+
+#. translators: %s is a comma-separated list of deletion attempts.
+#: includes/class-hspsc-admin.php:1341
+#, php-format
+msgid "Attempts: %s"
+msgstr "Versuche: %s"
+
+#: includes/class-hspsc-admin.php:1400
+msgid "Latest Cache Test Results"
+msgstr "Letzte Cache-Testergebnisse"
+
+#: includes/class-hspsc-admin.php:1406
+msgid "Passed"
+msgstr "Bestanden"
+
+#: includes/class-hspsc-admin.php:1406
+msgid "Failed"
+msgstr "Fehlgeschlagen"
+
+#: includes/class-hspsc-admin.php:1432
+msgid "Latest Optimization Analysis"
+msgstr "Letzte Optimierungsanalyse"
+
+#: includes/class-hspsc-admin.php:1436
+msgid "Tables"
+msgstr "Tabellen"
+
+#: includes/class-hspsc-admin.php:1440
+msgid "Optimizable"
+msgstr "Optimierbar"
+
+#: includes/class-hspsc-admin.php:1444
+msgid "Total size"
+msgstr "Gesamtgröße"
+
+#: includes/class-hspsc-admin.php:1448
+msgid "Estimated reclaimable"
+msgstr "Geschätzter freigebbarer Speicherplatz"
+
+#: includes/class-hspsc-admin.php:1452
+msgid "Cleanup Candidates"
+msgstr "Bereinigungskandidaten"
+
+#: includes/class-hspsc-admin.php:1456
+msgid "Revisions"
+msgstr "Revisionen"
+
+#: includes/class-hspsc-admin.php:1460
+msgid "Auto drafts"
+msgstr "Automatische Entwürfe"
+
+#: includes/class-hspsc-admin.php:1464
+msgid "Trashed posts"
+msgstr "Beiträge im Papierkorb"
+
+#: includes/class-hspsc-admin.php:1468
+msgid "Spam or trashed comments"
+msgstr "Spam-Kommentare oder Kommentare im Papierkorb"
+
+#: includes/class-hspsc-admin.php:1472
+msgid "Expired transient timeouts"
+msgstr "Abgelaufene Transient-Zeitlimits"
+
+#: includes/class-hspsc-admin.php:1476
+msgid "Expired transient values"
+msgstr "Abgelaufene Transient-Werte"
+
+#. translators: %d is the number of database rows that cleanup can remove.
+#: includes/class-hspsc-admin.php:1484
+#, php-format
+msgid "Clean Database can remove about %d row based on this analysis."
+msgid_plural "Clean Database can remove about %d rows based on this analysis."
+msgstr[0] ""
+"Laut dieser Analyse kann „Datenbank bereinigen“ etwa %d Zeile entfernen."
+msgstr[1] ""
+"Laut dieser Analyse kann „Datenbank bereinigen“ etwa %d Zeilen entfernen."
+
+#: includes/class-hspsc-admin.php:1508
+msgid "Database Backups"
+msgstr "Datenbanksicherungen"
+
+#. translators: %s is a backup file name.
+#: includes/class-hspsc-admin.php:1515
+#, php-format
+msgid "Latest created backup: %s"
+msgstr "Zuletzt erstellte Sicherung: %s"
+
+#: includes/class-hspsc-admin.php:1524
+msgid "No backups available yet."
+msgstr "Es sind noch keine Sicherungen verfügbar."
+
+#: includes/class-hspsc-admin.php:1530
+msgid "Backup"
+msgstr "Sicherung"
+
+#: includes/class-hspsc-admin.php:1531
+msgid "Timestamp"
+msgstr "Zeitstempel"
+
+#: includes/class-hspsc-admin.php:1532
+msgid "Size"
+msgstr "Größe"
+
+#: includes/class-hspsc-admin.php:1533
+msgid "Actions"
+msgstr "Aktionen"
+
+#: includes/class-hspsc-admin.php:1543
+msgid "Restore this database backup?"
+msgstr "Diese Datenbanksicherung wiederherstellen?"
+
+#: includes/class-hspsc-admin.php:1547 includes/class-hspsc-admin.php:2133
+msgid "Restoring..."
+msgstr "Wird wiederhergestellt…"
+
+#: includes/class-hspsc-admin.php:1547
+msgid "Restore"
+msgstr "Wiederherstellen"
+
+#: includes/class-hspsc-admin.php:1549
+msgid "Delete this database backup?"
+msgstr "Diese Datenbanksicherung löschen?"
+
+#: includes/class-hspsc-admin.php:1553
+msgid "Deleting..."
+msgstr "Wird gelöscht…"
+
+#: includes/class-hspsc-admin.php:1553
+msgid "Delete"
+msgstr "Löschen"
+
+#: includes/class-hspsc-admin.php:1615
+msgid ""
+"Bricks compatibility preset applied. In Bricks > Settings > Performance, "
+"leave \"Disable lazy loading\" unchecked. Enable \"Disable emojis\" and "
+"\"Disable embed\" if those features are not needed. The preset also turns off"
+" HSP Smart Cache iframe lazy loading and script defer/async."
+msgstr ""
+"Die Bricks-Kompatibilitätsvoreinstellung wurde angewendet. Lassen Sie unter "
+"Bricks > Einstellungen > Leistung die Option „Lazy Loading deaktivieren“ "
+"ausgeschaltet. Aktivieren Sie „Emojis deaktivieren“ und „Einbettungen "
+"deaktivieren“, wenn diese Funktionen nicht benötigt werden. Die "
+"Voreinstellung deaktiviert außerdem Lazy Loading für Iframes und defer/async "
+"für Skripte in HSP Smart Cache."
+
+#: includes/class-hspsc-admin.php:1710
+msgid "Cache cleared."
+msgstr "Cache geleert."
+
+#: includes/class-hspsc-admin.php:1720
+msgid "Preload completed."
+msgstr "Vorladen abgeschlossen."
+
+#. translators: %d is the number of warmed URLs.
+#: includes/class-hspsc-admin.php:1723
+#, php-format
+msgid "%d URL warmed."
+msgid_plural "%d URLs warmed."
+msgstr[0] "%d URL wurde vorgeladen."
+msgstr[1] "%d URLs wurden vorgeladen."
+
+#: includes/class-hspsc-admin.php:1776
+msgid "Page Cache"
+msgstr "Seiten-Cache"
+
+#: includes/class-hspsc-admin.php:1779
+msgid "Cache full HTML pages for visitors."
+msgstr "Vollständige HTML-Seiten für Besucher zwischenspeichern."
+
+#: includes/class-hspsc-admin.php:1780
+msgid "Enable page caching for anonymous visitors"
+msgstr "Seiten-Caching für anonyme Besucher aktivieren"
+
+#: includes/class-hspsc-admin.php:1784
+msgid "Cache TTL (seconds)"
+msgstr "Cache-Gültigkeitsdauer (Sekunden)"
+
+#: includes/class-hspsc-admin.php:1785
+msgid "How long a page stays cached before regeneration."
+msgstr "Dauer, für die eine Seite vor der Neuerstellung im Cache bleibt."
+
+#: includes/class-hspsc-admin.php:1789
+msgid "Excluded page paths"
+msgstr "Ausgeschlossene Seitenpfade"
+
+#: includes/class-hspsc-admin.php:1793
+msgid ""
+"One exact URL path per line, starting with /. Include the installation "
+"subdirectory and translated paths when needed. Queries and trailing slashes "
+"do not affect matching. Subpages, full URLs, and wildcards are not included. "
+"Asset optimizations remain enabled."
+msgstr ""
+"Ein exakter URL-Pfad pro Zeile, beginnend mit /. Geben Sie bei Bedarf das "
+"Installationsunterverzeichnis und übersetzte Pfade an. Abfrageparameter und "
+"abschließende Schrägstriche beeinflussen den Abgleich nicht. Unterseiten, "
+"vollständige URLs und Platzhalter werden nicht berücksichtigt. Die "
+"Optimierung von Dateien bleibt aktiviert."
+
+#: includes/class-hspsc-admin.php:1796
+msgid "Enable only if logged-in users see cache-safe content."
+msgstr ""
+"Nur aktivieren, wenn angemeldete Benutzer ausschließlich Inhalte sehen, die "
+"sicher zwischengespeichert werden können."
+
+#: includes/class-hspsc-admin.php:1797
+msgid "Allow page caching for logged-in users"
+msgstr "Seiten-Caching für angemeldete Benutzer zulassen"
+
+#: includes/class-hspsc-admin.php:1800
+msgid ""
+"Warning: Can serve private data if enabled on sites with personalized "
+"content."
+msgstr ""
+"Warnung: Wenn diese Option auf Websites mit personalisierten Inhalten "
+"aktiviert wird, können private Daten ausgeliefert werden."
+
+#: includes/class-hspsc-admin.php:1803
+msgid "Apply frontend optimizations for logged-in users."
+msgstr "Frontend-Optimierungen für angemeldete Benutzer anwenden."
+
+#: includes/class-hspsc-admin.php:1804
+msgid "Allow frontend optimizations for logged-in users"
+msgstr "Frontend-Optimierungen für angemeldete Benutzer zulassen"
+
+#: includes/class-hspsc-admin.php:1807
+msgid ""
+"Recommended off for editors/builders. Controls minify, script defer/async, "
+"and frontend performance tweaks."
+msgstr ""
+"Für Redakteure und die Arbeit mit Page-Buildern wird die Deaktivierung "
+"empfohlen. Steuert Minifizierung, defer/async für Skripte und "
+"Leistungsoptimierungen im Frontend."
+
+#: includes/class-hspsc-admin.php:1812
+msgid "Robots.txt"
+msgstr "Robots.txt"
+
+#: includes/class-hspsc-admin.php:1815
+msgid "Add disallow rules for known AI crawlers."
+msgstr "Disallow-Regeln für bekannte KI-Crawler hinzufügen."
+
+#: includes/class-hspsc-admin.php:1816
+msgid "Disallow common AI crawlers"
+msgstr "Gängige KI-Crawler ausschließen"
+
+#: includes/class-hspsc-admin.php:1819
+msgid "Adds rules via WordPress robots.txt output (no file write)."
+msgstr ""
+"Fügt Regeln über die robots.txt-Ausgabe von WordPress hinzu (ohne eine Datei "
+"zu schreiben)."
+
+#: includes/class-hspsc-admin.php:1824
+msgid "Browser Cache Headers"
+msgstr "Browser-Cache-Header"
+
+#: includes/class-hspsc-admin.php:1827
+msgid "Send Cache-Control and ETag headers for cached pages."
+msgstr "Cache-Control- und ETag-Header für zwischengespeicherte Seiten senden."
+
+#: includes/class-hspsc-admin.php:1828
+msgid "Send Cache-Control headers for cacheable pages"
+msgstr "Cache-Control-Header für zwischenspeicherbare Seiten senden"
+
+#: includes/class-hspsc-admin.php:1832
+msgid "HTML cache TTL (seconds)"
+msgstr "HTML-Cache-Gültigkeitsdauer (Sekunden)"
+
+#: includes/class-hspsc-admin.php:1833
+msgid "Browser cache lifetime for HTML pages."
+msgstr "Gültigkeitsdauer des Browser-Caches für HTML-Seiten."
+
+#: includes/class-hspsc-admin.php:1838
+msgid "Asset cache TTL (seconds)"
+msgstr "Datei-Cache-Gültigkeitsdauer (Sekunden)"
+
+#: includes/class-hspsc-admin.php:1839
+msgid "Browser cache lifetime for static assets."
+msgstr "Gültigkeitsdauer des Browser-Caches für statische Dateien."
+
+#: includes/class-hspsc-admin.php:1845
+msgid "Static Asset Caching"
+msgstr "Caching statischer Dateien"
+
+#: includes/class-hspsc-admin.php:1848
+msgid "Cache generated CSS/JS for longer and revalidate other static files."
+msgstr ""
+"Generierte CSS-/JS-Dateien länger zwischenspeichern und andere statische "
+"Dateien revalidieren."
+
+#: includes/class-hspsc-admin.php:1849
+msgid "Enable safe browser cache rules for static assets"
+msgstr "Sichere Browser-Cache-Regeln für statische Dateien aktivieren"
+
+#: includes/class-hspsc-admin.php:1853
+msgid "Generated CSS/JS TTL (seconds)"
+msgstr "Gültigkeitsdauer generierter CSS-/JS-Dateien (Sekunden)"
+
+#: includes/class-hspsc-admin.php:1854
+msgid "Cache lifetime for HSP-generated CSS/JS via web server rules."
+msgstr ""
+"Cache-Gültigkeitsdauer für von HSP generierte CSS-/JS-Dateien über Webserver-"
+"Regeln."
+
+#: includes/class-hspsc-admin.php:1859
+msgid "Add immutable only to HSP-generated CSS/JS."
+msgstr "immutable nur zu von HSP generierten CSS-/JS-Dateien hinzufügen."
+
+#: includes/class-hspsc-admin.php:1860
+msgid "Add immutable to generated CSS/JS"
+msgstr "immutable zu generierten CSS-/JS-Dateien hinzufügen"
+
+#: includes/class-hspsc-admin.php:1865
+msgid "Automatically update .htaccess if writable."
+msgstr ".htaccess automatisch aktualisieren, wenn sie beschreibbar ist."
+
+#: includes/class-hspsc-admin.php:1866
+msgid "Auto-write .htaccess rules when possible"
+msgstr ".htaccess-Regeln nach Möglichkeit automatisch schreiben"
+
+#: includes/class-hspsc-admin.php:1870
+msgid ""
+"Warning: Incorrect .htaccess rules can break site access. Use with care."
+msgstr ""
+"Warnung: Fehlerhafte .htaccess-Regeln können den Zugriff auf die Website "
+"verhindern. Mit Vorsicht verwenden."
+
+#: includes/class-hspsc-admin.php:1874
+msgid "Enable gzip/deflate compression via web server rules."
+msgstr "gzip-/deflate-Komprimierung über Webserver-Regeln aktivieren."
+
+#: includes/class-hspsc-admin.php:1875
+msgid "Enable gzip/deflate compression"
+msgstr "gzip-/deflate-Komprimierung aktivieren"
+
+#: includes/class-hspsc-admin.php:1879
+msgid ""
+"Warning: If your server already manages compression, double-compression can "
+"cause issues."
+msgstr ""
+"Warnung: Wenn Ihr Server die Komprimierung bereits verwaltet, kann eine "
+"doppelte Komprimierung Probleme verursachen."
+
+#: includes/class-hspsc-admin.php:1882
+msgid "Apache .htaccess snippet"
+msgstr "Apache-.htaccess-Codeabschnitt"
+
+#: includes/class-hspsc-admin.php:1897
+msgid "Render Blocking Optimization"
+msgstr "Optimierung renderblockierender Ressourcen"
+
+#: includes/class-hspsc-admin.php:1900
+msgid "Add defer to scripts to reduce render blocking."
+msgstr "defer zu Skripten hinzufügen, um Renderblockierungen zu reduzieren."
+
+#: includes/class-hspsc-admin.php:1901
+msgid "Add defer to enqueued scripts"
+msgstr "defer zu eingereihten Skripten hinzufügen"
+
+#: includes/class-hspsc-admin.php:1904
+msgid ""
+"Warning: Deferring scripts may break plugins that expect blocking execution."
+msgstr ""
+"Warnung: Das verzögerte Ausführen von Skripten kann Plugins beeinträchtigen, "
+"die eine blockierende Ausführung erwarten."
+
+#: includes/class-hspsc-admin.php:1908
+msgid "Defer exclusions (script handles, one per line)"
+msgstr "defer-Ausnahmen (Skript-Handles, eines pro Zeile)"
+
+#: includes/class-hspsc-admin.php:1909
+msgid "Script handles that must not be deferred."
+msgstr "Skript-Handles, deren Ausführung nicht verzögert werden darf."
+
+#: includes/class-hspsc-admin.php:1913
+msgid "Use async when defer is disabled."
+msgstr "async verwenden, wenn defer deaktiviert ist."
+
+#: includes/class-hspsc-admin.php:1914
+msgid "Add async to enqueued scripts (if defer is off)"
+msgstr "async zu eingereihten Skripten hinzufügen (wenn defer deaktiviert ist)"
+
+#: includes/class-hspsc-admin.php:1917
+msgid "Warning: Async can change execution order and break dependencies."
+msgstr ""
+"Warnung: async kann die Ausführungsreihenfolge ändern und Abhängigkeiten "
+"beeinträchtigen."
+
+#: includes/class-hspsc-admin.php:1921
+msgid "Async exclusions (script handles, one per line)"
+msgstr "async-Ausnahmen (Skript-Handles, eines pro Zeile)"
+
+#: includes/class-hspsc-admin.php:1922
+msgid "Script handles that must not be async."
+msgstr "Skript-Handles, die nicht asynchron ausgeführt werden dürfen."
+
+#: includes/class-hspsc-admin.php:1927
+msgid "Preconnect URLs (one per line)"
+msgstr "Preconnect-URLs (eine pro Zeile)"
+
+#: includes/class-hspsc-admin.php:1928
+msgid "Origins to preconnect for faster TLS/handshake."
+msgstr ""
+"Ursprünge für vorab aufgebaute Verbindungen zur Beschleunigung des TLS-"
+"Handshakes."
+
+#: includes/class-hspsc-admin.php:1933
+msgid "Preload font URLs (one per line)"
+msgstr "URLs vorzuladender Schriften (eine pro Zeile)"
+
+#: includes/class-hspsc-admin.php:1934
+msgid "Font files to preload early."
+msgstr "Schriftdateien, die frühzeitig vorgeladen werden sollen."
+
+#: includes/class-hspsc-admin.php:1939
+msgid "Preload CSS URLs (one per line)"
+msgstr "URLs vorzuladender CSS-Dateien (eine pro Zeile)"
+
+#: includes/class-hspsc-admin.php:1940
+msgid "Stylesheets to preload before render."
+msgstr "Stylesheets, die vor dem Rendern vorgeladen werden sollen."
+
+#: includes/class-hspsc-admin.php:1945
+msgid "Inline critical CSS"
+msgstr "Kritisches Inline-CSS"
+
+#: includes/class-hspsc-admin.php:1946
+msgid "CSS injected inline to speed up first render."
+msgstr "Inline eingefügtes CSS zur Beschleunigung der ersten Darstellung."
+
+#: includes/class-hspsc-admin.php:1952
+msgid "Additional Performance"
+msgstr "Weitere Leistungsoptimierungen"
+
+#: includes/class-hspsc-admin.php:1955
+msgid "Adds loading=\"lazy\" to images where safe."
+msgstr "Fügt Bildern loading=\"lazy\" hinzu, sofern dies sicher möglich ist."
+
+#: includes/class-hspsc-admin.php:1956
+msgid "Enable native lazy-loading for images"
+msgstr "Natives Lazy Loading für Bilder aktivieren"
+
+#: includes/class-hspsc-admin.php:1959
+msgid "Adds loading=\"lazy\" to iframes where safe."
+msgstr "Fügt Iframes loading=\"lazy\" hinzu, sofern dies sicher möglich ist."
+
+#: includes/class-hspsc-admin.php:1960
+msgid "Enable native lazy-loading for iframes"
+msgstr "Natives Lazy Loading für Iframes aktivieren"
+
+#: includes/class-hspsc-admin.php:1963
+msgid "Hints browser to decode images asynchronously."
+msgstr "Empfiehlt dem Browser, Bilder asynchron zu dekodieren."
+
+#: includes/class-hspsc-admin.php:1964
+msgid "Add decoding=\"async\" to images"
+msgstr "decoding=\"async\" zu Bildern hinzufügen"
+
+#: includes/class-hspsc-admin.php:1967
+msgid "Remove emoji scripts and styles for faster loads."
+msgstr "Emoji-Skripte und -Styles für kürzere Ladezeiten entfernen."
+
+#: includes/class-hspsc-admin.php:1968
+msgid "Disable emoji scripts and styles"
+msgstr "Emoji-Skripte und -Styles deaktivieren"
+
+#: includes/class-hspsc-admin.php:1971
+msgid "Disable oEmbed discovery and scripts."
+msgstr "oEmbed-Erkennung und -Skripte deaktivieren."
+
+#: includes/class-hspsc-admin.php:1972
+msgid "Disable WordPress embeds"
+msgstr "WordPress-Einbettungen deaktivieren"
+
+#: includes/class-hspsc-admin.php:1975
+msgid "Remove Dashicons for non-logged-in visitors."
+msgstr "Dashicons für nicht angemeldete Besucher entfernen."
+
+#: includes/class-hspsc-admin.php:1976
+msgid "Disable Dashicons for guests"
+msgstr "Dashicons für Gäste deaktivieren"
+
+#: includes/class-hspsc-admin.php:1979
+msgid ""
+"Warning: Disabling embeds or Dashicons can affect themes or plugins that rely"
+" on them."
+msgstr ""
+"Warnung: Das Deaktivieren von Einbettungen oder Dashicons kann Themes oder "
+"Plugins beeinträchtigen, die darauf angewiesen sind."
+
+#: includes/class-hspsc-admin.php:1983
+msgid "DNS prefetch URLs (one per line)"
+msgstr "DNS-Prefetch-URLs (eine pro Zeile)"
+
+#: includes/class-hspsc-admin.php:1984
+msgid "Hostnames to DNS-prefetch."
+msgstr "Hostnamen für die vorzeitige DNS-Auflösung."
+
+#: includes/class-hspsc-admin.php:1990
+msgid "Cache Preload"
+msgstr "Cache-Vorladen"
+
+#: includes/class-hspsc-admin.php:1993
+msgid "Allow manual preload of URLs from sitemap."
+msgstr "Manuelles Vorladen von URLs aus der Sitemap zulassen."
+
+#: includes/class-hspsc-admin.php:1994
+msgid "Enable cache preloading"
+msgstr "Cache-Vorladen aktivieren"
+
+#: includes/class-hspsc-admin.php:1998
+msgid "Sitemap URL"
+msgstr "Sitemap-URL"
+
+#: includes/class-hspsc-admin.php:1999
+msgid "Sitemap to pull URLs from for warming."
+msgstr "Sitemap, aus der die URLs zum Vorladen abgerufen werden."
+
+#: includes/class-hspsc-admin.php:2004
+msgid "Max URLs to warm"
+msgstr "Maximale Anzahl vorzuladender URLs"
+
+#: includes/class-hspsc-admin.php:2005
+msgid "Limit number of URLs warmed per run."
+msgstr "Anzahl der pro Durchlauf vorgeladenen URLs begrenzen."
+
+#: includes/class-hspsc-admin.php:2010
+msgid "Request timeout (seconds)"
+msgstr "Zeitlimit für Anfragen (Sekunden)"
+
+#: includes/class-hspsc-admin.php:2011
+msgid "Timeout per warmed URL."
+msgstr "Zeitlimit pro vorgeladener URL."
+
+#: includes/class-hspsc-admin.php:2017
+msgid "Minification"
+msgstr "Minifizierung"
+
+#: includes/class-hspsc-admin.php:2020
+msgid "Remove whitespace/comments from HTML."
+msgstr "Leerraum und Kommentare aus HTML entfernen."
+
+#: includes/class-hspsc-admin.php:2021
+msgid "Minify HTML"
+msgstr "HTML minifizieren"
+
+#: includes/class-hspsc-admin.php:2024
+msgid "Create minified CSS files in the cache."
+msgstr "Minifizierte CSS-Dateien im Cache erstellen."
+
+#: includes/class-hspsc-admin.php:2025
+msgid "Minify CSS files"
+msgstr "CSS-Dateien minifizieren"
+
+#: includes/class-hspsc-admin.php:2028
+msgid "Create minified JS files in the cache."
+msgstr "Minifizierte JS-Dateien im Cache erstellen."
+
+#: includes/class-hspsc-admin.php:2029
+msgid "Minify JS files"
+msgstr "JS-Dateien minifizieren"
+
+#: includes/class-hspsc-admin.php:2034
+msgid "Object Cache"
+msgstr "Objekt-Cache"
+
+#: includes/class-hspsc-admin.php:2037
+msgid "Use file-based persistent object cache drop-in."
+msgstr ""
+"Ein Drop-in für einen dateibasierten persistenten Objekt-Cache verwenden."
+
+#: includes/class-hspsc-admin.php:2038
+msgid "Enable file-based persistent object cache (drop-in)"
+msgstr "Dateibasierten persistenten Objekt-Cache aktivieren (Drop-in)"
+
+#: includes/class-hspsc-admin.php:2042
+msgid "Default TTL for uncached entries (seconds)"
+msgstr ""
+"Standardgültigkeitsdauer für nicht zwischengespeicherte Einträge (Sekunden)"
+
+#: includes/class-hspsc-admin.php:2043
+msgid "Used when an object cache write does not provide an expiration."
+msgstr ""
+"Wird verwendet, wenn beim Schreiben in den Objekt-Cache kein Ablaufzeitpunkt "
+"angegeben wird."
+
+#: includes/class-hspsc-admin.php:2048
+msgid "Maximum TTL cap (seconds)"
+msgstr "Maximale Gültigkeitsdauer (Sekunden)"
+
+#: includes/class-hspsc-admin.php:2049
+msgid ""
+"Caps any longer object cache expiration and bounds legacy unlimited entries."
+msgstr ""
+"Begrenzt längere Ablaufzeiten im Objekt-Cache und bisher unbegrenzt gültige "
+"Einträge."
+
+#: includes/class-hspsc-admin.php:2053
+msgid ""
+"Warning: Object cache drop-ins can conflict with other cache plugins. Entries"
+" without an expiration are now capped by the maximum TTL and periodically "
+"cleaned up."
+msgstr ""
+"Warnung: Objekt-Cache-Drop-ins können mit anderen Cache-Plugins in Konflikt "
+"geraten. Einträge ohne Ablaufzeitpunkt werden jetzt durch die maximale "
+"Gültigkeitsdauer begrenzt und regelmäßig bereinigt."
+
+#: includes/class-hspsc-admin.php:2058
+msgid "CDN"
+msgstr "CDN"
+
+#: includes/class-hspsc-admin.php:2061
+msgid "Rewrite static asset URLs to your CDN."
+msgstr "URLs statischer Dateien auf Ihr CDN umschreiben."
+
+#: includes/class-hspsc-admin.php:2062
+msgid "Enable CDN URL rewriting for static assets"
+msgstr "CDN-URL-Umschreibung für statische Dateien aktivieren"
+
+#: includes/class-hspsc-admin.php:2066
+msgid "CDN Base URL"
+msgstr "CDN-Basis-URL"
+
+#: includes/class-hspsc-admin.php:2067
+msgid "Base URL used for CDN rewriting."
+msgstr "Basis-URL für die CDN-Umschreibung."
+
+#: includes/class-hspsc-admin.php:2074
+msgid "Saving..."
+msgstr "Wird gespeichert…"
+
+#: includes/class-hspsc-admin.php:2074
+msgid "Save Changes"
+msgstr "Änderungen speichern"
+
+#: includes/class-hspsc-admin.php:2083
+msgid "Cache Operations"
+msgstr "Cache-Aktionen"
+
+#: includes/class-hspsc-admin.php:2084
+msgid "Run routine cache tasks without leaving this screen."
+msgstr ""
+"Routineaufgaben für den Cache ausführen, ohne diese Ansicht zu verlassen."
+
+#: includes/class-hspsc-admin.php:2087
+msgid "Cache"
+msgstr "Cache"
+
+#: includes/class-hspsc-admin.php:2092
+msgid "Clearing..."
+msgstr "Wird geleert…"
+
+#: includes/class-hspsc-admin.php:2092
+msgid "Clear All Caches"
+msgstr "Alle Caches leeren"
+
+#: includes/class-hspsc-admin.php:2097
+msgid "Testing..."
+msgstr "Wird getestet…"
+
+#: includes/class-hspsc-admin.php:2097
+msgid "Run Cache Tests"
+msgstr "Cache-Tests ausführen"
+
+#: includes/class-hspsc-admin.php:2106
+msgid "Preload"
+msgstr "Vorladen"
+
+#: includes/class-hspsc-admin.php:2110
+msgid "Preloading..."
+msgstr "Wird vorgeladen…"
+
+#: includes/class-hspsc-admin.php:2110
+msgid "Run Cache Preload"
+msgstr "Cache-Vorladen ausführen"
+
+#: includes/class-hspsc-admin.php:2116
+msgid ""
+"Apply the Bricks compatibility preset? This disables overlapping HSP Smart "
+"Cache optimizations so Bricks can own them."
+msgstr ""
+"Die Bricks-Kompatibilitätsvoreinstellung anwenden? Dadurch werden "
+"überlappende Optimierungen von HSP Smart Cache deaktiviert, damit Bricks sie "
+"übernehmen kann."
+
+#: includes/class-hspsc-admin.php:2119
+msgid "Applying..."
+msgstr "Wird angewendet…"
+
+#: includes/class-hspsc-admin.php:2119
+msgid "Apply Bricks Preset"
+msgstr "Bricks-Voreinstellung anwenden"
+
+#: includes/class-hspsc-admin.php:2125
+msgid ""
+"Bricks detected. This preset turns off duplicate HSP lazy-load, emoji/embed "
+"cleanup, and script defer/async."
+msgstr ""
+"Bricks erkannt. Diese Voreinstellung deaktiviert die doppelten HSP-Funktionen"
+" für Lazy Loading, Emoji-/Einbettungsbereinigung und defer/async für Skripte."
+
+#: includes/class-hspsc-admin.php:2126
+msgid ""
+"Use this on Bricks sites to let Bricks handle its native performance toggles."
+msgstr ""
+"Verwenden Sie dies auf Bricks-Websites, damit Bricks seine eigenen "
+"Leistungseinstellungen verwaltet."
+
+#: includes/class-hspsc-admin.php:2130
+msgid "Restore all plugin settings to defaults?"
+msgstr "Alle Plugin-Einstellungen auf die Standardwerte zurücksetzen?"
+
+#: includes/class-hspsc-admin.php:2133
+msgid "Restore Defaults"
+msgstr "Standardeinstellungen wiederherstellen"
+
+#: includes/class-hspsc-admin.php:2139
+msgid "Database Maintenance"
+msgstr "Datenbankwartung"
+
+#: includes/class-hspsc-admin.php:2140
+msgid ""
+"Inspect, clean, optimize, and manage generated backups from one workspace."
+msgstr ""
+"Datenbank prüfen, bereinigen und optimieren sowie erstellte Sicherungen "
+"zentral verwalten."
+
+#: includes/class-hspsc-admin.php:2146
+msgid "Analyzing..."
+msgstr "Wird analysiert…"
+
+#: includes/class-hspsc-admin.php:2146
+msgid "Analyze"
+msgstr "Analysieren"
+
+#: includes/class-hspsc-admin.php:2148
+msgid "Run database cleanup now?"
+msgstr "Datenbank jetzt bereinigen?"
+
+#: includes/class-hspsc-admin.php:2151
+msgid "Cleaning..."
+msgstr "Wird bereinigt…"
+
+#: includes/class-hspsc-admin.php:2151
+msgid "Clean Database"
+msgstr "Datenbank bereinigen"
+
+#: includes/class-hspsc-admin.php:2156
+msgid "Creating..."
+msgstr "Wird erstellt…"
+
+#: includes/class-hspsc-admin.php:2156
+msgid "Create Backup"
+msgstr "Sicherung erstellen"
+
+#: includes/class-hspsc-admin.php:2158
+msgid "Create a backup and optimize database tables now?"
+msgstr "Jetzt eine Sicherung erstellen und die Datenbanktabellen optimieren?"
+
+#: includes/class-hspsc-admin.php:2161
+msgid "Optimizing..."
+msgstr "Wird optimiert…"
+
+#: includes/class-hspsc-admin.php:2161
+msgid "Optimize Tables"
+msgstr "Tabellen optimieren"
+
+#: includes/class-hspsc-admin.php:2165
+msgid ""
+"A timestamped backup is created automatically before optimization starts."
+msgstr ""
+"Vor Beginn der Optimierung wird automatisch eine Sicherung mit Zeitstempel "
+"erstellt."
+
+#: includes/class-hspsc-admin.php:2166
+msgid ""
+"Database cleanup deletes revisions, trashed posts, spam comments, and expired"
+" transients. Table optimization can be slow on large databases."
+msgstr ""
+"Die Datenbankbereinigung löscht Revisionen, Beiträge im Papierkorb, Spam-"
+"Kommentare und abgelaufene Transients. Die Tabellenoptimierung kann bei "
+"großen Datenbanken lange dauern."
+
+#: includes/class-hspsc-admin.php:2180
+msgid "Made by Helmut Steiner Productions with ❤️ in Vienna"
+msgstr "Von Helmut Steiner Productions mit ❤️ in Wien entwickelt"
+
+#: includes/class-hspsc-maintenance.php:514
+msgid "File not visible to WP_Filesystem."
+msgstr "Datei für WP_Filesystem nicht sichtbar."
+
+#: includes/class-hspsc-maintenance.php:514
+msgid "WP_Filesystem unavailable."
+msgstr "WP_Filesystem nicht verfügbar."
+
+#: includes/class-hspsc-maintenance.php:1120
+msgid ""
+"No WordPress tables were restored. Check whether the backup table prefix "
+"matches this site."
+msgstr ""
+"Es wurden keine WordPress-Tabellen wiederhergestellt. Prüfen Sie, ob das "
+"Tabellenpräfix der Sicherung mit dem dieser Website übereinstimmt."
+
+#. translators: %s: Database table name.
+#: includes/class-hspsc-maintenance.php:1128
+#, php-format
+msgid ""
+"Table %s did not include both DROP TABLE and CREATE TABLE statements, so the "
+"restore may not remove rows created after the backup."
+msgstr ""
+"Tabelle %s enthielt nicht sowohl DROP TABLE- als auch CREATE TABLE-"
+"Anweisungen. Daher entfernt die Wiederherstellung möglicherweise keine "
+"Zeilen, die nach der Sicherung erstellt wurden."
+
+#. translators: %d: Number of skipped SQL statements.
+#: includes/class-hspsc-maintenance.php:1137
+#, php-format
+msgid "%d SQL statement was skipped because it was not allowed for restore."
+msgid_plural ""
+"%d SQL statements were skipped because they were not allowed for restore."
+msgstr[0] ""
+"%d SQL-Anweisung wurde übersprungen, da sie für die Wiederherstellung nicht "
+"zulässig war."
+msgstr[1] ""
+"%d SQL-Anweisungen wurden übersprungen, da sie für die Wiederherstellung "
+"nicht zulässig waren."
+
+#: includes/class-hspsc-tests.php:65 includes/class-hspsc-tests.php:104
+msgid "Cache directories exist"
+msgstr "Cache-Verzeichnisse vorhanden"
+
+#: includes/class-hspsc-tests.php:66 includes/class-hspsc-tests.php:106
+msgid "One or more cache directories are missing."
+msgstr "Ein oder mehrere Cache-Verzeichnisse fehlen."
+
+#: includes/class-hspsc-tests.php:69 includes/class-hspsc-tests.php:121
+msgid "HTML minification works"
+msgstr "HTML-Minifizierung funktioniert"
+
+#: includes/class-hspsc-tests.php:70 includes/class-hspsc-tests.php:123
+msgid "Minified HTML still contains comments or whitespace."
+msgstr "Das minifizierte HTML enthält noch Kommentare oder Leerraum."
+
+#: includes/class-hspsc-tests.php:73 includes/class-hspsc-tests.php:140
+msgid "CSS/JS minification works"
+msgstr "CSS-/JS-Minifizierung funktioniert"
+
+#: includes/class-hspsc-tests.php:74 includes/class-hspsc-tests.php:142
+msgid "Minified output is not smaller than input."
+msgstr "Die minifizierte Ausgabe ist nicht kleiner als die Eingabe."
+
+#: includes/class-hspsc-tests.php:77 includes/class-hspsc-tests.php:161
+msgid "Page cache file write"
+msgstr "Schreiben der Seiten-Cache-Datei"
+
+#: includes/class-hspsc-tests.php:78 includes/class-hspsc-tests.php:163
+msgid "Unable to write cache file. Check permissions."
+msgstr ""
+"Cache-Datei konnte nicht geschrieben werden. Prüfen Sie die Berechtigungen."
+
+#: includes/class-hspsc-tests.php:81 includes/class-hspsc-tests.php:178
+msgid "Object cache drop-in present"
+msgstr "Objekt-Cache-Drop-in vorhanden"
+
+#: includes/class-hspsc-tests.php:82 includes/class-hspsc-tests.php:180
+msgid "Object cache enabled but drop-in missing."
+msgstr "Objekt-Cache aktiviert, aber Drop-in fehlt."
+
+#: includes/class-hspsc-updater.php:194
+msgid "Could not prepare the GitHub release package for installation."
+msgstr ""
+"Das GitHub-Release-Paket konnte nicht für die Installation vorbereitet "
+"werden."

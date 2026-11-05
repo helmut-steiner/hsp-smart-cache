@@ -28,6 +28,139 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         parent::tear_down();
     }
 
+	/**
+	 * Settings assets are absent from unrelated screens and unauthorized requests.
+	 */
+	public function test_settings_assets_are_restricted_to_the_authorized_screen() {
+		$this->with_fresh_asset_registries(
+			function () {
+				wp_set_current_user( 0 );
+				HSPSC_Admin::enqueue_settings_assets( 'settings_page_hsp-smart-cache' );
+				$this->assertFalse( wp_style_is( 'hspsc-admin', 'enqueued' ) );
+				$this->assertFalse( wp_script_is( 'hspsc-admin', 'enqueued' ) );
+
+				wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+				HSPSC_Admin::enqueue_settings_assets( 'dashboard' );
+				$this->assertFalse( wp_style_is( 'hspsc-admin', 'enqueued' ) );
+				$this->assertFalse( wp_script_is( 'hspsc-admin', 'enqueued' ) );
+			}
+		);
+	}
+
+	/**
+	 * The settings screen receives versioned files and safely encoded translations.
+	 */
+	public function test_settings_assets_include_versioned_files_and_localized_config() {
+		$this->with_fresh_asset_registries(
+			function () {
+				wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+				$translation = static function ( $translated, $text, $domain ) {
+					if ( 'hsp-smart-cache' === $domain && 'Action failed. Please try again.' === $text ) {
+						return 'L’action a échoué. "Réessayez" <test>.';
+					}
+					return $translated;
+				};
+				add_filter( 'gettext', $translation, 10, 3 );
+				try {
+					HSPSC_Admin::enqueue_settings_assets( 'settings_page_hsp-smart-cache' );
+				} finally {
+					remove_filter( 'gettext', $translation, 10 );
+				}
+
+				$this->assertTrue( wp_style_is( 'hspsc-admin', 'enqueued' ) );
+				$this->assertTrue( wp_script_is( 'hspsc-admin', 'enqueued' ) );
+				$style  = wp_styles()->registered['hspsc-admin'];
+				$script = wp_scripts()->registered['hspsc-admin'];
+				$this->assertSame( HSPSC_VERSION, $style->ver );
+				$this->assertSame( HSPSC_VERSION, $script->ver );
+				$this->assertStringEndsWith( '/assets/css/admin.css', $style->src );
+				$this->assertStringEndsWith( '/assets/js/admin.js', $script->src );
+				$this->assertSame( 1, wp_scripts()->get_data( 'hspsc-admin', 'group' ) );
+				$data = wp_scripts()->get_data( 'hspsc-admin', 'data' );
+				$this->assertSame( 1, preg_match( '/^var HSPSCAdmin = (.+);$/s', $data, $matches ) );
+				$config = json_decode( $matches[1], true );
+				$this->assertSame( HSPSC_Settings::OPTION_KEY, $config['optionKey'] );
+				$this->assertSame( admin_url( 'admin-ajax.php' ), $config['ajaxUrl'] );
+				$this->assertSame( 'L’action a échoué. "Réessayez" <test>.', $config['actionFailed'] );
+				$this->assertSame( 'Action completed.', $config['actionCompleted'] );
+
+				ob_start();
+				HSPSC_Admin::render_settings_page();
+				$html = ob_get_clean();
+				$this->assertStringNotContainsString( '<script>', $html );
+				$this->assertStringNotContainsString( '<style>', $html );
+				$this->assertStringContainsString( 'id="hsp-htaccess-preview"', $html );
+				$this->assertStringContainsString( 'id="hspsc-settings-form"', $html );
+			}
+		);
+	}
+
+	/**
+	 * Frontend notice styling is limited to an authorized, allowlisted notice.
+	 */
+	public function test_frontend_notice_assets_require_a_privileged_supported_notice() {
+		$this->with_fresh_asset_registries(
+			function () {
+				set_current_screen( 'front' );
+				$_GET['hspsc_notice'] = 'rebuild-all-complete';
+				wp_set_current_user( 0 );
+				HSPSC_Admin::enqueue_action_notice_assets();
+				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
+
+				wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+				$_GET['hspsc_notice'] = array( 'malformed' );
+				HSPSC_Admin::enqueue_action_notice_assets();
+				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
+				$_GET['hspsc_notice'] = 'unsupported';
+				HSPSC_Admin::enqueue_action_notice_assets();
+				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
+
+				$_GET['hspsc_notice'] = 'rebuild-all-complete';
+				set_current_screen( 'dashboard' );
+				HSPSC_Admin::enqueue_action_notice_assets();
+				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
+				set_current_screen( 'front' );
+				HSPSC_Admin::enqueue_action_notice_assets();
+				$this->assertTrue( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
+				$this->assertFalse( wp_style_is( 'hspsc-admin', 'enqueued' ) );
+				$this->assertFalse( wp_script_is( 'hspsc-admin', 'enqueued' ) );
+
+				ob_start();
+				HSPSC_Admin::render_action_notice();
+				$html = ob_get_clean();
+				$this->assertStringContainsString( 'All cache files were rebuilt.', $html );
+				$this->assertStringNotContainsString( '<style>', $html );
+			}
+		);
+	}
+
+	/**
+	 * Isolates enqueue assertions from other tests and restores user/screen state.
+	 *
+	 * @param callable $callback Assertions to run with fresh WordPress registries.
+	 */
+	private function with_fresh_asset_registries( $callback ) {
+		$original_styles  = $GLOBALS['wp_styles'] ?? null;
+		$original_scripts = $GLOBALS['wp_scripts'] ?? null;
+		$original_screen  = $GLOBALS['current_screen'] ?? null;
+		$original_user    = get_current_user_id();
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Isolated WordPress fixture, restored in finally.
+		$GLOBALS['wp_styles'] = new WP_Styles();
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Isolated WordPress fixture, restored in finally.
+		$GLOBALS['wp_scripts'] = new WP_Scripts();
+		try {
+			$callback();
+		} finally {
+			wp_set_current_user( $original_user );
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restore the original WordPress fixture.
+			$GLOBALS['wp_styles'] = $original_styles;
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restore the original WordPress fixture.
+			$GLOBALS['wp_scripts'] = $original_scripts;
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restore the original screen after a frontend fixture.
+			$GLOBALS['current_screen'] = $original_screen;
+		}
+	}
+
     public function test_init_registers_admin_hooks() {
         HSPSC_Admin::init();
 

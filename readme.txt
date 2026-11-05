@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 7.1.3
 Tested up to: 7.1.3
 Requires PHP: 8.4
-Stable tag: 0.9.0
+Stable tag: 0.9.1
 License: HSP Personal Noncommercial Contribution License 1.0
 License URI: https://github.com/helmut-steiner/hsp-smart-cache/blob/main/LICENSE
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -49,6 +49,9 @@ The Original Project is [helmut-steiner/hsp-smart-cache](https://github.com/helm
 For commercial permission or a private security delivery channel, open a [non-sensitive contact request](https://github.com/helmut-steiner/hsp-smart-cache/issues) for Helmut Steiner. Do not publish vulnerability details, exploit code, credentials, signing keys, or private site data. If safe delivery is unavailable, follow section 4 of LICENSE: retain a dated record and submission-ready copy, check the documented contact locations at least every 30 days, and deliver within 14 days after you learn, or would learn through those checks, that safe delivery is available. Do not disclose sensitive details publicly merely to meet the deadline. Earlier copies retain their previously granted permissions, and third-party material retains its own terms.
 
 == Frequently Asked Questions ==
+= Which languages are included? =
+The interface is available in English and includes complete translations for German (de_DE), Spanish (es_ES), French (fr_FR), Italian (it_IT), Brazilian Portuguese (pt_BR), Dutch (nl_NL), Polish (pl_PL), Russian (ru_RU), Japanese (ja), Simplified Chinese (zh_CN), and Arabic (ar). WordPress selects the translation from the site language or the signed-in user's profile language. Other locales fall back to English unless a matching WordPress language pack is installed. Bundled PO sources, compiled MO files, and the POT template are in the languages directory.
+
 = Does it cache logged-in users by default? =
 No. You can enable this option in settings if your content is safe to cache per user.
 
@@ -76,6 +79,16 @@ Source review covered supplied Independent Analytics Pro 2.14.10 and Slim SEO Pr
 When headers can still be sent, X-HSPSC-Cache reports HIT, MISS, or BYPASS. X-HSPSC-Cache-Reason uses fixed codes: private-request, response-headers, request-key, buffer-conflict, late-private-response, or write-failed. These headers reveal no cookie values, signing secrets, or filesystem paths. The option reference explains each code. Absence of a header alone does not identify the source of a slow request.
 
 == Changelog ==
+
+= 0.9.1 =
+
+* Apply WordPress coding standards to shipped PHP, document intentional cache/storage operations, and add automated standards checks.
+* Enqueue scoped admin scripts and styles with translated configuration and retain frontend cache-action feedback.
+* Add complete bundled translations in eleven languages, compiled MO files, and a current POT template.
+* Load bundled translations on init, translate cache diagnostics, and support locale-aware plural forms for preload, cleanup, and restore counts.
+* Translate stored cache diagnostics for the administrator viewing them, wrap long action labels, and support right-to-left spacing while keeping technical inputs left-to-right.
+* Preserve WordPress RTL stylesheets during asset optimization and late URL restoration.
+* Fix the Apache preview field's accessible label and safely serialize translated script configuration through WordPress.
 
 = 0.9.0 =
 

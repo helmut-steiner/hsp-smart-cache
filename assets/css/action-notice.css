@@ -1,0 +1,22 @@
+/* Frontend feedback for authorized cache actions. */
+
+.hspsc-action-notice {
+	position: fixed;
+	inset-inline-end: 20px;
+	bottom: 20px;
+	z-index: 99999;
+	max-width: min( 360px, calc( 100vw - 40px ) );
+	padding: 10px 14px;
+	background: #fff;
+	border-inline-start: 4px solid #46b450;
+	box-shadow: 0 2px 8px rgba( 0, 0, 0, 0.18 );
+}
+
+.hspsc-action-notice.notice-error {
+	border-inline-start-color: #dc3232;
+}
+
+.hspsc-action-notice p {
+	margin: 0;
+	color: #1d2327;
+}

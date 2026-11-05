@@ -41,7 +41,9 @@ class HSPSC_Maintenance_WPDB_Mock {
             $rest = substr( $part, 1 );
             $value = isset( $args[ $index ] ) ? $args[ $index ] : '';
 
-            if ( $specifier === 'd' ) {
+            if ( 'i' === $specifier ) {
+                $built .= '`' . str_replace( '`', '``', (string) $value ) . '`';
+            } elseif ( $specifier === 'd' ) {
                 $built .= (string) intval( $value );
             } else {
                 $built .= "'" . addslashes( (string) $value ) . "'";

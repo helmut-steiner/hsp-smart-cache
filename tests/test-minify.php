@@ -20,11 +20,14 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
     protected $asset_files = array();
     protected $original_cookies;
     protected $original_scripts;
+    protected $original_styles;
 
     public function set_up(): void {
         parent::set_up();
         $this->original_scripts = isset( $GLOBALS['wp_scripts'] ) ? $GLOBALS['wp_scripts'] : null;
         $GLOBALS['wp_scripts'] = new WP_Scripts();
+        $this->original_styles = isset( $GLOBALS['wp_styles'] ) ? $GLOBALS['wp_styles'] : null;
+        $GLOBALS['wp_styles'] = new WP_Styles();
         $this->original_cookies = $_COOKIE;
         $_COOKIE = array();
         wp_set_current_user( 0 );
@@ -41,6 +44,7 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
         wp_deregister_script( 'hspsc-test-protected' );
         wp_deregister_style( 'hspsc-test-protected' );
         $GLOBALS['wp_scripts'] = $this->original_scripts;
+        $GLOBALS['wp_styles'] = $this->original_styles;
         $_COOKIE = $this->original_cookies;
         HSPSC_Utils::reset_request_cache();
         $this->reset_asset_url_cache();
@@ -501,6 +505,127 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
         $this->assertTrue( $processor->next_tag( 'link' ) );
         $this->assertSame( $src, $processor->get_attribute( 'href' ) );
     }
+
+	/**
+	 * Core's RTL filename selection must survive source and tag filters unchanged.
+	 *
+	 * @dataProvider native_rtl_stylesheet_cases
+	 * @param bool|string $rtl     Native RTL mode or the explicit-file marker.
+	 * @param string      $context Public, private, or admin request context.
+	 * @param string      $suffix  Native stylesheet filename suffix.
+	 */
+	public function test_native_rtl_stylesheets_keep_core_urls( $rtl, $context, $suffix ) {
+		$styles                 = wp_styles();
+		$original_screen        = isset( $GLOBALS['current_screen'] ) ? $GLOBALS['current_screen'] : null;
+		$styles->text_direction = 'rtl';
+		$styles->do_concat      = false;
+		$base                   = $this->create_asset( 'native-direction' . $suffix . '.css', 'body { margin-left: 10px; }' );
+		$companion              = $this->create_asset( 'native-direction-rtl' . $suffix . '.css', 'body { margin-right: 10px; }' );
+		if ( 'explicit' === $rtl ) {
+			$companion = $this->create_asset( 'native-direction-custom.css', 'body { direction: rtl; }' );
+			$rtl       = $companion;
+		}
+		$styles->add( 'hspsc-native-direction', $base, array(), '1' );
+		$styles->add_data( 'hspsc-native-direction', 'rtl', $rtl );
+		$styles->add_data( 'hspsc-native-direction', 'suffix', $suffix );
+
+		if ( 'admin' === $context ) {
+			set_current_screen( 'dashboard' );
+		} elseif ( 'private' === $context ) {
+			$_COOKIE['fct_cart_hash'] = 'rtl-private-session';
+		}
+
+		try {
+			ob_start();
+			$styles->do_items( array( 'hspsc-native-direction' ) );
+			$output = ob_get_clean();
+		} finally {
+			$GLOBALS['current_screen'] = $original_screen;
+		}
+
+		$links     = array();
+		$processor = new WP_HTML_Tag_Processor( $output );
+		while ( $processor->next_tag( 'link' ) ) {
+			$links[ $processor->get_attribute( 'id' ) ] = $processor->get_attribute( 'href' );
+		}
+		$expected = array();
+		if ( 'replace' !== $rtl ) {
+			$expected['hspsc-native-direction-css'] = add_query_arg( 'ver', '1', $base );
+		}
+		$expected['hspsc-native-direction-rtl-css'] = add_query_arg( 'ver', '1', $companion );
+		$this->assertSame( $expected, $links );
+	}
+
+	/**
+	 * Covers native additive, replacement and explicit RTL source selection.
+	 *
+	 * @return array[] Native RTL stylesheet cases.
+	 */
+	public static function native_rtl_stylesheet_cases() {
+		$cases = array();
+		foreach ( array( true, 'replace', 'explicit' ) as $rtl ) {
+			foreach ( array( 'public', 'private', 'admin' ) as $context ) {
+				foreach ( array( '', '.min' ) as $suffix ) {
+					$name           = ( true === $rtl ? 'additive' : $rtl ) . '-' . $context . ( $suffix ? '-minified' : '' );
+					$cases[ $name ] = array( $rtl, $context, $suffix );
+				}
+			}
+		}
+		return $cases;
+	}
+
+	/**
+	 * A native RTL opt-out must not disable ordinary stylesheet optimization.
+	 *
+	 * @dataProvider ordinary_stylesheet_directions
+	 * @param string $direction Stylesheet text direction.
+	 */
+	public function test_ordinary_stylesheets_still_minify( $direction ) {
+		$styles                 = wp_styles();
+		$styles->text_direction = $direction;
+		$styles->do_concat      = false;
+		$src                    = $this->create_asset( 'ordinary-direction.css', 'body { color: blue; }' );
+		$styles->add( 'hspsc-ordinary-direction', $src, array(), null );
+		if ( 'ltr' === $direction ) {
+			$styles->add_data( 'hspsc-ordinary-direction', 'rtl', 'replace' );
+		}
+		ob_start();
+		$styles->do_items( array( 'hspsc-ordinary-direction' ) );
+		$output    = ob_get_clean();
+		$processor = new WP_HTML_Tag_Processor( $output );
+		$this->assertTrue( $processor->next_tag( 'link' ) );
+		$generated = $processor->get_attribute( 'href' );
+		$this->assertStringStartsWith( HSPSC_URL . '/assets/', $generated );
+		$file                = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $generated, PHP_URL_PATH ) );
+		$this->asset_files[] = $file;
+		$this->assertFileExists( $file );
+	}
+
+	/**
+	 * Covers active LTR and RTL directions without native RTL companion output.
+	 *
+	 * @return array[] Directions that still allow ordinary CSS optimization.
+	 */
+	public static function ordinary_stylesheet_directions() {
+		return array(
+			'LTR with unused RTL metadata' => array( 'ltr' ),
+			'RTL without companion'        => array( 'rtl' ),
+		);
+	}
+
+	/**
+	 * Another integration owns a rewritten URL when HSP did not change the asset.
+	 */
+	public function test_untouched_stylesheet_does_not_restore_another_filters_url() {
+		$src = $this->create_asset( 'unchanged-url.css', 'body { background: url(./image.png); }' );
+		$this->assertSame( $src, HSPSC_Minify::filter_style_src( $src, 'hspsc-untouched' ) );
+		$_COOKIE['fct_cart_hash'] = 'late-private-session';
+
+		$href = content_url( '/another-integration.css' );
+		// phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- This fixture exercises a later filter's URL rewrite, not real stylesheet output.
+		$tag = '<link rel="stylesheet" href="' . esc_url( $href ) . '" />';
+		$this->assertSame( $tag, HSPSC_Minify::restore_excluded_style_url( $tag, 'hspsc-untouched', $href ) );
+	}
 
     public function test_stylesheet_no_optimize_metadata_and_late_attribute_are_respected() {
         $src = $this->create_asset( 'protected.css', 'body { color: red; }' );

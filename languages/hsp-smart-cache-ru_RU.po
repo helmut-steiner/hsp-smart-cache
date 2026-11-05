@@ -1,0 +1,1340 @@
+# Copyright (C) 2026 Helmut Steiner
+# This file is distributed under the HSP Personal Noncommercial Contribution License 1.0.
+msgid ""
+msgstr ""
+"Project-Id-Version: HSP Smart Cache 0.9.1\n"
+"Report-Msgid-Bugs-To: https://github.com/helmut-steiner/hsp-smart-cache/issues\n"
+"POT-Creation-Date: 2026-11-05T16:04:43+00:00\n"
+"PO-Revision-Date: 2026-11-05 16:05+0000\n"
+"Last-Translator: HSP Smart Cache contributors\n"
+"Language-Team: Russian\n"
+"Language: ru_RU\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n % 10 == 1 && n % 100 != 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : 2);\n"
+"X-Domain: hsp-smart-cache\n"
+
+#. Plugin Name of the plugin
+#: hsp-smart-cache.php includes/class-hspsc-admin.php:136
+#: includes/class-hspsc-admin.php:137 includes/class-hspsc-admin.php:1708
+msgid "HSP Smart Cache"
+msgstr "HSP Smart Cache"
+
+#. Description of the plugin
+#: hsp-smart-cache.php
+msgid ""
+"Page caching, minification, CDN rewriting, and file-based object cache with "
+"settings UI."
+msgstr ""
+"Кеширование страниц, минификация, замена адресов для CDN и файловый объектный"
+" кеш с интерфейсом настроек."
+
+#. Author of the plugin
+#: hsp-smart-cache.php
+msgid "Helmut Steiner"
+msgstr "Helmut Steiner"
+
+#: includes/class-hspsc-admin.php:76
+msgid "Action failed. Please try again."
+msgstr "Не удалось выполнить действие. Повторите попытку."
+
+#: includes/class-hspsc-admin.php:77
+msgid "Action completed."
+msgstr "Действие выполнено."
+
+#: includes/class-hspsc-admin.php:125 includes/class-hspsc-admin.php:2115
+msgid "Settings"
+msgstr "Настройки"
+
+#: includes/class-hspsc-admin.php:228
+msgid "Rebuilding all cache files failed."
+msgstr "Не удалось пересоздать все файлы кеша."
+
+#: includes/class-hspsc-admin.php:229
+msgid "All cache files were rebuilt."
+msgstr "Все файлы кеша пересозданы."
+
+#. translators: %s is the current page cache status label.
+#: includes/class-hspsc-admin.php:261
+#, php-format
+msgid "HSP Cache: %s"
+msgstr "Кеш HSP: %s"
+
+#. translators: %s is the current page cache status label.
+#: includes/class-hspsc-admin.php:274
+#, php-format
+msgid "Status: %s"
+msgstr "Статус: %s"
+
+#. translators: %s is a short reason explaining the current cache status.
+#: includes/class-hspsc-admin.php:287
+#, php-format
+msgid "Reason: %s"
+msgstr "Причина: %s"
+
+#: includes/class-hspsc-admin.php:312
+msgid "Delete cache of current page"
+msgstr "Удалить кеш текущей страницы"
+
+#: includes/class-hspsc-admin.php:320
+msgid "Rebuild current page cache"
+msgstr "Пересоздать кеш текущей страницы"
+
+#: includes/class-hspsc-admin.php:330
+msgid "Delete all cache files"
+msgstr "Удалить все файлы кеша"
+
+#: includes/class-hspsc-admin.php:339
+msgid "Rebuild all caches"
+msgstr "Пересоздать все кеши"
+
+#: includes/class-hspsc-admin.php:360
+msgid "OFF"
+msgstr "ВЫКЛ."
+
+#: includes/class-hspsc-admin.php:361
+msgid "Page cache is disabled."
+msgstr "Кеширование страниц отключено."
+
+#: includes/class-hspsc-admin.php:368 includes/class-hspsc-admin.php:376
+#: includes/class-hspsc-admin.php:391
+msgid "BYPASS"
+msgstr "BYPASS"
+
+#: includes/class-hspsc-admin.php:369
+msgid "WordPress admin requests are not cached."
+msgstr "Запросы панели управления WordPress не кешируются."
+
+#: includes/class-hspsc-admin.php:377
+msgid "This page path is excluded from page caching."
+msgstr "Этот путь страницы исключён из кеширования страниц."
+
+#: includes/class-hspsc-admin.php:383 includes/class-hspsc-admin.php:419
+msgid "MISS"
+msgstr "MISS"
+
+#: includes/class-hspsc-admin.php:385 includes/class-hspsc-admin.php:404
+msgid "HIT"
+msgstr "HIT"
+
+#: includes/class-hspsc-admin.php:387 includes/class-hspsc-admin.php:412
+msgid "STALE"
+msgstr "STALE"
+
+#: includes/class-hspsc-admin.php:392
+msgid "Logged-in page caching is disabled."
+msgstr "Кеширование страниц для авторизованных пользователей отключено."
+
+#. translators: 1: public cache status, 2: cache file age, TTL and size
+#. details.
+#: includes/class-hspsc-admin.php:395
+#, php-format
+msgid "Public cache: %1$s | %2$s"
+msgstr "Общедоступный кеш: %1$s | %2$s"
+
+#: includes/class-hspsc-admin.php:405
+msgid "Fresh cache file exists for this URL."
+msgstr "Для этого URL существует актуальный файл кеша."
+
+#: includes/class-hspsc-admin.php:413
+msgid "Cache file exists but is older than the page cache TTL."
+msgstr "Файл кеша существует, но его возраст превышает TTL кеша страниц."
+
+#: includes/class-hspsc-admin.php:420
+msgid "No cache file exists for this URL."
+msgstr "Для этого URL нет файла кеша."
+
+#: includes/class-hspsc-admin.php:433
+msgid "0 B"
+msgstr "0 Б"
+
+#. translators: 1: cache file age, 2: cache TTL in seconds, 3: cache file size.
+#: includes/class-hspsc-admin.php:439
+#, php-format
+msgid "Age: %1$s | TTL: %2$ds | Size: %3$s"
+msgstr "Возраст: %1$s | TTL: %2$ds | Размер: %3$s"
+
+#. translators: 1: cache TTL in seconds, 2: cache file size.
+#: includes/class-hspsc-admin.php:448
+#, php-format
+msgid "TTL: %1$ds | Size: %2$s"
+msgstr "TTL: %1$ds | Размер: %2$s"
+
+#: includes/class-hspsc-admin.php:745
+msgid "Settings saved. Related caches were refreshed."
+msgstr "Настройки сохранены. Соответствующие кеши обновлены."
+
+#: includes/class-hspsc-admin.php:758
+msgid "All caches cleared."
+msgstr "Все кеши очищены."
+
+#: includes/class-hspsc-admin.php:771 includes/class-hspsc-admin.php:1768
+msgid "Cache tests completed."
+msgstr "Проверки кеша завершены."
+
+#: includes/class-hspsc-admin.php:791 includes/class-hspsc-admin.php:1713
+msgid "Defaults restored."
+msgstr "Настройки по умолчанию восстановлены."
+
+#. translators: %d is the number of warmed URLs.
+#: includes/class-hspsc-admin.php:823
+#, php-format
+msgid "Preload completed. %d URL warmed."
+msgid_plural "Preload completed. %d URLs warmed."
+msgstr[0] "Предварительная загрузка завершена. Подготовлен %d URL."
+msgstr[1] "Предварительная загрузка завершена. Подготовлено %d URL."
+msgstr[2] "Предварительная загрузка завершена. Подготовлено %d URL."
+
+#: includes/class-hspsc-admin.php:840 includes/class-hspsc-admin.php:1740
+msgid "Database analysis completed."
+msgstr "Анализ базы данных завершён."
+
+#: includes/class-hspsc-admin.php:853 includes/class-hspsc-admin.php:1731
+msgid "Database cleanup failed. Some queries did not complete."
+msgstr "Не удалось очистить базу данных. Некоторые запросы не выполнены."
+
+#: includes/class-hspsc-admin.php:860 includes/class-hspsc-admin.php:1728
+msgid "Database cleanup completed."
+msgstr "Очистка базы данных завершена."
+
+#: includes/class-hspsc-admin.php:876
+msgid "Database backup failed."
+msgstr "Не удалось создать резервную копию базы данных."
+
+#: includes/class-hspsc-admin.php:882 includes/class-hspsc-admin.php:1746
+msgid "Database backup created."
+msgstr "Резервная копия базы данных создана."
+
+#: includes/class-hspsc-admin.php:898 includes/class-hspsc-admin.php:1743
+msgid "Database backup failed. Optimization was not executed."
+msgstr ""
+"Не удалось создать резервную копию базы данных. Оптимизация не выполнялась."
+
+#: includes/class-hspsc-admin.php:905 includes/class-hspsc-admin.php:1737
+msgid "Database optimization failed. Some tables were not optimized."
+msgstr ""
+"Не удалось оптимизировать базу данных. Некоторые таблицы не оптимизированы."
+
+#: includes/class-hspsc-admin.php:912 includes/class-hspsc-admin.php:1734
+msgid "Database optimization completed."
+msgstr "Оптимизация базы данных завершена."
+
+#: includes/class-hspsc-admin.php:962 includes/class-hspsc-admin.php:1761
+msgid "Database backup deleted."
+msgstr "Резервная копия базы данных удалена."
+
+#: includes/class-hspsc-admin.php:976 includes/class-hspsc-admin.php:1570
+msgid "Unauthorized"
+msgstr "Нет доступа"
+
+#: includes/class-hspsc-admin.php:980
+msgid "Security check failed. Refresh the page and try again."
+msgstr ""
+"Проверка безопасности не пройдена. Обновите страницу и повторите попытку."
+
+#: includes/class-hspsc-admin.php:1024
+msgid "Database backup restored."
+msgstr "База данных восстановлена из резервной копии."
+
+#. translators: 1: number of restored tables, 2: number of executed SQL
+#. statements.
+#: includes/class-hspsc-admin.php:1033
+#, php-format
+msgid ""
+"Database backup restored with warnings. Tables: %1$d. SQL statements: %2$d."
+msgstr ""
+"База данных восстановлена из резервной копии с предупреждениями. Таблиц: "
+"%1$d. Инструкций SQL: %2$d."
+
+#. translators: 1: number of restored tables, 2: number of executed SQL
+#. statements.
+#: includes/class-hspsc-admin.php:1041
+#, php-format
+msgid "Database backup restored. Tables: %1$d. SQL statements: %2$d."
+msgstr ""
+"База данных восстановлена из резервной копии. Таблиц: %1$d. Инструкций SQL: "
+"%2$d."
+
+#. translators: %s is a restore warning.
+#: includes/class-hspsc-admin.php:1063 includes/class-hspsc-admin.php:1139
+#, php-format
+msgid "Warning: %s"
+msgstr "Предупреждение: %s"
+
+#: includes/class-hspsc-admin.php:1080
+msgid "Database backup restore failed. No diagnostic details were returned."
+msgstr ""
+"Не удалось восстановить базу данных из резервной копии. Диагностические "
+"сведения не получены."
+
+#: includes/class-hspsc-admin.php:1085
+msgid ""
+"The selected backup file was not found or did not match the allowed backup "
+"filename format."
+msgstr ""
+"Выбранный файл резервной копии не найден или его имя не соответствует "
+"допустимому формату."
+
+#: includes/class-hspsc-admin.php:1086
+msgid "The backup file could not be read or decompressed."
+msgstr "Не удалось прочитать или распаковать файл резервной копии."
+
+#: includes/class-hspsc-admin.php:1087
+msgid "The backup file did not contain executable SQL statements."
+msgstr "Файл резервной копии не содержит исполняемых инструкций SQL."
+
+#: includes/class-hspsc-admin.php:1088
+msgid ""
+"This backup has no integrity signature. Create a new backup with this version"
+" before restoring."
+msgstr ""
+"В этой резервной копии нет подписи для проверки целостности. Перед "
+"восстановлением создайте новую копию с помощью этой версии."
+
+#: includes/class-hspsc-admin.php:1089
+msgid ""
+"Backup integrity verification failed. The file, site, or signing keys have "
+"changed."
+msgstr ""
+"Проверка целостности резервной копии не пройдена. Изменились файл, сайт или "
+"ключи подписи."
+
+#: includes/class-hspsc-admin.php:1090
+msgid "The backup contains unsupported SQL. No statements were executed."
+msgstr ""
+"Резервная копия содержит неподдерживаемые инструкции SQL. Ни одна инструкция "
+"не выполнена."
+
+#: includes/class-hspsc-admin.php:1091
+msgid "The backup must be a regular file in this site's backup directory."
+msgstr ""
+"Резервная копия должна быть обычным файлом в каталоге резервных копий этого "
+"сайта."
+
+#: includes/class-hspsc-admin.php:1092
+msgid "A database query failed while replaying the backup."
+msgstr "Ошибка запроса к базе данных при восстановлении резервной копии."
+
+#: includes/class-hspsc-admin.php:1093
+msgid ""
+"No WordPress tables were restored. The backup may use a different table "
+"prefix than this site."
+msgstr ""
+"Ни одна таблица WordPress не восстановлена. Возможно, в резервной копии "
+"используется другой префикс таблиц."
+
+#: includes/class-hspsc-admin.php:1096
+msgid "Unknown restore failure."
+msgstr "Неизвестная ошибка восстановления."
+
+#. translators: 1: internal diagnostic code, 2: human-readable diagnostic
+#. detail.
+#: includes/class-hspsc-admin.php:1100
+#, php-format
+msgid "Database backup restore failed. Code: %1$s. %2$s"
+msgstr ""
+"Не удалось восстановить базу данных из резервной копии. Код: %1$s. %2$s"
+
+#. translators: %d is the failed SQL statement number.
+#: includes/class-hspsc-admin.php:1122
+#, php-format
+msgid "Failed statement number: %d"
+msgstr "Номер инструкции с ошибкой: %d"
+
+#. translators: %s is a shortened SQL statement.
+#: includes/class-hspsc-admin.php:1130
+#, php-format
+msgid "Failed SQL: %s"
+msgstr "SQL с ошибкой: %s"
+
+#. translators: %s is a backup file name.
+#: includes/class-hspsc-admin.php:1163 includes/class-hspsc-admin.php:1265
+#, php-format
+msgid "File: %s"
+msgstr "Файл: %s"
+
+#. translators: %s is an absolute filesystem path.
+#: includes/class-hspsc-admin.php:1171 includes/class-hspsc-admin.php:1273
+#, php-format
+msgid "Path: %s"
+msgstr "Путь: %s"
+
+#. translators: 1: executed statements, 2: total parsed statements, 3: skipped
+#. statements.
+#: includes/class-hspsc-admin.php:1178
+#, php-format
+msgid "SQL statements: %1$d executed, %2$d parsed, %3$d skipped."
+msgstr "Инструкции SQL: выполнено — %1$d, разобрано — %2$d, пропущено — %3$d."
+
+#. translators: 1: table name, 2: drop count, 3: create count, 4: insert count.
+#: includes/class-hspsc-admin.php:1188
+#, php-format
+msgid "Table %1$s: DROP=%2$d CREATE=%3$d INSERT=%4$d."
+msgstr "Таблица %1$s: DROP=%2$d CREATE=%3$d INSERT=%4$d."
+
+#. translators: 1: skip reason, 2: SQL preview.
+#: includes/class-hspsc-admin.php:1204
+#, php-format
+msgid "Skipped SQL (%1$s): %2$s"
+msgstr "Пропущенный SQL (%1$s): %2$s"
+
+#: includes/class-hspsc-admin.php:1240
+msgid "Deleting database backup failed. No diagnostic details were returned."
+msgstr ""
+"Не удалось удалить резервную копию базы данных. Диагностические сведения не "
+"получены."
+
+#: includes/class-hspsc-admin.php:1245
+msgid ""
+"The posted backup filename did not match the allowed backup filename format."
+msgstr ""
+"Переданное имя файла резервной копии не соответствует допустимому формату."
+
+#: includes/class-hspsc-admin.php:1246
+msgid "The backup file was not found at the expected path."
+msgstr "Файл резервной копии не найден по ожидаемому пути."
+
+#: includes/class-hspsc-admin.php:1247
+msgid "The resolved backup path is outside the configured backup directory."
+msgstr ""
+"Определённый путь к резервной копии находится за пределами настроенного "
+"каталога резервных копий."
+
+#: includes/class-hspsc-admin.php:1248
+msgid ""
+"WordPress filesystem deletion, wp_delete_file(), and unlink() did not remove "
+"the file."
+msgstr ""
+"Файл не удалён ни средствами файловой системы WordPress, ни функциями "
+"wp_delete_file() и unlink()."
+
+#: includes/class-hspsc-admin.php:1251
+msgid "Unknown backup deletion failure."
+msgstr "Неизвестная ошибка удаления резервной копии."
+
+#: includes/class-hspsc-admin.php:1253
+msgid "Deleting database backup failed."
+msgstr "Не удалось удалить резервную копию базы данных."
+
+#. translators: %s is an internal diagnostic code.
+#: includes/class-hspsc-admin.php:1256
+#, php-format
+msgid "Code: %s"
+msgstr "Код: %s"
+
+#. translators: %s is an absolute filesystem path.
+#: includes/class-hspsc-admin.php:1281
+#, php-format
+msgid "Backup directory: %s"
+msgstr "Каталог резервных копий: %s"
+
+#. translators: %s is an absolute filesystem path used for validation.
+#: includes/class-hspsc-admin.php:1289
+#, php-format
+msgid "Validated path: %s"
+msgstr "Проверенный путь: %s"
+
+#. translators: %s is an absolute filesystem path used for validation.
+#: includes/class-hspsc-admin.php:1297
+#, php-format
+msgid "Validated backup directory: %s"
+msgstr "Проверенный каталог резервных копий: %s"
+
+#. translators: %s is yes or no.
+#: includes/class-hspsc-admin.php:1305
+#, php-format
+msgid "Backup directory writable: %s"
+msgstr "Каталог резервных копий доступен для записи: %s"
+
+#: includes/class-hspsc-admin.php:1306 includes/class-hspsc-admin.php:1314
+msgid "yes"
+msgstr "да"
+
+#: includes/class-hspsc-admin.php:1306 includes/class-hspsc-admin.php:1314
+msgid "no"
+msgstr "нет"
+
+#. translators: %s is yes or no.
+#: includes/class-hspsc-admin.php:1313
+#, php-format
+msgid "File writable: %s"
+msgstr "Файл доступен для записи: %s"
+
+#. translators: %s is a four-digit octal permissions value.
+#: includes/class-hspsc-admin.php:1321
+#, php-format
+msgid "Permissions: %s"
+msgstr "Права доступа: %s"
+
+#. translators: %s is a comma-separated list of deletion attempts.
+#: includes/class-hspsc-admin.php:1341
+#, php-format
+msgid "Attempts: %s"
+msgstr "Попытки: %s"
+
+#: includes/class-hspsc-admin.php:1400
+msgid "Latest Cache Test Results"
+msgstr "Последние результаты проверки кеша"
+
+#: includes/class-hspsc-admin.php:1406
+msgid "Passed"
+msgstr "Успешно"
+
+#: includes/class-hspsc-admin.php:1406
+msgid "Failed"
+msgstr "Ошибка"
+
+#: includes/class-hspsc-admin.php:1432
+msgid "Latest Optimization Analysis"
+msgstr "Последний анализ возможностей оптимизации"
+
+#: includes/class-hspsc-admin.php:1436
+msgid "Tables"
+msgstr "Таблицы"
+
+#: includes/class-hspsc-admin.php:1440
+msgid "Optimizable"
+msgstr "Доступно для оптимизации"
+
+#: includes/class-hspsc-admin.php:1444
+msgid "Total size"
+msgstr "Общий размер"
+
+#: includes/class-hspsc-admin.php:1448
+msgid "Estimated reclaimable"
+msgstr "Предполагаемый объём освобождаемого места"
+
+#: includes/class-hspsc-admin.php:1452
+msgid "Cleanup Candidates"
+msgstr "Данные для очистки"
+
+#: includes/class-hspsc-admin.php:1456
+msgid "Revisions"
+msgstr "Редакции"
+
+#: includes/class-hspsc-admin.php:1460
+msgid "Auto drafts"
+msgstr "Автоматические черновики"
+
+#: includes/class-hspsc-admin.php:1464
+msgid "Trashed posts"
+msgstr "Записи в корзине"
+
+#: includes/class-hspsc-admin.php:1468
+msgid "Spam or trashed comments"
+msgstr "Спам и комментарии в корзине"
+
+#: includes/class-hspsc-admin.php:1472
+msgid "Expired transient timeouts"
+msgstr "Истёкшие сроки действия транзиентов"
+
+#: includes/class-hspsc-admin.php:1476
+msgid "Expired transient values"
+msgstr "Значения просроченных транзиентов"
+
+#. translators: %d is the number of database rows that cleanup can remove.
+#: includes/class-hspsc-admin.php:1484
+#, php-format
+msgid "Clean Database can remove about %d row based on this analysis."
+msgid_plural "Clean Database can remove about %d rows based on this analysis."
+msgstr[0] ""
+"По результатам анализа очистка базы данных может удалить примерно %d строку."
+msgstr[1] ""
+"По результатам анализа очистка базы данных может удалить примерно %d строки."
+msgstr[2] ""
+"По результатам анализа очистка базы данных может удалить примерно %d строк."
+
+#: includes/class-hspsc-admin.php:1508
+msgid "Database Backups"
+msgstr "Резервные копии базы данных"
+
+#. translators: %s is a backup file name.
+#: includes/class-hspsc-admin.php:1515
+#, php-format
+msgid "Latest created backup: %s"
+msgstr "Последняя созданная резервная копия: %s"
+
+#: includes/class-hspsc-admin.php:1524
+msgid "No backups available yet."
+msgstr "Резервных копий пока нет."
+
+#: includes/class-hspsc-admin.php:1530
+msgid "Backup"
+msgstr "Резервная копия"
+
+#: includes/class-hspsc-admin.php:1531
+msgid "Timestamp"
+msgstr "Дата и время"
+
+#: includes/class-hspsc-admin.php:1532
+msgid "Size"
+msgstr "Размер"
+
+#: includes/class-hspsc-admin.php:1533
+msgid "Actions"
+msgstr "Действия"
+
+#: includes/class-hspsc-admin.php:1543
+msgid "Restore this database backup?"
+msgstr "Восстановить базу данных из этой резервной копии?"
+
+#: includes/class-hspsc-admin.php:1547 includes/class-hspsc-admin.php:2133
+msgid "Restoring..."
+msgstr "Восстановление…"
+
+#: includes/class-hspsc-admin.php:1547
+msgid "Restore"
+msgstr "Восстановить"
+
+#: includes/class-hspsc-admin.php:1549
+msgid "Delete this database backup?"
+msgstr "Удалить эту резервную копию базы данных?"
+
+#: includes/class-hspsc-admin.php:1553
+msgid "Deleting..."
+msgstr "Удаление…"
+
+#: includes/class-hspsc-admin.php:1553
+msgid "Delete"
+msgstr "Удалить"
+
+#: includes/class-hspsc-admin.php:1615
+msgid ""
+"Bricks compatibility preset applied. In Bricks > Settings > Performance, "
+"leave \"Disable lazy loading\" unchecked. Enable \"Disable emojis\" and "
+"\"Disable embed\" if those features are not needed. The preset also turns off"
+" HSP Smart Cache iframe lazy loading and script defer/async."
+msgstr ""
+"Применён набор настроек совместимости с Bricks. В разделе Bricks > Settings >"
+" Performance оставьте параметр «Disable lazy loading» выключенным. Включите "
+"«Disable emojis» и «Disable embed», если эти функции не нужны. Этот набор "
+"также отключает в HSP Smart Cache отложенную загрузку iframe и атрибуты "
+"defer/async для скриптов."
+
+#: includes/class-hspsc-admin.php:1710
+msgid "Cache cleared."
+msgstr "Кеш очищен."
+
+#: includes/class-hspsc-admin.php:1720
+msgid "Preload completed."
+msgstr "Предварительная загрузка завершена."
+
+#. translators: %d is the number of warmed URLs.
+#: includes/class-hspsc-admin.php:1723
+#, php-format
+msgid "%d URL warmed."
+msgid_plural "%d URLs warmed."
+msgstr[0] "Подготовлен %d URL."
+msgstr[1] "Подготовлено %d URL."
+msgstr[2] "Подготовлено %d URL."
+
+#: includes/class-hspsc-admin.php:1776
+msgid "Page Cache"
+msgstr "Кеш страниц"
+
+#: includes/class-hspsc-admin.php:1779
+msgid "Cache full HTML pages for visitors."
+msgstr "Кеширование полного HTML-кода страниц для посетителей."
+
+#: includes/class-hspsc-admin.php:1780
+msgid "Enable page caching for anonymous visitors"
+msgstr "Включить кеширование страниц для неавторизованных посетителей"
+
+#: includes/class-hspsc-admin.php:1784
+msgid "Cache TTL (seconds)"
+msgstr "TTL кеша (секунды)"
+
+#: includes/class-hspsc-admin.php:1785
+msgid "How long a page stays cached before regeneration."
+msgstr "Время хранения страницы в кеше до повторного создания."
+
+#: includes/class-hspsc-admin.php:1789
+msgid "Excluded page paths"
+msgstr "Исключённые пути страниц"
+
+#: includes/class-hspsc-admin.php:1793
+msgid ""
+"One exact URL path per line, starting with /. Include the installation "
+"subdirectory and translated paths when needed. Queries and trailing slashes "
+"do not affect matching. Subpages, full URLs, and wildcards are not included. "
+"Asset optimizations remain enabled."
+msgstr ""
+"Указывайте по одному точному пути URL в строке, начиная с /. При "
+"необходимости включайте подкаталог установки и переведённые пути. Параметры "
+"запроса и завершающие косые черты не влияют на сопоставление. Подстраницы, "
+"полные URL и подстановочные знаки не поддерживаются. Оптимизация ресурсов "
+"остаётся включённой."
+
+#: includes/class-hspsc-admin.php:1796
+msgid "Enable only if logged-in users see cache-safe content."
+msgstr ""
+"Включайте только в том случае, если содержимое для авторизованных "
+"пользователей можно безопасно кешировать."
+
+#: includes/class-hspsc-admin.php:1797
+msgid "Allow page caching for logged-in users"
+msgstr "Разрешить кеширование страниц для авторизованных пользователей"
+
+#: includes/class-hspsc-admin.php:1800
+msgid ""
+"Warning: Can serve private data if enabled on sites with personalized "
+"content."
+msgstr ""
+"Предупреждение: на сайтах с персонализированным содержимым этот параметр "
+"может привести к раскрытию личных данных."
+
+#: includes/class-hspsc-admin.php:1803
+msgid "Apply frontend optimizations for logged-in users."
+msgstr ""
+"Применять оптимизацию внешней части сайта для авторизованных пользователей."
+
+#: includes/class-hspsc-admin.php:1804
+msgid "Allow frontend optimizations for logged-in users"
+msgstr ""
+"Разрешить оптимизацию внешней части сайта для авторизованных пользователей"
+
+#: includes/class-hspsc-admin.php:1807
+msgid ""
+"Recommended off for editors/builders. Controls minify, script defer/async, "
+"and frontend performance tweaks."
+msgstr ""
+"Рекомендуется отключить при работе в редакторах и конструкторах. Управляет "
+"минификацией, атрибутами defer/async для скриптов и другими оптимизациями "
+"внешней части сайта."
+
+#: includes/class-hspsc-admin.php:1812
+msgid "Robots.txt"
+msgstr "Robots.txt"
+
+#: includes/class-hspsc-admin.php:1815
+msgid "Add disallow rules for known AI crawlers."
+msgstr "Добавление запрещающих правил для известных поисковых роботов ИИ."
+
+#: includes/class-hspsc-admin.php:1816
+msgid "Disallow common AI crawlers"
+msgstr "Запретить доступ распространённым роботам ИИ"
+
+#: includes/class-hspsc-admin.php:1819
+msgid "Adds rules via WordPress robots.txt output (no file write)."
+msgstr ""
+"Добавляет правила в robots.txt, выводимый WordPress, без записи в файл."
+
+#: includes/class-hspsc-admin.php:1824
+msgid "Browser Cache Headers"
+msgstr "Заголовки кеширования браузера"
+
+#: includes/class-hspsc-admin.php:1827
+msgid "Send Cache-Control and ETag headers for cached pages."
+msgstr "Отправка заголовков Cache-Control и ETag для кешированных страниц."
+
+#: includes/class-hspsc-admin.php:1828
+msgid "Send Cache-Control headers for cacheable pages"
+msgstr ""
+"Отправлять заголовки Cache-Control для страниц, доступных для кеширования"
+
+#: includes/class-hspsc-admin.php:1832
+msgid "HTML cache TTL (seconds)"
+msgstr "TTL кеша HTML (секунды)"
+
+#: includes/class-hspsc-admin.php:1833
+msgid "Browser cache lifetime for HTML pages."
+msgstr "Срок хранения HTML-страниц в кеше браузера."
+
+#: includes/class-hspsc-admin.php:1838
+msgid "Asset cache TTL (seconds)"
+msgstr "TTL кеша ресурсов (секунды)"
+
+#: includes/class-hspsc-admin.php:1839
+msgid "Browser cache lifetime for static assets."
+msgstr "Срок хранения статических ресурсов в кеше браузера."
+
+#: includes/class-hspsc-admin.php:1845
+msgid "Static Asset Caching"
+msgstr "Кеширование статических ресурсов"
+
+#: includes/class-hspsc-admin.php:1848
+msgid "Cache generated CSS/JS for longer and revalidate other static files."
+msgstr ""
+"Более длительное кеширование созданных CSS/JS и повторная проверка "
+"актуальности остальных статических файлов."
+
+#: includes/class-hspsc-admin.php:1849
+msgid "Enable safe browser cache rules for static assets"
+msgstr ""
+"Включить безопасные правила кеширования статических ресурсов в браузере"
+
+#: includes/class-hspsc-admin.php:1853
+msgid "Generated CSS/JS TTL (seconds)"
+msgstr "TTL созданных CSS/JS (секунды)"
+
+#: includes/class-hspsc-admin.php:1854
+msgid "Cache lifetime for HSP-generated CSS/JS via web server rules."
+msgstr ""
+"Срок хранения созданных HSP файлов CSS/JS в кеше, задаваемый правилами веб-"
+"сервера."
+
+#: includes/class-hspsc-admin.php:1859
+msgid "Add immutable only to HSP-generated CSS/JS."
+msgstr "Добавлять immutable только к созданным HSP файлам CSS/JS."
+
+#: includes/class-hspsc-admin.php:1860
+msgid "Add immutable to generated CSS/JS"
+msgstr "Добавлять immutable к созданным CSS/JS"
+
+#: includes/class-hspsc-admin.php:1865
+msgid "Automatically update .htaccess if writable."
+msgstr "Автоматически обновлять .htaccess, если он доступен для записи."
+
+#: includes/class-hspsc-admin.php:1866
+msgid "Auto-write .htaccess rules when possible"
+msgstr "Автоматически записывать правила .htaccess, когда это возможно"
+
+#: includes/class-hspsc-admin.php:1870
+msgid ""
+"Warning: Incorrect .htaccess rules can break site access. Use with care."
+msgstr ""
+"Предупреждение: неправильные правила .htaccess могут сделать сайт "
+"недоступным. Используйте с осторожностью."
+
+#: includes/class-hspsc-admin.php:1874
+msgid "Enable gzip/deflate compression via web server rules."
+msgstr "Включить сжатие gzip/deflate с помощью правил веб-сервера."
+
+#: includes/class-hspsc-admin.php:1875
+msgid "Enable gzip/deflate compression"
+msgstr "Включить сжатие gzip/deflate"
+
+#: includes/class-hspsc-admin.php:1879
+msgid ""
+"Warning: If your server already manages compression, double-compression can "
+"cause issues."
+msgstr ""
+"Предупреждение: если сжатие уже настроено на сервере, повторное сжатие может "
+"вызвать проблемы."
+
+#: includes/class-hspsc-admin.php:1882
+msgid "Apache .htaccess snippet"
+msgstr "Фрагмент .htaccess для Apache"
+
+#: includes/class-hspsc-admin.php:1897
+msgid "Render Blocking Optimization"
+msgstr "Оптимизация ресурсов, блокирующих отрисовку"
+
+#: includes/class-hspsc-admin.php:1900
+msgid "Add defer to scripts to reduce render blocking."
+msgstr "Добавлять defer к скриптам, чтобы уменьшить блокировку отрисовки."
+
+#: includes/class-hspsc-admin.php:1901
+msgid "Add defer to enqueued scripts"
+msgstr "Добавлять defer к скриптам, поставленным в очередь"
+
+#: includes/class-hspsc-admin.php:1904
+msgid ""
+"Warning: Deferring scripts may break plugins that expect blocking execution."
+msgstr ""
+"Предупреждение: отложенное выполнение скриптов может нарушить работу "
+"плагинов, которым требуется блокирующее выполнение."
+
+#: includes/class-hspsc-admin.php:1908
+msgid "Defer exclusions (script handles, one per line)"
+msgstr "Исключения defer (идентификаторы скриптов, по одному в строке)"
+
+#: includes/class-hspsc-admin.php:1909
+msgid "Script handles that must not be deferred."
+msgstr "Идентификаторы скриптов, выполнение которых нельзя откладывать."
+
+#: includes/class-hspsc-admin.php:1913
+msgid "Use async when defer is disabled."
+msgstr "Использовать async, когда defer отключён."
+
+#: includes/class-hspsc-admin.php:1914
+msgid "Add async to enqueued scripts (if defer is off)"
+msgstr ""
+"Добавлять async к скриптам, поставленным в очередь (если defer отключён)"
+
+#: includes/class-hspsc-admin.php:1917
+msgid "Warning: Async can change execution order and break dependencies."
+msgstr ""
+"Предупреждение: async может изменить порядок выполнения и нарушить "
+"зависимости."
+
+#: includes/class-hspsc-admin.php:1921
+msgid "Async exclusions (script handles, one per line)"
+msgstr "Исключения async (идентификаторы скриптов, по одному в строке)"
+
+#: includes/class-hspsc-admin.php:1922
+msgid "Script handles that must not be async."
+msgstr "Идентификаторы скриптов, которые нельзя выполнять асинхронно."
+
+#: includes/class-hspsc-admin.php:1927
+msgid "Preconnect URLs (one per line)"
+msgstr "URL для предварительного подключения (по одному в строке)"
+
+#: includes/class-hspsc-admin.php:1928
+msgid "Origins to preconnect for faster TLS/handshake."
+msgstr ""
+"Источники для предварительного подключения, ускоряющего согласование TLS и "
+"установку соединения."
+
+#: includes/class-hspsc-admin.php:1933
+msgid "Preload font URLs (one per line)"
+msgstr "URL шрифтов для предварительной загрузки (по одному в строке)"
+
+#: includes/class-hspsc-admin.php:1934
+msgid "Font files to preload early."
+msgstr "Файлы шрифтов, которые нужно загрузить заранее."
+
+#: includes/class-hspsc-admin.php:1939
+msgid "Preload CSS URLs (one per line)"
+msgstr "URL CSS для предварительной загрузки (по одному в строке)"
+
+#: includes/class-hspsc-admin.php:1940
+msgid "Stylesheets to preload before render."
+msgstr "Таблицы стилей, которые нужно загрузить до отрисовки."
+
+#: includes/class-hspsc-admin.php:1945
+msgid "Inline critical CSS"
+msgstr "Встроенный критический CSS"
+
+#: includes/class-hspsc-admin.php:1946
+msgid "CSS injected inline to speed up first render."
+msgstr ""
+"CSS, добавляемый непосредственно в HTML для ускорения первой отрисовки."
+
+#: includes/class-hspsc-admin.php:1952
+msgid "Additional Performance"
+msgstr "Дополнительные оптимизации"
+
+#: includes/class-hspsc-admin.php:1955
+msgid "Adds loading=\"lazy\" to images where safe."
+msgstr "Добавляет loading=\"lazy\" к изображениям, когда это безопасно."
+
+#: includes/class-hspsc-admin.php:1956
+msgid "Enable native lazy-loading for images"
+msgstr "Включить встроенную в браузер отложенную загрузку изображений"
+
+#: includes/class-hspsc-admin.php:1959
+msgid "Adds loading=\"lazy\" to iframes where safe."
+msgstr "Добавляет loading=\"lazy\" к iframe, когда это безопасно."
+
+#: includes/class-hspsc-admin.php:1960
+msgid "Enable native lazy-loading for iframes"
+msgstr "Включить встроенную в браузер отложенную загрузку iframe"
+
+#: includes/class-hspsc-admin.php:1963
+msgid "Hints browser to decode images asynchronously."
+msgstr "Рекомендует браузеру декодировать изображения асинхронно."
+
+#: includes/class-hspsc-admin.php:1964
+msgid "Add decoding=\"async\" to images"
+msgstr "Добавлять decoding=\"async\" к изображениям"
+
+#: includes/class-hspsc-admin.php:1967
+msgid "Remove emoji scripts and styles for faster loads."
+msgstr "Удалять скрипты и стили эмодзи для ускорения загрузки."
+
+#: includes/class-hspsc-admin.php:1968
+msgid "Disable emoji scripts and styles"
+msgstr "Отключить скрипты и стили эмодзи"
+
+#: includes/class-hspsc-admin.php:1971
+msgid "Disable oEmbed discovery and scripts."
+msgstr "Отключить обнаружение oEmbed и соответствующие скрипты."
+
+#: includes/class-hspsc-admin.php:1972
+msgid "Disable WordPress embeds"
+msgstr "Отключить встраивание WordPress"
+
+#: includes/class-hspsc-admin.php:1975
+msgid "Remove Dashicons for non-logged-in visitors."
+msgstr "Убирать Dashicons для неавторизованных посетителей."
+
+#: includes/class-hspsc-admin.php:1976
+msgid "Disable Dashicons for guests"
+msgstr "Отключить Dashicons для гостей"
+
+#: includes/class-hspsc-admin.php:1979
+msgid ""
+"Warning: Disabling embeds or Dashicons can affect themes or plugins that rely"
+" on them."
+msgstr ""
+"Предупреждение: отключение встраивания или Dashicons может повлиять на темы и"
+" плагины, которые их используют."
+
+#: includes/class-hspsc-admin.php:1983
+msgid "DNS prefetch URLs (one per line)"
+msgstr "URL для предварительного разрешения DNS (по одному в строке)"
+
+#: includes/class-hspsc-admin.php:1984
+msgid "Hostnames to DNS-prefetch."
+msgstr "Имена хостов для предварительного разрешения DNS."
+
+#: includes/class-hspsc-admin.php:1990
+msgid "Cache Preload"
+msgstr "Предварительная загрузка кеша"
+
+#: includes/class-hspsc-admin.php:1993
+msgid "Allow manual preload of URLs from sitemap."
+msgstr "Разрешить ручную предварительную загрузку URL из карты сайта."
+
+#: includes/class-hspsc-admin.php:1994
+msgid "Enable cache preloading"
+msgstr "Включить предварительную загрузку кеша"
+
+#: includes/class-hspsc-admin.php:1998
+msgid "Sitemap URL"
+msgstr "URL карты сайта"
+
+#: includes/class-hspsc-admin.php:1999
+msgid "Sitemap to pull URLs from for warming."
+msgstr "Карта сайта, из которой берутся URL для подготовки кеша."
+
+#: includes/class-hspsc-admin.php:2004
+msgid "Max URLs to warm"
+msgstr "Максимум URL для подготовки"
+
+#: includes/class-hspsc-admin.php:2005
+msgid "Limit number of URLs warmed per run."
+msgstr "Ограничение количества URL, подготавливаемых за один запуск."
+
+#: includes/class-hspsc-admin.php:2010
+msgid "Request timeout (seconds)"
+msgstr "Время ожидания запроса (секунды)"
+
+#: includes/class-hspsc-admin.php:2011
+msgid "Timeout per warmed URL."
+msgstr "Время ожидания для каждого подготавливаемого URL."
+
+#: includes/class-hspsc-admin.php:2017
+msgid "Minification"
+msgstr "Минификация"
+
+#: includes/class-hspsc-admin.php:2020
+msgid "Remove whitespace/comments from HTML."
+msgstr "Удалять пробельные символы и комментарии из HTML."
+
+#: includes/class-hspsc-admin.php:2021
+msgid "Minify HTML"
+msgstr "Минифицировать HTML"
+
+#: includes/class-hspsc-admin.php:2024
+msgid "Create minified CSS files in the cache."
+msgstr "Создавать минифицированные файлы CSS в кеше."
+
+#: includes/class-hspsc-admin.php:2025
+msgid "Minify CSS files"
+msgstr "Минифицировать файлы CSS"
+
+#: includes/class-hspsc-admin.php:2028
+msgid "Create minified JS files in the cache."
+msgstr "Создавать минифицированные файлы JS в кеше."
+
+#: includes/class-hspsc-admin.php:2029
+msgid "Minify JS files"
+msgstr "Минифицировать файлы JS"
+
+#: includes/class-hspsc-admin.php:2034
+msgid "Object Cache"
+msgstr "Объектный кеш"
+
+#: includes/class-hspsc-admin.php:2037
+msgid "Use file-based persistent object cache drop-in."
+msgstr ""
+"Использовать постоянный файловый объектный кеш через расширение drop-in."
+
+#: includes/class-hspsc-admin.php:2038
+msgid "Enable file-based persistent object cache (drop-in)"
+msgstr "Включить постоянный файловый объектный кеш (drop-in)"
+
+#: includes/class-hspsc-admin.php:2042
+msgid "Default TTL for uncached entries (seconds)"
+msgstr "TTL по умолчанию для некешированных записей (секунды)"
+
+#: includes/class-hspsc-admin.php:2043
+msgid "Used when an object cache write does not provide an expiration."
+msgstr "Используется, если при записи в объектный кеш не указан срок действия."
+
+#: includes/class-hspsc-admin.php:2048
+msgid "Maximum TTL cap (seconds)"
+msgstr "Максимальный TTL (секунды)"
+
+#: includes/class-hspsc-admin.php:2049
+msgid ""
+"Caps any longer object cache expiration and bounds legacy unlimited entries."
+msgstr ""
+"Ограничивает более длительные сроки действия объектного кеша и устанавливает "
+"предел для старых записей без срока действия."
+
+#: includes/class-hspsc-admin.php:2053
+msgid ""
+"Warning: Object cache drop-ins can conflict with other cache plugins. Entries"
+" without an expiration are now capped by the maximum TTL and periodically "
+"cleaned up."
+msgstr ""
+"Предупреждение: расширения drop-in объектного кеша могут конфликтовать с "
+"другими плагинами кеширования. Записи без срока действия теперь ограничены "
+"максимальным TTL и периодически удаляются."
+
+#: includes/class-hspsc-admin.php:2058
+msgid "CDN"
+msgstr "CDN"
+
+#: includes/class-hspsc-admin.php:2061
+msgid "Rewrite static asset URLs to your CDN."
+msgstr "Замена URL статических ресурсов адресами вашей CDN."
+
+#: includes/class-hspsc-admin.php:2062
+msgid "Enable CDN URL rewriting for static assets"
+msgstr "Включить замену URL статических ресурсов адресами CDN"
+
+#: includes/class-hspsc-admin.php:2066
+msgid "CDN Base URL"
+msgstr "Базовый URL CDN"
+
+#: includes/class-hspsc-admin.php:2067
+msgid "Base URL used for CDN rewriting."
+msgstr "Базовый URL, используемый для замены адресов CDN."
+
+#: includes/class-hspsc-admin.php:2074
+msgid "Saving..."
+msgstr "Сохранение…"
+
+#: includes/class-hspsc-admin.php:2074
+msgid "Save Changes"
+msgstr "Сохранить изменения"
+
+#: includes/class-hspsc-admin.php:2083
+msgid "Cache Operations"
+msgstr "Операции с кешем"
+
+#: includes/class-hspsc-admin.php:2084
+msgid "Run routine cache tasks without leaving this screen."
+msgstr "Выполняйте обычные операции с кешем прямо на этом экране."
+
+#: includes/class-hspsc-admin.php:2087
+msgid "Cache"
+msgstr "Кеш"
+
+#: includes/class-hspsc-admin.php:2092
+msgid "Clearing..."
+msgstr "Очистка…"
+
+#: includes/class-hspsc-admin.php:2092
+msgid "Clear All Caches"
+msgstr "Очистить все кеши"
+
+#: includes/class-hspsc-admin.php:2097
+msgid "Testing..."
+msgstr "Проверка…"
+
+#: includes/class-hspsc-admin.php:2097
+msgid "Run Cache Tests"
+msgstr "Запустить проверки кеша"
+
+#: includes/class-hspsc-admin.php:2106
+msgid "Preload"
+msgstr "Предварительная загрузка"
+
+#: includes/class-hspsc-admin.php:2110
+msgid "Preloading..."
+msgstr "Предварительная загрузка…"
+
+#: includes/class-hspsc-admin.php:2110
+msgid "Run Cache Preload"
+msgstr "Запустить предварительную загрузку кеша"
+
+#: includes/class-hspsc-admin.php:2116
+msgid ""
+"Apply the Bricks compatibility preset? This disables overlapping HSP Smart "
+"Cache optimizations so Bricks can own them."
+msgstr ""
+"Применить набор настроек совместимости с Bricks? Он отключит дублирующие "
+"оптимизации HSP Smart Cache, чтобы ими управлял Bricks."
+
+#: includes/class-hspsc-admin.php:2119
+msgid "Applying..."
+msgstr "Применение…"
+
+#: includes/class-hspsc-admin.php:2119
+msgid "Apply Bricks Preset"
+msgstr "Применить настройки для Bricks"
+
+#: includes/class-hspsc-admin.php:2125
+msgid ""
+"Bricks detected. This preset turns off duplicate HSP lazy-load, emoji/embed "
+"cleanup, and script defer/async."
+msgstr ""
+"Обнаружен Bricks. Этот набор отключает дублирующие функции HSP: отложенную "
+"загрузку, удаление эмодзи и встраиваний, а также defer/async для скриптов."
+
+#: includes/class-hspsc-admin.php:2126
+msgid ""
+"Use this on Bricks sites to let Bricks handle its native performance toggles."
+msgstr ""
+"Используйте этот набор на сайтах с Bricks, чтобы Bricks управлял собственными"
+" настройками производительности."
+
+#: includes/class-hspsc-admin.php:2130
+msgid "Restore all plugin settings to defaults?"
+msgstr "Восстановить настройки по умолчанию для всего плагина?"
+
+#: includes/class-hspsc-admin.php:2133
+msgid "Restore Defaults"
+msgstr "Восстановить настройки по умолчанию"
+
+#: includes/class-hspsc-admin.php:2139
+msgid "Database Maintenance"
+msgstr "Обслуживание базы данных"
+
+#: includes/class-hspsc-admin.php:2140
+msgid ""
+"Inspect, clean, optimize, and manage generated backups from one workspace."
+msgstr ""
+"Проверка, очистка, оптимизация и управление созданными резервными копиями на "
+"одном экране."
+
+#: includes/class-hspsc-admin.php:2146
+msgid "Analyzing..."
+msgstr "Анализ…"
+
+#: includes/class-hspsc-admin.php:2146
+msgid "Analyze"
+msgstr "Анализировать"
+
+#: includes/class-hspsc-admin.php:2148
+msgid "Run database cleanup now?"
+msgstr "Запустить очистку базы данных сейчас?"
+
+#: includes/class-hspsc-admin.php:2151
+msgid "Cleaning..."
+msgstr "Очистка…"
+
+#: includes/class-hspsc-admin.php:2151
+msgid "Clean Database"
+msgstr "Очистить базу данных"
+
+#: includes/class-hspsc-admin.php:2156
+msgid "Creating..."
+msgstr "Создание…"
+
+#: includes/class-hspsc-admin.php:2156
+msgid "Create Backup"
+msgstr "Создать резервную копию"
+
+#: includes/class-hspsc-admin.php:2158
+msgid "Create a backup and optimize database tables now?"
+msgstr "Создать резервную копию и оптимизировать таблицы базы данных сейчас?"
+
+#: includes/class-hspsc-admin.php:2161
+msgid "Optimizing..."
+msgstr "Оптимизация…"
+
+#: includes/class-hspsc-admin.php:2161
+msgid "Optimize Tables"
+msgstr "Оптимизировать таблицы"
+
+#: includes/class-hspsc-admin.php:2165
+msgid ""
+"A timestamped backup is created automatically before optimization starts."
+msgstr ""
+"Перед началом оптимизации автоматически создаётся резервная копия с отметкой "
+"времени."
+
+#: includes/class-hspsc-admin.php:2166
+msgid ""
+"Database cleanup deletes revisions, trashed posts, spam comments, and expired"
+" transients. Table optimization can be slow on large databases."
+msgstr ""
+"Очистка базы данных удаляет редакции, записи в корзине, спам-комментарии и "
+"просроченные транзиенты. Оптимизация таблиц больших баз данных может занять "
+"много времени."
+
+#: includes/class-hspsc-admin.php:2180
+msgid "Made by Helmut Steiner Productions with ❤️ in Vienna"
+msgstr "Создано Helmut Steiner Productions с ❤️ в Вене"
+
+#: includes/class-hspsc-maintenance.php:514
+msgid "File not visible to WP_Filesystem."
+msgstr "Файл не виден WP_Filesystem."
+
+#: includes/class-hspsc-maintenance.php:514
+msgid "WP_Filesystem unavailable."
+msgstr "WP_Filesystem недоступен."
+
+#: includes/class-hspsc-maintenance.php:1120
+msgid ""
+"No WordPress tables were restored. Check whether the backup table prefix "
+"matches this site."
+msgstr ""
+"Ни одна таблица WordPress не восстановлена. Проверьте, совпадает ли префикс "
+"таблиц резервной копии с префиксом этого сайта."
+
+#. translators: %s: Database table name.
+#: includes/class-hspsc-maintenance.php:1128
+#, php-format
+msgid ""
+"Table %s did not include both DROP TABLE and CREATE TABLE statements, so the "
+"restore may not remove rows created after the backup."
+msgstr ""
+"Таблица %s не содержит обеих инструкций DROP TABLE и CREATE TABLE, поэтому "
+"восстановление может не удалить строки, созданные после резервного "
+"копирования."
+
+#. translators: %d: Number of skipped SQL statements.
+#: includes/class-hspsc-maintenance.php:1137
+#, php-format
+msgid "%d SQL statement was skipped because it was not allowed for restore."
+msgid_plural ""
+"%d SQL statements were skipped because they were not allowed for restore."
+msgstr[0] ""
+"Пропущена %d инструкция SQL, поскольку она не разрешена при восстановлении."
+msgstr[1] ""
+"Пропущено %d инструкции SQL, поскольку они не разрешены при восстановлении."
+msgstr[2] ""
+"Пропущено %d инструкций SQL, поскольку они не разрешены при восстановлении."
+
+#: includes/class-hspsc-tests.php:65 includes/class-hspsc-tests.php:104
+msgid "Cache directories exist"
+msgstr "Каталоги кеша существуют"
+
+#: includes/class-hspsc-tests.php:66 includes/class-hspsc-tests.php:106
+msgid "One or more cache directories are missing."
+msgstr "Один или несколько каталогов кеша отсутствуют."
+
+#: includes/class-hspsc-tests.php:69 includes/class-hspsc-tests.php:121
+msgid "HTML minification works"
+msgstr "Минификация HTML работает"
+
+#: includes/class-hspsc-tests.php:70 includes/class-hspsc-tests.php:123
+msgid "Minified HTML still contains comments or whitespace."
+msgstr ""
+"Минифицированный HTML всё ещё содержит комментарии или пробельные символы."
+
+#: includes/class-hspsc-tests.php:73 includes/class-hspsc-tests.php:140
+msgid "CSS/JS minification works"
+msgstr "Минификация CSS/JS работает"
+
+#: includes/class-hspsc-tests.php:74 includes/class-hspsc-tests.php:142
+msgid "Minified output is not smaller than input."
+msgstr "Размер минифицированных данных не меньше исходных."
+
+#: includes/class-hspsc-tests.php:77 includes/class-hspsc-tests.php:161
+msgid "Page cache file write"
+msgstr "Запись файла кеша страниц"
+
+#: includes/class-hspsc-tests.php:78 includes/class-hspsc-tests.php:163
+msgid "Unable to write cache file. Check permissions."
+msgstr "Не удалось записать файл кеша. Проверьте права доступа."
+
+#: includes/class-hspsc-tests.php:81 includes/class-hspsc-tests.php:178
+msgid "Object cache drop-in present"
+msgstr "Расширение drop-in объектного кеша установлено"
+
+#: includes/class-hspsc-tests.php:82 includes/class-hspsc-tests.php:180
+msgid "Object cache enabled but drop-in missing."
+msgstr "Объектный кеш включён, но расширение drop-in отсутствует."
+
+#: includes/class-hspsc-updater.php:194
+msgid "Could not prepare the GitHub release package for installation."
+msgstr "Не удалось подготовить пакет выпуска с GitHub для установки."

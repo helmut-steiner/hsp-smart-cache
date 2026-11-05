@@ -23,7 +23,7 @@ jobs:
 
           rsync -a --relative \
             hsp-smart-cache.php uninstall.php readme.txt LICENSE \
-            includes dropins languages dist/${PLUGIN_SLUG}/
+            includes dropins languages assets dist/${PLUGIN_SLUG}/
 
           (cd dist && zip -r "../${ZIP_NAME}" "${PLUGIN_SLUG}")
           echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT

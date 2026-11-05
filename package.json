@@ -2,12 +2,14 @@
   "name": "hsp-smart-cache",
   "private": true,
   "devDependencies": {
-    "@wordpress/env": "^10.0.0"
+    "@wordpress/env": "^10.0.0",
+    "wp-prettier": "^3.9.6"
   },
   "overrides": {
     "ajv": "^8.18.0"
   },
   "scripts": {
+    "lint:assets": "prettier --check assets --use-tabs --single-quote --paren-spacing --bracket-spacing --trailing-comma=es5 --print-width=80 --tab-width=4",
     "test:wp-env-wrapper": "node --test tests/node/wp-env-named.test.js",
     "wp-env:start": "node ./bin/wp-env-named.js start",
     "wp-env:stop": "node ./bin/wp-env-named.js stop",

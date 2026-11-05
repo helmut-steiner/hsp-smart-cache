@@ -1,0 +1,10 @@
+# Keep source and catalog line endings stable across Windows and CI.
+*.php text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+# Preserve the existing committed CRLF lockfile without renormalization churn.
+package-lock.json -text !eol whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.xml text eol=lf
+*.po text eol=lf
+*.pot text eol=lf

@@ -1,0 +1,1248 @@
+# Copyright (C) 2026 Helmut Steiner
+# This file is distributed under the HSP Personal Noncommercial Contribution License 1.0.
+msgid ""
+msgstr ""
+"Project-Id-Version: HSP Smart Cache 0.9.1\n"
+"Report-Msgid-Bugs-To: https://github.com/helmut-steiner/hsp-smart-cache/issues\n"
+"POT-Creation-Date: 2026-11-05T16:04:43+00:00\n"
+"PO-Revision-Date: 2026-11-05 16:05+0000\n"
+"Last-Translator: HSP Smart Cache contributors\n"
+"Language-Team: Japanese\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Domain: hsp-smart-cache\n"
+
+#. Plugin Name of the plugin
+#: hsp-smart-cache.php includes/class-hspsc-admin.php:136
+#: includes/class-hspsc-admin.php:137 includes/class-hspsc-admin.php:1708
+msgid "HSP Smart Cache"
+msgstr "HSP Smart Cache"
+
+#. Description of the plugin
+#: hsp-smart-cache.php
+msgid ""
+"Page caching, minification, CDN rewriting, and file-based object cache with "
+"settings UI."
+msgstr "設定画面を備えた、ページキャッシュ、圧縮、CDN URL の書き換え、ファイルベースのオブジェクトキャッシュ。"
+
+#. Author of the plugin
+#: hsp-smart-cache.php
+msgid "Helmut Steiner"
+msgstr "Helmut Steiner"
+
+#: includes/class-hspsc-admin.php:76
+msgid "Action failed. Please try again."
+msgstr "操作に失敗しました。もう一度お試しください。"
+
+#: includes/class-hspsc-admin.php:77
+msgid "Action completed."
+msgstr "操作が完了しました。"
+
+#: includes/class-hspsc-admin.php:125 includes/class-hspsc-admin.php:2115
+msgid "Settings"
+msgstr "設定"
+
+#: includes/class-hspsc-admin.php:228
+msgid "Rebuilding all cache files failed."
+msgstr "すべてのキャッシュファイルの再生成に失敗しました。"
+
+#: includes/class-hspsc-admin.php:229
+msgid "All cache files were rebuilt."
+msgstr "すべてのキャッシュファイルを再生成しました。"
+
+#. translators: %s is the current page cache status label.
+#: includes/class-hspsc-admin.php:261
+#, php-format
+msgid "HSP Cache: %s"
+msgstr "HSP キャッシュ: %s"
+
+#. translators: %s is the current page cache status label.
+#: includes/class-hspsc-admin.php:274
+#, php-format
+msgid "Status: %s"
+msgstr "状態: %s"
+
+#. translators: %s is a short reason explaining the current cache status.
+#: includes/class-hspsc-admin.php:287
+#, php-format
+msgid "Reason: %s"
+msgstr "理由: %s"
+
+#: includes/class-hspsc-admin.php:312
+msgid "Delete cache of current page"
+msgstr "現在のページのキャッシュを削除"
+
+#: includes/class-hspsc-admin.php:320
+msgid "Rebuild current page cache"
+msgstr "現在のページのキャッシュを再生成"
+
+#: includes/class-hspsc-admin.php:330
+msgid "Delete all cache files"
+msgstr "すべてのキャッシュファイルを削除"
+
+#: includes/class-hspsc-admin.php:339
+msgid "Rebuild all caches"
+msgstr "すべてのキャッシュを再生成"
+
+#: includes/class-hspsc-admin.php:360
+msgid "OFF"
+msgstr "無効"
+
+#: includes/class-hspsc-admin.php:361
+msgid "Page cache is disabled."
+msgstr "ページキャッシュは無効です。"
+
+#: includes/class-hspsc-admin.php:368 includes/class-hspsc-admin.php:376
+#: includes/class-hspsc-admin.php:391
+msgid "BYPASS"
+msgstr "BYPASS"
+
+#: includes/class-hspsc-admin.php:369
+msgid "WordPress admin requests are not cached."
+msgstr "WordPress 管理画面へのリクエストはキャッシュされません。"
+
+#: includes/class-hspsc-admin.php:377
+msgid "This page path is excluded from page caching."
+msgstr "このページのパスはページキャッシュから除外されています。"
+
+#: includes/class-hspsc-admin.php:383 includes/class-hspsc-admin.php:419
+msgid "MISS"
+msgstr "MISS"
+
+#: includes/class-hspsc-admin.php:385 includes/class-hspsc-admin.php:404
+msgid "HIT"
+msgstr "HIT"
+
+#: includes/class-hspsc-admin.php:387 includes/class-hspsc-admin.php:412
+msgid "STALE"
+msgstr "STALE"
+
+#: includes/class-hspsc-admin.php:392
+msgid "Logged-in page caching is disabled."
+msgstr "ログインユーザーのページキャッシュは無効です。"
+
+#. translators: 1: public cache status, 2: cache file age, TTL and size
+#. details.
+#: includes/class-hspsc-admin.php:395
+#, php-format
+msgid "Public cache: %1$s | %2$s"
+msgstr "公開キャッシュ: %1$s | %2$s"
+
+#: includes/class-hspsc-admin.php:405
+msgid "Fresh cache file exists for this URL."
+msgstr "この URL の有効なキャッシュファイルが存在します。"
+
+#: includes/class-hspsc-admin.php:413
+msgid "Cache file exists but is older than the page cache TTL."
+msgstr "キャッシュファイルは存在しますが、ページキャッシュの TTL を超えています。"
+
+#: includes/class-hspsc-admin.php:420
+msgid "No cache file exists for this URL."
+msgstr "この URL のキャッシュファイルは存在しません。"
+
+#: includes/class-hspsc-admin.php:433
+msgid "0 B"
+msgstr "0 B"
+
+#. translators: 1: cache file age, 2: cache TTL in seconds, 3: cache file size.
+#: includes/class-hspsc-admin.php:439
+#, php-format
+msgid "Age: %1$s | TTL: %2$ds | Size: %3$s"
+msgstr "経過時間: %1$s | TTL: %2$d秒 | サイズ: %3$s"
+
+#. translators: 1: cache TTL in seconds, 2: cache file size.
+#: includes/class-hspsc-admin.php:448
+#, php-format
+msgid "TTL: %1$ds | Size: %2$s"
+msgstr "TTL: %1$d秒 | サイズ: %2$s"
+
+#: includes/class-hspsc-admin.php:745
+msgid "Settings saved. Related caches were refreshed."
+msgstr "設定を保存し、関連するキャッシュを更新しました。"
+
+#: includes/class-hspsc-admin.php:758
+msgid "All caches cleared."
+msgstr "すべてのキャッシュを削除しました。"
+
+#: includes/class-hspsc-admin.php:771 includes/class-hspsc-admin.php:1768
+msgid "Cache tests completed."
+msgstr "キャッシュテストが完了しました。"
+
+#: includes/class-hspsc-admin.php:791 includes/class-hspsc-admin.php:1713
+msgid "Defaults restored."
+msgstr "初期設定に戻しました。"
+
+#. translators: %d is the number of warmed URLs.
+#: includes/class-hspsc-admin.php:823
+#, php-format
+msgid "Preload completed. %d URL warmed."
+msgid_plural "Preload completed. %d URLs warmed."
+msgstr[0] "プリロードが完了しました。%d 件の URL のキャッシュを生成しました。"
+
+#: includes/class-hspsc-admin.php:840 includes/class-hspsc-admin.php:1740
+msgid "Database analysis completed."
+msgstr "データベースの分析が完了しました。"
+
+#: includes/class-hspsc-admin.php:853 includes/class-hspsc-admin.php:1731
+msgid "Database cleanup failed. Some queries did not complete."
+msgstr "データベースのクリーンアップに失敗しました。一部のクエリーが完了していません。"
+
+#: includes/class-hspsc-admin.php:860 includes/class-hspsc-admin.php:1728
+msgid "Database cleanup completed."
+msgstr "データベースのクリーンアップが完了しました。"
+
+#: includes/class-hspsc-admin.php:876
+msgid "Database backup failed."
+msgstr "データベースのバックアップに失敗しました。"
+
+#: includes/class-hspsc-admin.php:882 includes/class-hspsc-admin.php:1746
+msgid "Database backup created."
+msgstr "データベースのバックアップを作成しました。"
+
+#: includes/class-hspsc-admin.php:898 includes/class-hspsc-admin.php:1743
+msgid "Database backup failed. Optimization was not executed."
+msgstr "データベースのバックアップに失敗したため、最適化は実行されませんでした。"
+
+#: includes/class-hspsc-admin.php:905 includes/class-hspsc-admin.php:1737
+msgid "Database optimization failed. Some tables were not optimized."
+msgstr "データベースの最適化に失敗しました。一部のテーブルは最適化されていません。"
+
+#: includes/class-hspsc-admin.php:912 includes/class-hspsc-admin.php:1734
+msgid "Database optimization completed."
+msgstr "データベースの最適化が完了しました。"
+
+#: includes/class-hspsc-admin.php:962 includes/class-hspsc-admin.php:1761
+msgid "Database backup deleted."
+msgstr "データベースのバックアップを削除しました。"
+
+#: includes/class-hspsc-admin.php:976 includes/class-hspsc-admin.php:1570
+msgid "Unauthorized"
+msgstr "権限がありません"
+
+#: includes/class-hspsc-admin.php:980
+msgid "Security check failed. Refresh the page and try again."
+msgstr "セキュリティチェックに失敗しました。ページを再読み込みして、もう一度お試しください。"
+
+#: includes/class-hspsc-admin.php:1024
+msgid "Database backup restored."
+msgstr "データベースのバックアップを復元しました。"
+
+#. translators: 1: number of restored tables, 2: number of executed SQL
+#. statements.
+#: includes/class-hspsc-admin.php:1033
+#, php-format
+msgid ""
+"Database backup restored with warnings. Tables: %1$d. SQL statements: %2$d."
+msgstr "警告付きでデータベースのバックアップを復元しました。テーブル数: %1$d。SQL 文の数: %2$d。"
+
+#. translators: 1: number of restored tables, 2: number of executed SQL
+#. statements.
+#: includes/class-hspsc-admin.php:1041
+#, php-format
+msgid "Database backup restored. Tables: %1$d. SQL statements: %2$d."
+msgstr "データベースのバックアップを復元しました。テーブル数: %1$d。SQL 文の数: %2$d。"
+
+#. translators: %s is a restore warning.
+#: includes/class-hspsc-admin.php:1063 includes/class-hspsc-admin.php:1139
+#, php-format
+msgid "Warning: %s"
+msgstr "警告: %s"
+
+#: includes/class-hspsc-admin.php:1080
+msgid "Database backup restore failed. No diagnostic details were returned."
+msgstr "データベースのバックアップの復元に失敗しました。診断の詳細は返されませんでした。"
+
+#: includes/class-hspsc-admin.php:1085
+msgid ""
+"The selected backup file was not found or did not match the allowed backup "
+"filename format."
+msgstr "選択したバックアップファイルが見つからないか、許可されているファイル名の形式と一致しません。"
+
+#: includes/class-hspsc-admin.php:1086
+msgid "The backup file could not be read or decompressed."
+msgstr "バックアップファイルを読み込むか展開することができませんでした。"
+
+#: includes/class-hspsc-admin.php:1087
+msgid "The backup file did not contain executable SQL statements."
+msgstr "バックアップファイルに実行可能な SQL 文が含まれていませんでした。"
+
+#: includes/class-hspsc-admin.php:1088
+msgid ""
+"This backup has no integrity signature. Create a new backup with this version"
+" before restoring."
+msgstr "このバックアップには整合性確認用の署名がありません。復元する前に、このバージョンで新しいバックアップを作成してください。"
+
+#: includes/class-hspsc-admin.php:1089
+msgid ""
+"Backup integrity verification failed. The file, site, or signing keys have "
+"changed."
+msgstr "バックアップの整合性確認に失敗しました。ファイル、サイト、または署名キーが変更されています。"
+
+#: includes/class-hspsc-admin.php:1090
+msgid "The backup contains unsupported SQL. No statements were executed."
+msgstr "バックアップに未対応の SQL が含まれています。SQL 文は実行されませんでした。"
+
+#: includes/class-hspsc-admin.php:1091
+msgid "The backup must be a regular file in this site's backup directory."
+msgstr "バックアップは、このサイトのバックアップディレクトリ内の通常のファイルである必要があります。"
+
+#: includes/class-hspsc-admin.php:1092
+msgid "A database query failed while replaying the backup."
+msgstr "バックアップの復元処理中にデータベースクエリーが失敗しました。"
+
+#: includes/class-hspsc-admin.php:1093
+msgid ""
+"No WordPress tables were restored. The backup may use a different table "
+"prefix than this site."
+msgstr "WordPress のテーブルは復元されませんでした。バックアップのテーブル接頭辞がこのサイトと異なる可能性があります。"
+
+#: includes/class-hspsc-admin.php:1096
+msgid "Unknown restore failure."
+msgstr "原因不明の復元エラーです。"
+
+#. translators: 1: internal diagnostic code, 2: human-readable diagnostic
+#. detail.
+#: includes/class-hspsc-admin.php:1100
+#, php-format
+msgid "Database backup restore failed. Code: %1$s. %2$s"
+msgstr "データベースのバックアップの復元に失敗しました。コード: %1$s。%2$s"
+
+#. translators: %d is the failed SQL statement number.
+#: includes/class-hspsc-admin.php:1122
+#, php-format
+msgid "Failed statement number: %d"
+msgstr "失敗した SQL 文の番号: %d"
+
+#. translators: %s is a shortened SQL statement.
+#: includes/class-hspsc-admin.php:1130
+#, php-format
+msgid "Failed SQL: %s"
+msgstr "失敗した SQL: %s"
+
+#. translators: %s is a backup file name.
+#: includes/class-hspsc-admin.php:1163 includes/class-hspsc-admin.php:1265
+#, php-format
+msgid "File: %s"
+msgstr "ファイル: %s"
+
+#. translators: %s is an absolute filesystem path.
+#: includes/class-hspsc-admin.php:1171 includes/class-hspsc-admin.php:1273
+#, php-format
+msgid "Path: %s"
+msgstr "パス: %s"
+
+#. translators: 1: executed statements, 2: total parsed statements, 3: skipped
+#. statements.
+#: includes/class-hspsc-admin.php:1178
+#, php-format
+msgid "SQL statements: %1$d executed, %2$d parsed, %3$d skipped."
+msgstr "SQL 文: 実行 %1$d 件、解析 %2$d 件、スキップ %3$d 件。"
+
+#. translators: 1: table name, 2: drop count, 3: create count, 4: insert count.
+#: includes/class-hspsc-admin.php:1188
+#, php-format
+msgid "Table %1$s: DROP=%2$d CREATE=%3$d INSERT=%4$d."
+msgstr "テーブル %1$s: DROP=%2$d CREATE=%3$d INSERT=%4$d。"
+
+#. translators: 1: skip reason, 2: SQL preview.
+#: includes/class-hspsc-admin.php:1204
+#, php-format
+msgid "Skipped SQL (%1$s): %2$s"
+msgstr "スキップした SQL (%1$s): %2$s"
+
+#: includes/class-hspsc-admin.php:1240
+msgid "Deleting database backup failed. No diagnostic details were returned."
+msgstr "データベースのバックアップの削除に失敗しました。診断の詳細は返されませんでした。"
+
+#: includes/class-hspsc-admin.php:1245
+msgid ""
+"The posted backup filename did not match the allowed backup filename format."
+msgstr "送信されたバックアップのファイル名が、許可されている形式と一致しません。"
+
+#: includes/class-hspsc-admin.php:1246
+msgid "The backup file was not found at the expected path."
+msgstr "想定されたパスにバックアップファイルが見つかりませんでした。"
+
+#: includes/class-hspsc-admin.php:1247
+msgid "The resolved backup path is outside the configured backup directory."
+msgstr "解決されたバックアップのパスが、設定されたバックアップディレクトリの外部を指しています。"
+
+#: includes/class-hspsc-admin.php:1248
+msgid ""
+"WordPress filesystem deletion, wp_delete_file(), and unlink() did not remove "
+"the file."
+msgstr ""
+"WordPress のファイルシステムによる削除、wp_delete_file()、unlink() のいずれでもファイルを削除できませんでした。"
+
+#: includes/class-hspsc-admin.php:1251
+msgid "Unknown backup deletion failure."
+msgstr "原因不明のバックアップ削除エラーです。"
+
+#: includes/class-hspsc-admin.php:1253
+msgid "Deleting database backup failed."
+msgstr "データベースのバックアップの削除に失敗しました。"
+
+#. translators: %s is an internal diagnostic code.
+#: includes/class-hspsc-admin.php:1256
+#, php-format
+msgid "Code: %s"
+msgstr "コード: %s"
+
+#. translators: %s is an absolute filesystem path.
+#: includes/class-hspsc-admin.php:1281
+#, php-format
+msgid "Backup directory: %s"
+msgstr "バックアップディレクトリ: %s"
+
+#. translators: %s is an absolute filesystem path used for validation.
+#: includes/class-hspsc-admin.php:1289
+#, php-format
+msgid "Validated path: %s"
+msgstr "検証済みのパス: %s"
+
+#. translators: %s is an absolute filesystem path used for validation.
+#: includes/class-hspsc-admin.php:1297
+#, php-format
+msgid "Validated backup directory: %s"
+msgstr "検証済みのバックアップディレクトリ: %s"
+
+#. translators: %s is yes or no.
+#: includes/class-hspsc-admin.php:1305
+#, php-format
+msgid "Backup directory writable: %s"
+msgstr "バックアップディレクトリへの書き込み可否: %s"
+
+#: includes/class-hspsc-admin.php:1306 includes/class-hspsc-admin.php:1314
+msgid "yes"
+msgstr "はい"
+
+#: includes/class-hspsc-admin.php:1306 includes/class-hspsc-admin.php:1314
+msgid "no"
+msgstr "いいえ"
+
+#. translators: %s is yes or no.
+#: includes/class-hspsc-admin.php:1313
+#, php-format
+msgid "File writable: %s"
+msgstr "ファイルへの書き込み可否: %s"
+
+#. translators: %s is a four-digit octal permissions value.
+#: includes/class-hspsc-admin.php:1321
+#, php-format
+msgid "Permissions: %s"
+msgstr "パーミッション: %s"
+
+#. translators: %s is a comma-separated list of deletion attempts.
+#: includes/class-hspsc-admin.php:1341
+#, php-format
+msgid "Attempts: %s"
+msgstr "試行: %s"
+
+#: includes/class-hspsc-admin.php:1400
+msgid "Latest Cache Test Results"
+msgstr "最新のキャッシュテスト結果"
+
+#: includes/class-hspsc-admin.php:1406
+msgid "Passed"
+msgstr "成功"
+
+#: includes/class-hspsc-admin.php:1406
+msgid "Failed"
+msgstr "失敗"
+
+#: includes/class-hspsc-admin.php:1432
+msgid "Latest Optimization Analysis"
+msgstr "最新の最適化分析"
+
+#: includes/class-hspsc-admin.php:1436
+msgid "Tables"
+msgstr "テーブル"
+
+#: includes/class-hspsc-admin.php:1440
+msgid "Optimizable"
+msgstr "最適化可能"
+
+#: includes/class-hspsc-admin.php:1444
+msgid "Total size"
+msgstr "合計サイズ"
+
+#: includes/class-hspsc-admin.php:1448
+msgid "Estimated reclaimable"
+msgstr "回収可能な容量の推定値"
+
+#: includes/class-hspsc-admin.php:1452
+msgid "Cleanup Candidates"
+msgstr "クリーンアップ対象"
+
+#: includes/class-hspsc-admin.php:1456
+msgid "Revisions"
+msgstr "リビジョン"
+
+#: includes/class-hspsc-admin.php:1460
+msgid "Auto drafts"
+msgstr "自動下書き"
+
+#: includes/class-hspsc-admin.php:1464
+msgid "Trashed posts"
+msgstr "ゴミ箱内の投稿"
+
+#: includes/class-hspsc-admin.php:1468
+msgid "Spam or trashed comments"
+msgstr "スパムまたはゴミ箱内のコメント"
+
+#: includes/class-hspsc-admin.php:1472
+msgid "Expired transient timeouts"
+msgstr "期限切れの transient 有効期限データ"
+
+#: includes/class-hspsc-admin.php:1476
+msgid "Expired transient values"
+msgstr "期限切れの transient 値"
+
+#. translators: %d is the number of database rows that cleanup can remove.
+#: includes/class-hspsc-admin.php:1484
+#, php-format
+msgid "Clean Database can remove about %d row based on this analysis."
+msgid_plural "Clean Database can remove about %d rows based on this analysis."
+msgstr[0] "この分析に基づくと、「データベースをクリーンアップ」で約 %d 行を削除できます。"
+
+#: includes/class-hspsc-admin.php:1508
+msgid "Database Backups"
+msgstr "データベースのバックアップ"
+
+#. translators: %s is a backup file name.
+#: includes/class-hspsc-admin.php:1515
+#, php-format
+msgid "Latest created backup: %s"
+msgstr "最後に作成したバックアップ: %s"
+
+#: includes/class-hspsc-admin.php:1524
+msgid "No backups available yet."
+msgstr "利用できるバックアップはまだありません。"
+
+#: includes/class-hspsc-admin.php:1530
+msgid "Backup"
+msgstr "バックアップ"
+
+#: includes/class-hspsc-admin.php:1531
+msgid "Timestamp"
+msgstr "日時"
+
+#: includes/class-hspsc-admin.php:1532
+msgid "Size"
+msgstr "サイズ"
+
+#: includes/class-hspsc-admin.php:1533
+msgid "Actions"
+msgstr "操作"
+
+#: includes/class-hspsc-admin.php:1543
+msgid "Restore this database backup?"
+msgstr "このデータベースのバックアップを復元しますか ?"
+
+#: includes/class-hspsc-admin.php:1547 includes/class-hspsc-admin.php:2133
+msgid "Restoring..."
+msgstr "復元中..."
+
+#: includes/class-hspsc-admin.php:1547
+msgid "Restore"
+msgstr "復元"
+
+#: includes/class-hspsc-admin.php:1549
+msgid "Delete this database backup?"
+msgstr "このデータベースのバックアップを削除しますか ?"
+
+#: includes/class-hspsc-admin.php:1553
+msgid "Deleting..."
+msgstr "削除中..."
+
+#: includes/class-hspsc-admin.php:1553
+msgid "Delete"
+msgstr "削除"
+
+#: includes/class-hspsc-admin.php:1615
+msgid ""
+"Bricks compatibility preset applied. In Bricks > Settings > Performance, "
+"leave \"Disable lazy loading\" unchecked. Enable \"Disable emojis\" and "
+"\"Disable embed\" if those features are not needed. The preset also turns off"
+" HSP Smart Cache iframe lazy loading and script defer/async."
+msgstr ""
+"Bricks 互換プリセットを適用しました。「Bricks > Settings > Performance」の「Disable lazy "
+"loading」はオフのままにしてください。絵文字や埋め込みが不要な場合は「Disable emojis」と「Disable "
+"embed」を有効にしてください。このプリセットは、HSP Smart Cache の iframe 遅延読み込みとスクリプトの defer/async "
+"も無効にします。"
+
+#: includes/class-hspsc-admin.php:1710
+msgid "Cache cleared."
+msgstr "キャッシュを削除しました。"
+
+#: includes/class-hspsc-admin.php:1720
+msgid "Preload completed."
+msgstr "プリロードが完了しました。"
+
+#. translators: %d is the number of warmed URLs.
+#: includes/class-hspsc-admin.php:1723
+#, php-format
+msgid "%d URL warmed."
+msgid_plural "%d URLs warmed."
+msgstr[0] "%d 件の URL のキャッシュを生成しました。"
+
+#: includes/class-hspsc-admin.php:1776
+msgid "Page Cache"
+msgstr "ページキャッシュ"
+
+#: includes/class-hspsc-admin.php:1779
+msgid "Cache full HTML pages for visitors."
+msgstr "訪問者向けの HTML ページ全体をキャッシュします。"
+
+#: includes/class-hspsc-admin.php:1780
+msgid "Enable page caching for anonymous visitors"
+msgstr "未ログインの訪問者のページキャッシュを有効にする"
+
+#: includes/class-hspsc-admin.php:1784
+msgid "Cache TTL (seconds)"
+msgstr "キャッシュの TTL (秒)"
+
+#: includes/class-hspsc-admin.php:1785
+msgid "How long a page stays cached before regeneration."
+msgstr "ページのキャッシュを再生成するまでの保持時間。"
+
+#: includes/class-hspsc-admin.php:1789
+msgid "Excluded page paths"
+msgstr "除外するページのパス"
+
+#: includes/class-hspsc-admin.php:1793
+msgid ""
+"One exact URL path per line, starting with /. Include the installation "
+"subdirectory and translated paths when needed. Queries and trailing slashes "
+"do not affect matching. Subpages, full URLs, and wildcards are not included. "
+"Asset optimizations remain enabled."
+msgstr ""
+"/ で始まる完全一致の URL "
+"パスを1行に1つ入力してください。必要に応じてインストール先のサブディレクトリや翻訳ページのパスも含めてください。クエリーと末尾のスラッシュは照合に影響しません。サブページ、完全な"
+" URL、ワイルドカードは対象外です。アセットの最適化は引き続き有効です。"
+
+#: includes/class-hspsc-admin.php:1796
+msgid "Enable only if logged-in users see cache-safe content."
+msgstr "ログインユーザーのコンテンツを安全にキャッシュできる場合のみ有効にしてください。"
+
+#: includes/class-hspsc-admin.php:1797
+msgid "Allow page caching for logged-in users"
+msgstr "ログインユーザーのページキャッシュを許可する"
+
+#: includes/class-hspsc-admin.php:1800
+msgid ""
+"Warning: Can serve private data if enabled on sites with personalized "
+"content."
+msgstr "警告: 個別化されたコンテンツを扱うサイトで有効にすると、非公開データが配信される可能性があります。"
+
+#: includes/class-hspsc-admin.php:1803
+msgid "Apply frontend optimizations for logged-in users."
+msgstr "ログインユーザーにもフロントエンドの最適化を適用します。"
+
+#: includes/class-hspsc-admin.php:1804
+msgid "Allow frontend optimizations for logged-in users"
+msgstr "ログインユーザーのフロントエンド最適化を許可する"
+
+#: includes/class-hspsc-admin.php:1807
+msgid ""
+"Recommended off for editors/builders. Controls minify, script defer/async, "
+"and frontend performance tweaks."
+msgstr ""
+"エディターやビルダーを使用する場合はオフを推奨します。圧縮、スクリプトの defer/async、フロントエンドのパフォーマンス調整を制御します。"
+
+#: includes/class-hspsc-admin.php:1812
+msgid "Robots.txt"
+msgstr "Robots.txt"
+
+#: includes/class-hspsc-admin.php:1815
+msgid "Add disallow rules for known AI crawlers."
+msgstr "既知の AI クローラーに対する拒否ルールを追加します。"
+
+#: includes/class-hspsc-admin.php:1816
+msgid "Disallow common AI crawlers"
+msgstr "一般的な AI クローラーを拒否する"
+
+#: includes/class-hspsc-admin.php:1819
+msgid "Adds rules via WordPress robots.txt output (no file write)."
+msgstr "WordPress の robots.txt 出力にルールを追加します (ファイルには書き込みません)。"
+
+#: includes/class-hspsc-admin.php:1824
+msgid "Browser Cache Headers"
+msgstr "ブラウザーキャッシュヘッダー"
+
+#: includes/class-hspsc-admin.php:1827
+msgid "Send Cache-Control and ETag headers for cached pages."
+msgstr "キャッシュ済みページに Cache-Control と ETag ヘッダーを送信します。"
+
+#: includes/class-hspsc-admin.php:1828
+msgid "Send Cache-Control headers for cacheable pages"
+msgstr "キャッシュ可能なページに Cache-Control ヘッダーを送信する"
+
+#: includes/class-hspsc-admin.php:1832
+msgid "HTML cache TTL (seconds)"
+msgstr "HTML キャッシュの TTL (秒)"
+
+#: includes/class-hspsc-admin.php:1833
+msgid "Browser cache lifetime for HTML pages."
+msgstr "HTML ページのブラウザーキャッシュ有効期間。"
+
+#: includes/class-hspsc-admin.php:1838
+msgid "Asset cache TTL (seconds)"
+msgstr "アセットキャッシュの TTL (秒)"
+
+#: includes/class-hspsc-admin.php:1839
+msgid "Browser cache lifetime for static assets."
+msgstr "静的アセットのブラウザーキャッシュ有効期間。"
+
+#: includes/class-hspsc-admin.php:1845
+msgid "Static Asset Caching"
+msgstr "静的アセットのキャッシュ"
+
+#: includes/class-hspsc-admin.php:1848
+msgid "Cache generated CSS/JS for longer and revalidate other static files."
+msgstr "生成された CSS/JS を長期間キャッシュし、その他の静的ファイルは再検証します。"
+
+#: includes/class-hspsc-admin.php:1849
+msgid "Enable safe browser cache rules for static assets"
+msgstr "静的アセット用の安全なブラウザーキャッシュルールを有効にする"
+
+#: includes/class-hspsc-admin.php:1853
+msgid "Generated CSS/JS TTL (seconds)"
+msgstr "生成された CSS/JS の TTL (秒)"
+
+#: includes/class-hspsc-admin.php:1854
+msgid "Cache lifetime for HSP-generated CSS/JS via web server rules."
+msgstr "ウェブサーバーのルールによる HSP 生成 CSS/JS のキャッシュ有効期間。"
+
+#: includes/class-hspsc-admin.php:1859
+msgid "Add immutable only to HSP-generated CSS/JS."
+msgstr "HSP が生成した CSS/JS にのみ immutable を追加します。"
+
+#: includes/class-hspsc-admin.php:1860
+msgid "Add immutable to generated CSS/JS"
+msgstr "生成された CSS/JS に immutable を追加する"
+
+#: includes/class-hspsc-admin.php:1865
+msgid "Automatically update .htaccess if writable."
+msgstr "書き込み可能な場合は .htaccess を自動更新します。"
+
+#: includes/class-hspsc-admin.php:1866
+msgid "Auto-write .htaccess rules when possible"
+msgstr "可能な場合は .htaccess ルールを自動で書き込む"
+
+#: includes/class-hspsc-admin.php:1870
+msgid ""
+"Warning: Incorrect .htaccess rules can break site access. Use with care."
+msgstr "警告: .htaccess のルールが正しくないと、サイトにアクセスできなくなる場合があります。慎重に使用してください。"
+
+#: includes/class-hspsc-admin.php:1874
+msgid "Enable gzip/deflate compression via web server rules."
+msgstr "ウェブサーバーのルールで gzip/deflate 圧縮を有効にします。"
+
+#: includes/class-hspsc-admin.php:1875
+msgid "Enable gzip/deflate compression"
+msgstr "gzip/deflate 圧縮を有効にする"
+
+#: includes/class-hspsc-admin.php:1879
+msgid ""
+"Warning: If your server already manages compression, double-compression can "
+"cause issues."
+msgstr "警告: サーバー側ですでに圧縮を行っている場合、二重圧縮が問題を起こす可能性があります。"
+
+#: includes/class-hspsc-admin.php:1882
+msgid "Apache .htaccess snippet"
+msgstr "Apache .htaccess スニペット"
+
+#: includes/class-hspsc-admin.php:1897
+msgid "Render Blocking Optimization"
+msgstr "レンダリングブロックの最適化"
+
+#: includes/class-hspsc-admin.php:1900
+msgid "Add defer to scripts to reduce render blocking."
+msgstr "スクリプトに defer を追加して、レンダリングのブロックを減らします。"
+
+#: includes/class-hspsc-admin.php:1901
+msgid "Add defer to enqueued scripts"
+msgstr "読み込みキューのスクリプトに defer を追加する"
+
+#: includes/class-hspsc-admin.php:1904
+msgid ""
+"Warning: Deferring scripts may break plugins that expect blocking execution."
+msgstr "警告: スクリプトの実行を遅延させると、同期実行を前提とするプラグインが動作しなくなる場合があります。"
+
+#: includes/class-hspsc-admin.php:1908
+msgid "Defer exclusions (script handles, one per line)"
+msgstr "defer の除外対象 (スクリプトハンドルを1行に1つ)"
+
+#: includes/class-hspsc-admin.php:1909
+msgid "Script handles that must not be deferred."
+msgstr "defer を適用しないスクリプトのハンドル。"
+
+#: includes/class-hspsc-admin.php:1913
+msgid "Use async when defer is disabled."
+msgstr "defer が無効な場合に async を使用します。"
+
+#: includes/class-hspsc-admin.php:1914
+msgid "Add async to enqueued scripts (if defer is off)"
+msgstr "読み込みキューのスクリプトに async を追加する (defer がオフの場合)"
+
+#: includes/class-hspsc-admin.php:1917
+msgid "Warning: Async can change execution order and break dependencies."
+msgstr "警告: async により実行順序が変わり、依存関係が壊れる可能性があります。"
+
+#: includes/class-hspsc-admin.php:1921
+msgid "Async exclusions (script handles, one per line)"
+msgstr "async の除外対象 (スクリプトハンドルを1行に1つ)"
+
+#: includes/class-hspsc-admin.php:1922
+msgid "Script handles that must not be async."
+msgstr "async を適用しないスクリプトのハンドル。"
+
+#: includes/class-hspsc-admin.php:1927
+msgid "Preconnect URLs (one per line)"
+msgstr "事前接続する URL (1行に1つ)"
+
+#: includes/class-hspsc-admin.php:1928
+msgid "Origins to preconnect for faster TLS/handshake."
+msgstr "TLS 接続やハンドシェイクを高速化するために事前接続するオリジン。"
+
+#: includes/class-hspsc-admin.php:1933
+msgid "Preload font URLs (one per line)"
+msgstr "プリロードするフォントの URL (1行に1つ)"
+
+#: includes/class-hspsc-admin.php:1934
+msgid "Font files to preload early."
+msgstr "先行読み込みするフォントファイル。"
+
+#: includes/class-hspsc-admin.php:1939
+msgid "Preload CSS URLs (one per line)"
+msgstr "プリロードする CSS の URL (1行に1つ)"
+
+#: includes/class-hspsc-admin.php:1940
+msgid "Stylesheets to preload before render."
+msgstr "レンダリング前に先行読み込みするスタイルシート。"
+
+#: includes/class-hspsc-admin.php:1945
+msgid "Inline critical CSS"
+msgstr "クリティカル CSS のインライン挿入"
+
+#: includes/class-hspsc-admin.php:1946
+msgid "CSS injected inline to speed up first render."
+msgstr "初回レンダリングを高速化するためにインライン挿入する CSS。"
+
+#: includes/class-hspsc-admin.php:1952
+msgid "Additional Performance"
+msgstr "追加のパフォーマンス設定"
+
+#: includes/class-hspsc-admin.php:1955
+msgid "Adds loading=\"lazy\" to images where safe."
+msgstr "安全に適用できる画像に loading=\"lazy\" を追加します。"
+
+#: includes/class-hspsc-admin.php:1956
+msgid "Enable native lazy-loading for images"
+msgstr "画像のネイティブ遅延読み込みを有効にする"
+
+#: includes/class-hspsc-admin.php:1959
+msgid "Adds loading=\"lazy\" to iframes where safe."
+msgstr "安全に適用できる iframe に loading=\"lazy\" を追加します。"
+
+#: includes/class-hspsc-admin.php:1960
+msgid "Enable native lazy-loading for iframes"
+msgstr "iframe のネイティブ遅延読み込みを有効にする"
+
+#: includes/class-hspsc-admin.php:1963
+msgid "Hints browser to decode images asynchronously."
+msgstr "画像を非同期でデコードするようブラウザーに通知します。"
+
+#: includes/class-hspsc-admin.php:1964
+msgid "Add decoding=\"async\" to images"
+msgstr "画像に decoding=\"async\" を追加する"
+
+#: includes/class-hspsc-admin.php:1967
+msgid "Remove emoji scripts and styles for faster loads."
+msgstr "絵文字のスクリプトとスタイルを削除して、読み込みを高速化します。"
+
+#: includes/class-hspsc-admin.php:1968
+msgid "Disable emoji scripts and styles"
+msgstr "絵文字のスクリプトとスタイルを無効にする"
+
+#: includes/class-hspsc-admin.php:1971
+msgid "Disable oEmbed discovery and scripts."
+msgstr "oEmbed の検出機能とスクリプトを無効にします。"
+
+#: includes/class-hspsc-admin.php:1972
+msgid "Disable WordPress embeds"
+msgstr "WordPress の埋め込みを無効にする"
+
+#: includes/class-hspsc-admin.php:1975
+msgid "Remove Dashicons for non-logged-in visitors."
+msgstr "未ログインの訪問者に対して Dashicons を読み込まないようにします。"
+
+#: includes/class-hspsc-admin.php:1976
+msgid "Disable Dashicons for guests"
+msgstr "ゲストの Dashicons を無効にする"
+
+#: includes/class-hspsc-admin.php:1979
+msgid ""
+"Warning: Disabling embeds or Dashicons can affect themes or plugins that rely"
+" on them."
+msgstr "警告: 埋め込みや Dashicons を無効にすると、それらに依存するテーマやプラグインに影響する場合があります。"
+
+#: includes/class-hspsc-admin.php:1983
+msgid "DNS prefetch URLs (one per line)"
+msgstr "DNS プリフェッチの URL (1行に1つ)"
+
+#: includes/class-hspsc-admin.php:1984
+msgid "Hostnames to DNS-prefetch."
+msgstr "DNS を事前解決するホスト名。"
+
+#: includes/class-hspsc-admin.php:1990
+msgid "Cache Preload"
+msgstr "キャッシュのプリロード"
+
+#: includes/class-hspsc-admin.php:1993
+msgid "Allow manual preload of URLs from sitemap."
+msgstr "サイトマップの URL を手動でプリロードできるようにします。"
+
+#: includes/class-hspsc-admin.php:1994
+msgid "Enable cache preloading"
+msgstr "キャッシュのプリロードを有効にする"
+
+#: includes/class-hspsc-admin.php:1998
+msgid "Sitemap URL"
+msgstr "サイトマップの URL"
+
+#: includes/class-hspsc-admin.php:1999
+msgid "Sitemap to pull URLs from for warming."
+msgstr "キャッシュ生成対象の URL を取得するサイトマップ。"
+
+#: includes/class-hspsc-admin.php:2004
+msgid "Max URLs to warm"
+msgstr "キャッシュを生成する URL の最大数"
+
+#: includes/class-hspsc-admin.php:2005
+msgid "Limit number of URLs warmed per run."
+msgstr "1回にキャッシュを生成する URL の数を制限します。"
+
+#: includes/class-hspsc-admin.php:2010
+msgid "Request timeout (seconds)"
+msgstr "リクエストのタイムアウト (秒)"
+
+#: includes/class-hspsc-admin.php:2011
+msgid "Timeout per warmed URL."
+msgstr "各 URL のキャッシュ生成リクエストのタイムアウト。"
+
+#: includes/class-hspsc-admin.php:2017
+msgid "Minification"
+msgstr "圧縮"
+
+#: includes/class-hspsc-admin.php:2020
+msgid "Remove whitespace/comments from HTML."
+msgstr "HTML から空白とコメントを削除します。"
+
+#: includes/class-hspsc-admin.php:2021
+msgid "Minify HTML"
+msgstr "HTML を圧縮する"
+
+#: includes/class-hspsc-admin.php:2024
+msgid "Create minified CSS files in the cache."
+msgstr "圧縮した CSS ファイルをキャッシュ内に生成します。"
+
+#: includes/class-hspsc-admin.php:2025
+msgid "Minify CSS files"
+msgstr "CSS ファイルを圧縮する"
+
+#: includes/class-hspsc-admin.php:2028
+msgid "Create minified JS files in the cache."
+msgstr "圧縮した JS ファイルをキャッシュ内に生成します。"
+
+#: includes/class-hspsc-admin.php:2029
+msgid "Minify JS files"
+msgstr "JS ファイルを圧縮する"
+
+#: includes/class-hspsc-admin.php:2034
+msgid "Object Cache"
+msgstr "オブジェクトキャッシュ"
+
+#: includes/class-hspsc-admin.php:2037
+msgid "Use file-based persistent object cache drop-in."
+msgstr "ファイルベースの永続オブジェクトキャッシュ用ドロップインを使用します。"
+
+#: includes/class-hspsc-admin.php:2038
+msgid "Enable file-based persistent object cache (drop-in)"
+msgstr "ファイルベースの永続オブジェクトキャッシュ (ドロップイン) を有効にする"
+
+#: includes/class-hspsc-admin.php:2042
+msgid "Default TTL for uncached entries (seconds)"
+msgstr "有効期限未指定のエントリーの標準 TTL (秒)"
+
+#: includes/class-hspsc-admin.php:2043
+msgid "Used when an object cache write does not provide an expiration."
+msgstr "オブジェクトキャッシュの書き込み時に有効期限が指定されていない場合に使用します。"
+
+#: includes/class-hspsc-admin.php:2048
+msgid "Maximum TTL cap (seconds)"
+msgstr "TTL の上限 (秒)"
+
+#: includes/class-hspsc-admin.php:2049
+msgid ""
+"Caps any longer object cache expiration and bounds legacy unlimited entries."
+msgstr "この値を超えるオブジェクトキャッシュの有効期限を制限し、従来の無期限エントリーにも上限を設けます。"
+
+#: includes/class-hspsc-admin.php:2053
+msgid ""
+"Warning: Object cache drop-ins can conflict with other cache plugins. Entries"
+" without an expiration are now capped by the maximum TTL and periodically "
+"cleaned up."
+msgstr ""
+"警告: オブジェクトキャッシュ用ドロップインは他のキャッシュプラグインと競合する場合があります。有効期限のないエントリーにも最大 TTL "
+"が適用され、定期的に削除されます。"
+
+#: includes/class-hspsc-admin.php:2058
+msgid "CDN"
+msgstr "CDN"
+
+#: includes/class-hspsc-admin.php:2061
+msgid "Rewrite static asset URLs to your CDN."
+msgstr "静的アセットの URL を使用する CDN の URL に書き換えます。"
+
+#: includes/class-hspsc-admin.php:2062
+msgid "Enable CDN URL rewriting for static assets"
+msgstr "静的アセットの CDN URL 書き換えを有効にする"
+
+#: includes/class-hspsc-admin.php:2066
+msgid "CDN Base URL"
+msgstr "CDN のベース URL"
+
+#: includes/class-hspsc-admin.php:2067
+msgid "Base URL used for CDN rewriting."
+msgstr "CDN 書き換えに使用するベース URL。"
+
+#: includes/class-hspsc-admin.php:2074
+msgid "Saving..."
+msgstr "保存中..."
+
+#: includes/class-hspsc-admin.php:2074
+msgid "Save Changes"
+msgstr "変更を保存"
+
+#: includes/class-hspsc-admin.php:2083
+msgid "Cache Operations"
+msgstr "キャッシュ操作"
+
+#: includes/class-hspsc-admin.php:2084
+msgid "Run routine cache tasks without leaving this screen."
+msgstr "この画面を離れずに、通常のキャッシュ管理を実行できます。"
+
+#: includes/class-hspsc-admin.php:2087
+msgid "Cache"
+msgstr "キャッシュ"
+
+#: includes/class-hspsc-admin.php:2092
+msgid "Clearing..."
+msgstr "削除中..."
+
+#: includes/class-hspsc-admin.php:2092
+msgid "Clear All Caches"
+msgstr "すべてのキャッシュを削除"
+
+#: includes/class-hspsc-admin.php:2097
+msgid "Testing..."
+msgstr "テスト中..."
+
+#: includes/class-hspsc-admin.php:2097
+msgid "Run Cache Tests"
+msgstr "キャッシュテストを実行"
+
+#: includes/class-hspsc-admin.php:2106
+msgid "Preload"
+msgstr "プリロード"
+
+#: includes/class-hspsc-admin.php:2110
+msgid "Preloading..."
+msgstr "プリロード中..."
+
+#: includes/class-hspsc-admin.php:2110
+msgid "Run Cache Preload"
+msgstr "キャッシュのプリロードを実行"
+
+#: includes/class-hspsc-admin.php:2116
+msgid ""
+"Apply the Bricks compatibility preset? This disables overlapping HSP Smart "
+"Cache optimizations so Bricks can own them."
+msgstr ""
+"Bricks 互換プリセットを適用しますか ? 重複する HSP Smart Cache の最適化を無効にして、Bricks 側で処理するようにします。"
+
+#: includes/class-hspsc-admin.php:2119
+msgid "Applying..."
+msgstr "適用中..."
+
+#: includes/class-hspsc-admin.php:2119
+msgid "Apply Bricks Preset"
+msgstr "Bricks プリセットを適用"
+
+#: includes/class-hspsc-admin.php:2125
+msgid ""
+"Bricks detected. This preset turns off duplicate HSP lazy-load, emoji/embed "
+"cleanup, and script defer/async."
+msgstr ""
+"Bricks を検出しました。このプリセットは、HSP の重複する遅延読み込み、絵文字・埋め込みの除去、スクリプトの defer/async "
+"を無効にします。"
+
+#: includes/class-hspsc-admin.php:2126
+msgid ""
+"Use this on Bricks sites to let Bricks handle its native performance toggles."
+msgstr "Bricks を使用するサイトでは、このプリセットでネイティブのパフォーマンス設定を Bricks に任せることができます。"
+
+#: includes/class-hspsc-admin.php:2130
+msgid "Restore all plugin settings to defaults?"
+msgstr "プラグインのすべての設定を初期値に戻しますか ?"
+
+#: includes/class-hspsc-admin.php:2133
+msgid "Restore Defaults"
+msgstr "初期設定に戻す"
+
+#: includes/class-hspsc-admin.php:2139
+msgid "Database Maintenance"
+msgstr "データベースのメンテナンス"
+
+#: includes/class-hspsc-admin.php:2140
+msgid ""
+"Inspect, clean, optimize, and manage generated backups from one workspace."
+msgstr "1つの画面で、確認、クリーンアップ、最適化、生成されたバックアップの管理を行えます。"
+
+#: includes/class-hspsc-admin.php:2146
+msgid "Analyzing..."
+msgstr "分析中..."
+
+#: includes/class-hspsc-admin.php:2146
+msgid "Analyze"
+msgstr "分析"
+
+#: includes/class-hspsc-admin.php:2148
+msgid "Run database cleanup now?"
+msgstr "データベースを今すぐクリーンアップしますか ?"
+
+#: includes/class-hspsc-admin.php:2151
+msgid "Cleaning..."
+msgstr "クリーンアップ中..."
+
+#: includes/class-hspsc-admin.php:2151
+msgid "Clean Database"
+msgstr "データベースをクリーンアップ"
+
+#: includes/class-hspsc-admin.php:2156
+msgid "Creating..."
+msgstr "作成中..."
+
+#: includes/class-hspsc-admin.php:2156
+msgid "Create Backup"
+msgstr "バックアップを作成"
+
+#: includes/class-hspsc-admin.php:2158
+msgid "Create a backup and optimize database tables now?"
+msgstr "バックアップを作成して、データベースのテーブルを今すぐ最適化しますか ?"
+
+#: includes/class-hspsc-admin.php:2161
+msgid "Optimizing..."
+msgstr "最適化中..."
+
+#: includes/class-hspsc-admin.php:2161
+msgid "Optimize Tables"
+msgstr "テーブルを最適化"
+
+#: includes/class-hspsc-admin.php:2165
+msgid ""
+"A timestamped backup is created automatically before optimization starts."
+msgstr "最適化の開始前に、日時を付けたバックアップを自動で作成します。"
+
+#: includes/class-hspsc-admin.php:2166
+msgid ""
+"Database cleanup deletes revisions, trashed posts, spam comments, and expired"
+" transients. Table optimization can be slow on large databases."
+msgstr ""
+"データベースのクリーンアップは、リビジョン、ゴミ箱内の投稿、スパムコメント、期限切れの transient "
+"を削除します。大きなデータベースでは、テーブルの最適化に時間がかかる場合があります。"
+
+#: includes/class-hspsc-admin.php:2180
+msgid "Made by Helmut Steiner Productions with ❤️ in Vienna"
+msgstr "ウィーンから愛を込めて ❤️ Helmut Steiner Productions 制作"
+
+#: includes/class-hspsc-maintenance.php:514
+msgid "File not visible to WP_Filesystem."
+msgstr "WP_Filesystem からファイルを参照できません。"
+
+#: includes/class-hspsc-maintenance.php:514
+msgid "WP_Filesystem unavailable."
+msgstr "WP_Filesystem を利用できません。"
+
+#: includes/class-hspsc-maintenance.php:1120
+msgid ""
+"No WordPress tables were restored. Check whether the backup table prefix "
+"matches this site."
+msgstr "WordPress のテーブルは復元されませんでした。バックアップのテーブル接頭辞がこのサイトと一致するか確認してください。"
+
+#. translators: %s: Database table name.
+#: includes/class-hspsc-maintenance.php:1128
+#, php-format
+msgid ""
+"Table %s did not include both DROP TABLE and CREATE TABLE statements, so the "
+"restore may not remove rows created after the backup."
+msgstr ""
+"テーブル %s に DROP TABLE と CREATE TABLE "
+"の両方が含まれていないため、復元してもバックアップ作成後に追加された行が削除されない可能性があります。"
+
+#. translators: %d: Number of skipped SQL statements.
+#: includes/class-hspsc-maintenance.php:1137
+#, php-format
+msgid "%d SQL statement was skipped because it was not allowed for restore."
+msgid_plural ""
+"%d SQL statements were skipped because they were not allowed for restore."
+msgstr[0] "復元で許可されていない SQL 文 %d 件をスキップしました。"
+
+#: includes/class-hspsc-tests.php:65 includes/class-hspsc-tests.php:104
+msgid "Cache directories exist"
+msgstr "キャッシュディレクトリの存在確認"
+
+#: includes/class-hspsc-tests.php:66 includes/class-hspsc-tests.php:106
+msgid "One or more cache directories are missing."
+msgstr "1つ以上のキャッシュディレクトリが見つかりません。"
+
+#: includes/class-hspsc-tests.php:69 includes/class-hspsc-tests.php:121
+msgid "HTML minification works"
+msgstr "HTML 圧縮の動作確認"
+
+#: includes/class-hspsc-tests.php:70 includes/class-hspsc-tests.php:123
+msgid "Minified HTML still contains comments or whitespace."
+msgstr "圧縮した HTML にコメントまたは空白が残っています。"
+
+#: includes/class-hspsc-tests.php:73 includes/class-hspsc-tests.php:140
+msgid "CSS/JS minification works"
+msgstr "CSS/JS 圧縮の動作確認"
+
+#: includes/class-hspsc-tests.php:74 includes/class-hspsc-tests.php:142
+msgid "Minified output is not smaller than input."
+msgstr "圧縮後の出力が入力より小さくなっていません。"
+
+#: includes/class-hspsc-tests.php:77 includes/class-hspsc-tests.php:161
+msgid "Page cache file write"
+msgstr "ページキャッシュファイルの書き込み"
+
+#: includes/class-hspsc-tests.php:78 includes/class-hspsc-tests.php:163
+msgid "Unable to write cache file. Check permissions."
+msgstr "キャッシュファイルに書き込めません。パーミッションを確認してください。"
+
+#: includes/class-hspsc-tests.php:81 includes/class-hspsc-tests.php:178
+msgid "Object cache drop-in present"
+msgstr "オブジェクトキャッシュ用ドロップインの存在確認"
+
+#: includes/class-hspsc-tests.php:82 includes/class-hspsc-tests.php:180
+msgid "Object cache enabled but drop-in missing."
+msgstr "オブジェクトキャッシュは有効ですが、ドロップインが見つかりません。"
+
+#: includes/class-hspsc-updater.php:194
+msgid "Could not prepare the GitHub release package for installation."
+msgstr "GitHub のリリースパッケージをインストール用に準備できませんでした。"

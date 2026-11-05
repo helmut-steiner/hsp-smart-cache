@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 0.9.1
+
+- Apply WordPress coding standards across shipped PHP, document cache/storage boundaries, and add a Composer/CI standards check with explicit exceptions for required WordPress APIs and low-level cache operations.
+- Enqueue scoped admin JavaScript and styles through WordPress, preserving translated feedback, AJAX actions, and frontend cache-action notices.
+- Add complete bundled translations for German, Spanish, French, Italian, Brazilian Portuguese, Dutch, Polish, Russian, Japanese, Simplified Chinese, and Arabic, including compiled MO files and an updated POT template.
+- Register the bundled text domain on `init`, translate cache diagnostics, and use locale-aware plural forms for preload, cleanup, and restore counts.
+- Translate stored diagnostic results at render time so administrators with different languages see their own locale, without rerunning tests or changing saved results.
+- Wrap long translated action labels and support right-to-left spacing while preserving left-to-right technical inputs.
+- Preserve WordPress RTL stylesheet selection during asset optimization and late URL restoration.
+- Associate the Apache preview field with its visible label and safely serialize translated script configuration through WordPress.
+
 ## 0.9.0
 
 - Adopt the reusable HSP Personal Noncommercial Contribution License 1.0, permitting personal noncommercial use and requiring modifications to be contributed back; preserve earlier grants and third-party terms, and document contribution and safe security-reporting channels.

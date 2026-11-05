@@ -66,12 +66,13 @@
 
 ## Dependencies
 
-- Node/npm is used for `@wordpress/env`.
-- Composer is used for PHPUnit dependencies:
+- Node/npm is used for `@wordpress/env` and the development-only `wp-prettier` formatter.
+- Composer is used for development-only test and coding-standard dependencies:
   - `phpunit/phpunit`
   - `yoast/phpunit-polyfills`
+  - `wp-coding-standards/wpcs` (including PHP_CodeSniffer and its Composer installer)
 - `package-lock.json` is intentionally tracked so GitHub Actions npm caching works.
-- Keep `composer.lock` tracked too. Composer dependencies are development-only: PHPUnit `^9.6` and Yoast PHPUnit Polyfills `^2.0`.
+- Keep `composer.lock` tracked too. Composer dependencies are development-only: PHPUnit `^9.6`, Yoast PHPUnit Polyfills `^2.0`, and WPCS `^3.4`.
 - `package.json` has an `overrides` entry for `ajv` to avoid the known npm audit issue in the transitive dependency tree.
 
 ## Local Testing
@@ -102,6 +103,8 @@ Useful variants:
 - Optional live WPML/WCML checks run separately in the local development site. Report the supplied plugin versions, enabled features, URL modes, and observed results separately from fixture tests; restore local test changes afterward.
 - Match behavioral changes to the corresponding module tests. Preserve cleanup of settings, hooks, request globals, cache files, drop-ins, and database fixtures. Settings-screen diagnostics do not replace PHPUnit coverage.
 - Report checks actually run. For documentation-only edits, diff/reference checks suffice; do not start Docker unnecessarily.
+- Run `composer lint:php` for shipped PHP code using `phpcs.xml.dist`, or `node ./bin/wp-env-named.js run tests-cli --env-cwd=wp-content/plugins/hsp-smart-cache composer lint:php` inside a prepared environment. Required WordPress filenames are explicitly exempted; necessary raw protocol, low-level cache, and drop-in API operations have narrow, explained source annotations. Do not suppress new findings without reviewing the underlying behavior.
+- Run `npm run lint:assets` to check the shipped admin CSS/JavaScript formatting and `node --check assets/js/admin.js` for JavaScript syntax.
 
 When working from WSL, the Linux npm shim may fail. Use Windows commands if needed:
 
@@ -126,7 +129,9 @@ cmd.exe /d /c "set PATH=C:\Program Files\Docker\Docker\resources\bin;%PATH%&& np
   - `actions/setup-node@v6`
 - CI command path:
   - `npm ci`
+  - `npm run lint:assets` in the PHP 8.4 job
   - `./bin/run-wp-env-tests.ps1`
+  - `composer lint:php` inside `tests-cli` in the PHP 8.4 job
   - `npm run wp-env:stop` in an `always()` cleanup step
 - Node is version 24. PHP 8.4 and 8.5 run as separate matrix jobs through `WP_ENV_PHP_VERSION`, against the pinned WordPress 7.1.3 baseline. The separate Node wrapper regression script is not currently called by this workflow.
 - `.github/workflows/release.yml` builds a ZIP rooted at `hsp-smart-cache/` on published releases or manual dispatch; asset upload requires a tag ref.
@@ -141,6 +146,7 @@ cmd.exe /d /c "set PATH=C:\Program Files\Docker\Docker\resources\bin;%PATH%&& np
 - Do not bump versions for unrelated changes unless a release is requested.
 - Keep minimum-version metadata consistent across the main plugin header (`Requires at least` / `Requires PHP`), `readme.txt`, and `HSPSC_Updater` response fields (`requires` / `requires_php`). WordPress ZIP replacement screens read the main header, not the readme. Keep tested-version metadata consistent between `readme.txt` and `HSPSC_Updater` when changing it.
 - Preserve ZIP folder/public slug/updater assumptions. Updates come from `helmut-steiner/hsp-smart-cache`; the updater prefers release ZIP assets and reads tagged `readme.txt` using `v<version>`.
+- Include the `assets/` directory in runtime packages; admin CSS/JavaScript is enqueued from these files and is not built at runtime.
 
 ## WordPress Plugin Practices
 

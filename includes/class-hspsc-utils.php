@@ -1,543 +1,722 @@
 <?php
+/**
+ * Shared cache eligibility and filesystem helpers.
+ *
+ * @package HSPSC
+ */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
+/**
+ * Provides shared request privacy checks and generated-file operations.
+ */
 class HSPSC_Utils {
-    protected static $cacheable_request = array();
-    protected static $frontend_optimizations = array();
-    protected static $backend_or_login_request = array();
-    protected static $editor_or_builder_request = array();
-    protected static $cache_dirs_ensured = false;
+	/**
+	 * Legacy page-eligibility state cleared by reset_request_cache().
+	 *
+	 * @var array
+	 */
+	protected static $cacheable_request = array();
 
-    public static function get_filesystem() {
-        global $wp_filesystem;
+	/**
+	 * Legacy optimization state cleared by reset_request_cache().
+	 *
+	 * @var array
+	 */
+	protected static $frontend_optimizations = array();
 
-        if ( ! $wp_filesystem ) {
-            require_once ABSPATH . 'wp-admin/includes/file.php';
-            WP_Filesystem();
-        }
+	/**
+	 * Legacy backend-detection state cleared by reset_request_cache().
+	 *
+	 * @var array
+	 */
+	protected static $backend_or_login_request = array();
 
-        return $wp_filesystem;
-    }
+	/**
+	 * Legacy editor-detection state cleared by reset_request_cache().
+	 *
+	 * @var array
+	 */
+	protected static $editor_or_builder_request = array();
 
-    public static function ensure_cache_dirs() {
-        if ( self::$cache_dirs_ensured ) {
-            return;
-        }
+	/**
+	 * Whether this request has already ensured the cache directories.
+	 *
+	 * @var bool
+	 */
+	protected static $cache_dirs_ensured = false;
 
-        $paths = array(
-            HSPSC_PATH,
-            HSPSC_PATH . '/pages',
-            HSPSC_PATH . '/assets',
-            HSPSC_PATH . '/object',
-        );
+	/**
+	 * Initializes and returns the WordPress filesystem adapter.
+	 *
+	 * @return WP_Filesystem_Base|false|null Adapter, or null when initialization fails.
+	 */
+	public static function get_filesystem() {
+		global $wp_filesystem;
 
-        foreach ( $paths as $path ) {
-            if ( ! is_dir( $path ) ) {
-                wp_mkdir_p( $path );
-            }
-        }
+		if ( ! $wp_filesystem ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			WP_Filesystem();
+		}
 
-        self::$cache_dirs_ensured = true;
-    }
+		return $wp_filesystem;
+	}
 
-    public static function apply_robots_rules( $output, $public ) {
-        if ( ! $public ) {
-            return $output;
-        }
-        if ( ! HSPSC_Settings::get( 'robots_disallow_ai' ) ) {
-            return $output;
-        }
+	/**
+	 * Creates the disposable cache directories once per request.
+	 *
+	 * @return void
+	 */
+	public static function ensure_cache_dirs() {
+		if ( self::$cache_dirs_ensured ) {
+			return;
+		}
 
-        $output = trim( (string) $output );
-        if ( $output !== '' ) {
-            $output .= "\n";
-        }
+		$paths = array(
+			HSPSC_PATH,
+			HSPSC_PATH . '/pages',
+			HSPSC_PATH . '/assets',
+			HSPSC_PATH . '/object',
+		);
 
-        $output .= implode( "\n", self::get_ai_robots_lines() );
+		foreach ( $paths as $path ) {
+			if ( ! is_dir( $path ) ) {
+				wp_mkdir_p( $path );
+			}
+		}
 
-        return $output . "\n";
-    }
+		self::$cache_dirs_ensured = true;
+	}
 
-    protected static function get_ai_robots_lines() {
-        return array(
-            'User-agent: GPTBot',
-            'Disallow: /',
-            '',
-            'User-agent: ChatGPT-User',
-            'Disallow: /',
-            '',
-            'User-agent: CCBot',
-            'Disallow: /',
-            '',
-            'User-agent: ClaudeBot',
-            'Disallow: /',
-            '',
-            'User-agent: Claude-Web',
-            'Disallow: /',
-            '',
-            'User-agent: Applebot',
-            'Disallow: /',
-            '',
-            'User-agent: Google-Extended',
-            'Disallow: /',
-            '',
-            'User-agent: PerplexityBot',
-            'Disallow: /',
-            '',
-            'User-agent: YouBot',
-            'Disallow: /',
-            '',
-            'User-agent: Bytespider',
-            'Disallow: /',
-            '',
-            'User-agent: Amazonbot',
-            'Disallow: /',
-        );
-    }
+	/**
+	 * Appends configured AI crawler exclusions to public robots.txt output.
+	 *
+	 * @param string   $output Existing robots.txt output.
+	 * @param bool|int $public Whether WordPress considers the site public.
+	 * @return string Filtered robots.txt output.
+	 */
+	public static function apply_robots_rules( $output, $public ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.publicFound -- Preserves the public helper parameter name corresponding to the robots_txt hook argument.
+		if ( ! $public ) {
+			return $output;
+		}
+		if ( ! HSPSC_Settings::get( 'robots_disallow_ai' ) ) {
+			return $output;
+		}
 
-    public static function delete_dir_contents( $dir ) {
-        $fs = self::get_filesystem();
-        if ( ! $fs ) {
-            return;
-        }
-        if ( ! is_dir( $dir ) || is_link( $dir ) ) {
-            return;
-        }
-        $items = scandir( $dir );
-        if ( ! $items ) {
-            return;
-        }
-        foreach ( $items as $item ) {
-            if ( $item === '.' || $item === '..' ) {
-                continue;
-            }
-            $path = $dir . '/' . $item;
-            if ( is_link( $path ) ) {
-                wp_delete_file( $path );
-            } elseif ( is_dir( $path ) ) {
-                self::delete_dir_contents( $path );
-                $fs->rmdir( $path, false );
-            } else {
-                $fs->delete( $path );
-            }
-        }
-    }
+		$output = trim( (string) $output );
+		if ( '' !== $output ) {
+			$output .= "\n";
+		}
 
-    public static function is_request_cacheable() {
-        // Sessions and no-cache flags can change after the initial cache lookup.
-        if ( self::is_backend_or_login_request() || self::has_private_request_context() ) {
-            return false;
-        }
-        if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
-            return false;
-        }
-        if ( self::is_page_cache_path_excluded() || self::has_sensitive_cookies() || self::is_sensitive_request_uri() ) {
-            return false;
-        }
-        if ( self::get_request_method() !== 'GET' ) {
-            return false;
-        }
-        if ( is_preview() || is_feed() || is_robots() || is_trackback() || is_search() || is_404() || post_password_required() ) {
-            return false;
-        }
-        if ( class_exists( 'HSPSC_WPML', false ) && null === HSPSC_WPML::request_context() ) {
-            return false;
-        }
-        if ( HSPSC_Commerce::is_dynamic_request() ) {
-            return false;
-        }
+		$output .= implode( "\n", self::get_ai_robots_lines() );
 
-        return (bool) apply_filters( 'hspsc_is_request_cacheable', true );
-    }
+		return $output . "\n";
+	}
 
-    /**
-     * Match configured exact URL paths independently of query parameters.
-     *
-     * Checked before serving a hit and again before writing the rendered page.
-     * Frontend asset optimizations have a separate eligibility policy.
-     *
-     * @return bool Whether this path is excluded from page caching.
-     */
-    public static function is_page_cache_path_excluded() {
-        $configured = HSPSC_Settings::get( 'page_cache_excluded_paths', '' );
-        if ( ! is_string( $configured ) || '' === trim( $configured ) ) {
-            return false;
-        }
+	/**
+	 * Builds robots.txt directives for the supported AI crawler names.
+	 *
+	 * @return string[] Directive lines, including section separators.
+	 */
+	protected static function get_ai_robots_lines() {
+		return array(
+			'User-agent: GPTBot',
+			'Disallow: /',
+			'',
+			'User-agent: ChatGPT-User',
+			'Disallow: /',
+			'',
+			'User-agent: CCBot',
+			'Disallow: /',
+			'',
+			'User-agent: ClaudeBot',
+			'Disallow: /',
+			'',
+			'User-agent: Claude-Web',
+			'Disallow: /',
+			'',
+			'User-agent: Applebot',
+			'Disallow: /',
+			'',
+			'User-agent: Google-Extended',
+			'Disallow: /',
+			'',
+			'User-agent: PerplexityBot',
+			'Disallow: /',
+			'',
+			'User-agent: YouBot',
+			'Disallow: /',
+			'',
+			'User-agent: Bytespider',
+			'Disallow: /',
+			'',
+			'User-agent: Amazonbot',
+			'Disallow: /',
+		);
+	}
 
-        $path = self::normalize_page_cache_path( wp_parse_url( self::get_request_uri(), PHP_URL_PATH ) );
-        if ( null === $path ) {
-            return false;
-        }
-        foreach ( preg_split( '/\r\n|\r|\n/', $configured ) as $excluded ) {
-            if ( $path === self::normalize_page_cache_path( $excluded ) ) {
-                return true;
-            }
-        }
-        return false;
-    }
+	/**
+	 * Deletes a cache directory's contents without following symbolic links.
+	 *
+	 * @param string $dir Absolute cache directory path.
+	 * @return void
+	 */
+	public static function delete_dir_contents( $dir ) {
+		$fs = self::get_filesystem();
+		if ( ! $fs ) {
+			return;
+		}
+		if ( ! is_dir( $dir ) || is_link( $dir ) ) {
+			return;
+		}
+		$items = scandir( $dir );
+		if ( ! $items ) {
+			return;
+		}
+		foreach ( $items as $item ) {
+			if ( '.' === $item || '..' === $item ) {
+				continue;
+			}
+			$path = $dir . '/' . $item;
+			if ( is_link( $path ) ) {
+				wp_delete_file( $path );
+			} elseif ( is_dir( $path ) ) {
+				self::delete_dir_contents( $path );
+				$fs->rmdir( $path, false );
+			} else {
+				$fs->delete( $path );
+			}
+		}
+	}
 
-    /**
-     * Normalize a host-relative path for exact exclusion matching.
-     *
-     * @param mixed $path URL path, including an installation subdirectory if used.
-     * @return string|null Normalized path with a trailing slash, or invalid input.
-     */
-    public static function normalize_page_cache_path( $path ) {
-        if ( ! is_string( $path ) ) {
-            return null;
-        }
-        $path = trim( $path );
-        if ( '' === $path || '/' !== $path[0] || str_starts_with( $path, '//' ) ) {
-            return null;
-        }
-        $path = rawurldecode( $path );
-        if ( preg_match( '/[\x00-\x1F\x7F?#\\\\*<>]/', $path ) ) {
-            return null;
-        }
+	/**
+	 * Reevaluates privacy and representation guards for page-cache eligibility.
+	 *
+	 * @return bool Whether this request may use the page cache.
+	 */
+	public static function is_request_cacheable() {
+		// Sessions and no-cache flags can change after the initial cache lookup.
+		if ( self::is_backend_or_login_request() || self::has_private_request_context() ) {
+			return false;
+		}
+		if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
+			return false;
+		}
+		if ( self::is_page_cache_path_excluded() || self::has_sensitive_cookies() || self::is_sensitive_request_uri() ) {
+			return false;
+		}
+		if ( self::get_request_method() !== 'GET' ) {
+			return false;
+		}
+		if ( is_preview() || is_feed() || is_robots() || is_trackback() || is_search() || is_404() || post_password_required() ) {
+			return false;
+		}
+		if ( class_exists( 'HSPSC_WPML', false ) && null === HSPSC_WPML::request_context() ) {
+			return false;
+		}
+		if ( HSPSC_Commerce::is_dynamic_request() ) {
+			return false;
+		}
 
-        $segments = array();
-        foreach ( explode( '/', $path ) as $segment ) {
-            if ( '' === $segment || '.' === $segment ) {
-                continue;
-            }
-            if ( '..' === $segment ) {
-                array_pop( $segments );
-            } else {
-                $segments[] = $segment;
-            }
-        }
-        // Preserve literal percent signs when a saved path is normalized again.
-        return empty( $segments ) ? '/' : '/' . str_replace( '%', '%25', implode( '/', $segments ) ) . '/';
-    }
+		return (bool) apply_filters( 'hspsc_is_request_cacheable', true );
+	}
 
-    public static function is_backend_or_login_request() {
-        if ( is_admin() || ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) ) {
-            return true;
-        }
-        if ( ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) ) {
-            return true;
-        }
+	/**
+	 * Match configured exact URL paths independently of query parameters.
+	 *
+	 * Checked before serving a hit and again before writing the rendered page.
+	 * Frontend asset optimizations have a separate eligibility policy.
+	 *
+	 * @return bool Whether this path is excluded from page caching.
+	 */
+	public static function is_page_cache_path_excluded() {
+		$configured = HSPSC_Settings::get( 'page_cache_excluded_paths', '' );
+		if ( ! is_string( $configured ) || '' === trim( $configured ) ) {
+			return false;
+		}
 
-        $pagenow = isset( $GLOBALS['pagenow'] ) ? (string) $GLOBALS['pagenow'] : '';
-        if ( $pagenow === 'wp-login.php' || $pagenow === 'wp-register.php' || self::is_editor_or_builder_request() ) {
-            return true;
-        }
+		$path = self::normalize_page_cache_path( wp_parse_url( self::get_request_uri(), PHP_URL_PATH ) );
+		if ( null === $path ) {
+			return false;
+		}
+		foreach ( preg_split( '/\r\n|\r|\n/', $configured ) as $excluded ) {
+			if ( self::normalize_page_cache_path( $excluded ) === $path ) {
+				return true;
+			}
+		}
+		return false;
+	}
 
-        $uri = strtolower( rawurldecode( self::get_request_uri() ) );
-        return strpos( $uri, '/wp-login.php' ) !== false
-            || strpos( $uri, '/wp-register.php' ) !== false
-            || strpos( $uri, '/wp-admin/' ) !== false;
-    }
+	/**
+	 * Normalize a host-relative path for exact exclusion matching.
+	 *
+	 * @param mixed $path URL path, including an installation subdirectory if used.
+	 * @return string|null Normalized path with a trailing slash, or invalid input.
+	 */
+	public static function normalize_page_cache_path( $path ) {
+		if ( ! is_string( $path ) ) {
+			return null;
+		}
+		$path = trim( $path );
+		if ( '' === $path || '/' !== $path[0] || str_starts_with( $path, '//' ) ) {
+			return null;
+		}
+		$path = rawurldecode( $path );
+		if ( preg_match( '/[\x00-\x1F\x7F?#\\\\*<>]/', $path ) ) {
+			return null;
+		}
 
-    public static function should_apply_frontend_optimizations() {
-        if ( self::is_backend_or_login_request() || self::has_private_request_context() ) {
-            return false;
-        }
-        if ( is_user_logged_in() && ! HSPSC_Settings::get( 'optimize_logged_in', false ) ) {
-            return false;
-        }
-        if ( self::get_request_method() !== 'GET' || self::has_sensitive_cookies( false ) || self::is_sensitive_request_uri() ) {
-            return false;
-        }
-        if ( class_exists( 'HSPSC_WPML', false ) && null === HSPSC_WPML::request_context() ) {
-            return false;
-        }
-        if ( HSPSC_Commerce::is_dynamic_request() ) {
-            return false;
-        }
+		$segments = array();
+		foreach ( explode( '/', $path ) as $segment ) {
+			if ( '' === $segment || '.' === $segment ) {
+				continue;
+			}
+			if ( '..' === $segment ) {
+				array_pop( $segments );
+			} else {
+				$segments[] = $segment;
+			}
+		}
+		// Preserve literal percent signs when a saved path is normalized again.
+		return empty( $segments ) ? '/' : '/' . str_replace( '%', '%25', implode( '/', $segments ) ) . '/';
+	}
 
-        return (bool) apply_filters( 'hspsc_should_apply_frontend_optimizations', true );
-    }
+	/**
+	 * Identifies backend, login, API, cron, and editor requests.
+	 *
+	 * @return bool Whether shared frontend caching must be bypassed.
+	 */
+	public static function is_backend_or_login_request() {
+		if ( is_admin() || ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) ) {
+			return true;
+		}
+		if ( ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) ) {
+			return true;
+		}
 
-    public static function is_editor_or_builder_request() {
-        $args = self::get_request_query_args();
-        if ( isset( $args['bricks'] ) && is_string( $args['bricks'] ) && in_array( $args['bricks'], array( 'run', 'preview' ), true ) ) {
-            return true;
-        }
-        if ( isset( $args['kspreview'] ) && $args['kspreview'] === 'true' ) {
-            return true;
-        }
-        return array_key_exists( 'customize_changeset_uuid', $args );
-    }
+		$pagenow = isset( $GLOBALS['pagenow'] ) ? (string) $GLOBALS['pagenow'] : '';
+		if ( 'wp-login.php' === $pagenow || 'wp-register.php' === $pagenow || self::is_editor_or_builder_request() ) {
+			return true;
+		}
 
-    protected static function get_request_method() {
-        return isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] )
-            ? strtoupper( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : 'GET';
-    }
+		$uri = strtolower( rawurldecode( self::get_request_uri() ) );
+		return strpos( $uri, '/wp-login.php' ) !== false
+			|| strpos( $uri, '/wp-register.php' ) !== false
+			|| strpos( $uri, '/wp-admin/' ) !== false;
+	}
 
-    protected static function get_request_uri() {
-        return isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] )
-            ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
-    }
+	/**
+	 * Reevaluates request privacy before changing frontend assets or markup.
+	 *
+	 * @return bool Whether frontend optimization is allowed.
+	 */
+	public static function should_apply_frontend_optimizations() {
+		if ( self::is_backend_or_login_request() || self::has_private_request_context() ) {
+			return false;
+		}
+		if ( is_user_logged_in() && ! HSPSC_Settings::get( 'optimize_logged_in', false ) ) {
+			return false;
+		}
+		if ( self::get_request_method() !== 'GET' || self::has_sensitive_cookies( false ) || self::is_sensitive_request_uri() ) {
+			return false;
+		}
+		if ( class_exists( 'HSPSC_WPML', false ) && null === HSPSC_WPML::request_context() ) {
+			return false;
+		}
+		if ( HSPSC_Commerce::is_dynamic_request() ) {
+			return false;
+		}
 
-    protected static function get_request_query_args() {
-        $args = array();
-        $query = wp_parse_url( self::get_request_uri(), PHP_URL_QUERY );
-        if ( is_string( $query ) ) {
-            wp_parse_str( $query, $args );
-        }
-        if ( isset( $_SERVER['QUERY_STRING'] ) && is_string( $_SERVER['QUERY_STRING'] ) ) {
-            $server_args = array();
-            wp_parse_str( wp_unslash( $_SERVER['QUERY_STRING'] ), $server_args );
-            $args = array_merge( $args, $server_args );
-        }
-        if ( ! empty( $_GET ) && is_array( $_GET ) ) {
-            $args = array_merge( $args, wp_unslash( $_GET ) );
-        }
-        return array_change_key_case( $args, CASE_LOWER );
-    }
+		return (bool) apply_filters( 'hspsc_should_apply_frontend_optimizations', true );
+	}
 
-    protected static function has_private_request_context() {
-        if ( defined( 'DONOTCACHEPAGE' ) && DONOTCACHEPAGE ) {
-            return true;
-        }
-        if ( function_exists( 'session_status' ) && session_status() === PHP_SESSION_ACTIVE ) {
-            return true;
-        }
-        foreach ( array( 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION', 'PHP_AUTH_USER', 'HTTP_X_WP_NONCE', 'HTTP_CART_TOKEN', 'HTTP_X_WC_STORE_API_NONCE' ) as $header ) {
-            if ( isset( $_SERVER[ $header ] ) && $_SERVER[ $header ] !== '' ) {
-                return true;
-            }
-        }
-        if ( isset( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && is_string( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && strtolower( $_SERVER['HTTP_X_REQUESTED_WITH'] ) === 'xmlhttprequest' ) {
-            return true;
-        }
-        return false;
-    }
+	/**
+	 * Recognizes supported builder and Customizer query markers.
+	 *
+	 * @return bool Whether the request belongs to an editor or preview.
+	 */
+	public static function is_editor_or_builder_request() {
+		$args = self::get_request_query_args();
+		if ( isset( $args['bricks'] ) && is_string( $args['bricks'] ) && in_array( $args['bricks'], array( 'run', 'preview' ), true ) ) {
+			return true;
+		}
+		if ( isset( $args['kspreview'] ) && 'true' === $args['kspreview'] ) {
+			return true;
+		}
+		return array_key_exists( 'customize_changeset_uuid', $args );
+	}
 
-    public static function normalize_url_path( $url ) {
-        $parts = wp_parse_url( $url );
-        if ( empty( $parts['path'] ) ) {
-            return null;
-        }
+	/**
+	 * Reads the request method without turning malformed methods into valid GETs.
+	 *
+	 * @return string Uppercase method, defaulting to GET when absent.
+	 */
+	protected static function get_request_method() {
+		return isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] )
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Consumers accept only the exact GET token; sanitizing malformed input into GET could make a private request cacheable.
+			? strtoupper( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : 'GET';
+	}
 
-        if ( ! empty( $parts['host'] ) ) {
-            $allowed_hosts = array_filter(
-                array(
-                    wp_parse_url( home_url(), PHP_URL_HOST ),
-                    wp_parse_url( site_url(), PHP_URL_HOST ),
-                    wp_parse_url( content_url(), PHP_URL_HOST ),
-                )
-            );
+	/**
+	 * Reads the unslashed request URI for exact path and privacy checks.
+	 *
+	 * @return string Request URI, or an empty string when unavailable.
+	 */
+	protected static function get_request_uri() {
+		return isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] )
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Preserves the exact URI for privacy checks and parsed exclusion matching; this value is not rendered or used as a filesystem path.
+			? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+	}
 
-            $host = strtolower( $parts['host'] );
-            $allowed_hosts = array_map( 'strtolower', array_unique( $allowed_hosts ) );
+	/**
+	 * Merges query arguments from the URI, server, and WordPress request state.
+	 *
+	 * @return array Query arguments indexed by lowercase names.
+	 */
+	protected static function get_request_query_args() {
+		$args  = array();
+		$query = wp_parse_url( self::get_request_uri(), PHP_URL_QUERY );
+		if ( is_string( $query ) ) {
+			wp_parse_str( $query, $args );
+		}
+		if ( isset( $_SERVER['QUERY_STRING'] ) && is_string( $_SERVER['QUERY_STRING'] ) ) {
+			$server_args = array();
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Parsed arguments are checked for sensitive keys and exact builder markers; sanitization could erase a bypass marker.
+			wp_parse_str( wp_unslash( $_SERVER['QUERY_STRING'] ), $server_args );
+			$args = array_merge( $args, $server_args );
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only cache eligibility inspection must work for anonymous requests without a nonce.
+		if ( ! empty( $_GET ) && is_array( $_GET ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Only detects sensitive query keys and exact preview markers; this does not execute a requested action.
+			$args = array_merge( $args, wp_unslash( $_GET ) );
+		}
+		return array_change_key_case( $args, CASE_LOWER );
+	}
 
-            if ( ! in_array( $host, $allowed_hosts, true ) ) {
-                return null;
-            }
-        }
+	/**
+	 * Detects explicit no-cache flags, sessions, authentication, and AJAX markers.
+	 *
+	 * @return bool Whether the request must remain private.
+	 */
+	protected static function has_private_request_context() {
+		if ( defined( 'DONOTCACHEPAGE' ) && DONOTCACHEPAGE ) {
+			return true;
+		}
+		if ( function_exists( 'session_status' ) && session_status() === PHP_SESSION_ACTIVE ) {
+			return true;
+		}
+		foreach ( array( 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION', 'PHP_AUTH_USER', 'HTTP_X_WP_NONCE', 'HTTP_CART_TOKEN', 'HTTP_X_WC_STORE_API_NONCE' ) as $header ) {
+			if ( isset( $_SERVER[ $header ] ) && '' !== $_SERVER[ $header ] ) {
+				return true;
+			}
+		}
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Only an exact case-insensitive protocol marker triggers a privacy bypass; no header bytes are rendered or stored.
+		if ( isset( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && is_string( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && strtolower( $_SERVER['HTTP_X_REQUESTED_WITH'] ) === 'xmlhttprequest' ) {
+			return true;
+		}
+		return false;
+	}
 
-        return '/' . ltrim( $parts['path'], '/' );
-    }
+	/**
+	 * Extracts a URL path only for local or configured WordPress asset hosts.
+	 *
+	 * @param string $url Absolute or host-relative asset URL.
+	 * @return string|null Host-relative path, or null for an unsupported URL.
+	 */
+	public static function normalize_url_path( $url ) {
+		$parts = wp_parse_url( $url );
+		if ( empty( $parts['path'] ) ) {
+			return null;
+		}
 
-    public static function delete_old_files( $dir, $max_age, $extension = '' ) {
-        if ( ! is_dir( $dir ) || is_link( $dir ) ) {
-            return 0;
-        }
+		if ( ! empty( $parts['host'] ) ) {
+			$allowed_hosts = array_filter(
+				array(
+					wp_parse_url( home_url(), PHP_URL_HOST ),
+					wp_parse_url( site_url(), PHP_URL_HOST ),
+					wp_parse_url( content_url(), PHP_URL_HOST ),
+				)
+			);
 
-        $deleted = 0;
-        $items = scandir( $dir );
-        if ( ! $items ) {
-            return 0;
-        }
+			$host          = strtolower( $parts['host'] );
+			$allowed_hosts = array_map( 'strtolower', array_unique( $allowed_hosts ) );
 
-        $max_age = max( 1, intval( $max_age ) );
-        $cutoff = time() - $max_age;
+			if ( ! in_array( $host, $allowed_hosts, true ) ) {
+				return null;
+			}
+		}
 
-        foreach ( $items as $item ) {
-            if ( $item === '.' || $item === '..' ) {
-                continue;
-            }
+		return '/' . ltrim( $parts['path'], '/' );
+	}
 
-            $path = $dir . '/' . $item;
-            if ( is_link( $path ) ) {
-                continue;
-            }
-            if ( is_dir( $path ) ) {
-                $deleted += self::delete_old_files( $path, $max_age, $extension );
-                $remaining = scandir( $path );
-                if ( $remaining && count( array_diff( $remaining, array( '.', '..' ) ) ) === 0 ) {
-                    @rmdir( $path );
-                }
-                continue;
-            }
+	/**
+	 * Deletes aged cache files matching an optional extension without following links.
+	 *
+	 * @param string $dir Absolute cache directory path.
+	 * @param int    $max_age Minimum file age in seconds, clamped to at least one.
+	 * @param string $extension Required filename suffix, or empty for any file.
+	 * @return int Number of files deleted.
+	 */
+	public static function delete_old_files( $dir, $max_age, $extension = '' ) {
+		if ( ! is_dir( $dir ) || is_link( $dir ) ) {
+			return 0;
+		}
 
-            if ( $extension !== '' && substr( $path, -strlen( $extension ) ) !== $extension ) {
-                continue;
-            }
+		$deleted = 0;
+		$items   = scandir( $dir );
+		if ( ! $items ) {
+			return 0;
+		}
 
-            $mtime = filemtime( $path );
-            if ( false !== $mtime && $mtime < $cutoff ) {
-                // WordPress versions before 6.7 do not return a deletion result.
-                wp_delete_file( $path );
-                if ( ! file_exists( $path ) ) {
-                    ++$deleted;
-                }
-            }
-        }
+		$max_age = max( 1, intval( $max_age ) );
+		$cutoff  = time() - $max_age;
 
-        return $deleted;
-    }
+		foreach ( $items as $item ) {
+			if ( '.' === $item || '..' === $item ) {
+				continue;
+			}
 
-    public static function atomic_write( $path, $contents ) {
-        $dir = dirname( $path );
-        if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
-            return false;
-        }
+			$path = $dir . '/' . $item;
+			if ( is_link( $path ) ) {
+				continue;
+			}
+			if ( is_dir( $path ) ) {
+				$deleted  += self::delete_old_files( $path, $max_age, $extension );
+				$remaining = scandir( $path );
+				if ( $remaining && count( array_diff( $remaining, array( '.', '..' ) ) ) === 0 ) {
+					// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Best-effort removal of a checked empty cache directory may race another writer; failure must not interrupt cleanup.
+					@rmdir( $path );
+				}
+				continue;
+			}
 
-        $tmp = self::temp_file( $dir, basename( $path ) );
-        if ( ! $tmp ) {
-            return false;
-        }
+			if ( '' !== $extension && substr( $path, -strlen( $extension ) ) !== $extension ) {
+				continue;
+			}
 
-        $bytes = file_put_contents( $tmp, $contents, LOCK_EX );
-        if ( $bytes === false || $bytes < strlen( $contents ) ) {
-            wp_delete_file( $tmp );
-            return false;
-        }
+			$mtime = filemtime( $path );
+			if ( false !== $mtime && $mtime < $cutoff ) {
+				// WordPress versions before 6.7 do not return a deletion result.
+				wp_delete_file( $path );
+				if ( ! file_exists( $path ) ) {
+					++$deleted;
+				}
+			}
+		}
 
-        @chmod( $tmp, 0644 );
-        if ( @rename( $tmp, $path ) ) {
-            return true;
-        }
+		return $deleted;
+	}
 
-        wp_delete_file( $path );
-        if ( @rename( $tmp, $path ) ) {
-            return true;
-        }
+	/**
+	 * Replaces a generated cache file through a locked, same-directory temporary file.
+	 *
+	 * @param string $path Absolute filesystem path.
+	 * @param string $contents Exact bytes to write.
+	 * @return bool Whether every byte was written and the file was replaced.
+	 */
+	public static function atomic_write( $path, $contents ) {
+		$dir = dirname( $path );
+		if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
+			return false;
+		}
 
-        wp_delete_file( $tmp );
-        return false;
-    }
+		$tmp = self::temp_file( $dir, basename( $path ) );
+		if ( ! $tmp ) {
+			return false;
+		}
 
-    protected static function temp_file( $dir, $filename ) {
-        if ( ! function_exists( 'wp_tempnam' ) && defined( 'ABSPATH' ) ) {
-            require_once ABSPATH . 'wp-admin/includes/file.php';
-        }
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Atomic cache replacement needs a locked write to a same-directory temporary file; transferred filesystem writes do not provide this guarantee.
+		$bytes = file_put_contents( $tmp, $contents, LOCK_EX );
+		if ( false === $bytes || $bytes < strlen( $contents ) ) {
+			wp_delete_file( $tmp );
+			return false;
+		}
 
-        if ( function_exists( 'wp_tempnam' ) ) {
-            return wp_tempnam( $filename, $dir );
-        }
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- Applies local temporary-file permissions where supported; platforms without chmod support still use the checked atomic replacement.
+		@chmod( $tmp, 0644 );
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.rename_rename -- Same-directory rename provides atomic cache replacement; a checked failure takes the platform fallback or cleanup path.
+		if ( @rename( $tmp, $path ) ) {
+			return true;
+		}
 
-        return tempnam( $dir, '.tmp-' );
-    }
+		wp_delete_file( $path );
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.rename_rename -- Same-directory rename provides atomic cache replacement; a checked failure takes the platform fallback or cleanup path.
+		if ( @rename( $tmp, $path ) ) {
+			return true;
+		}
 
-    public static function reset_request_cache() {
-        self::$cacheable_request = array();
-        self::$frontend_optimizations = array();
-        self::$backend_or_login_request = array();
-        self::$editor_or_builder_request = array();
-        if ( class_exists( 'HSPSC_Page', false ) ) {
-            HSPSC_Page::capture_request_generation();
-        }
-    }
+		wp_delete_file( $tmp );
+		return false;
+	}
 
-    protected static function has_sensitive_cookies( $include_authentication = true ) {
-        if ( empty( $_COOKIE ) || ! is_array( $_COOKIE ) ) {
-            return false;
-        }
+	/**
+	 * Creates a temporary file in the destination directory for atomic replacement.
+	 *
+	 * @param string $dir Absolute cache directory path.
+	 * @param string $filename Destination basename used for the temporary filename.
+	 * @return string|false Temporary path, or false when creation fails.
+	 */
+	protected static function temp_file( $dir, $filename ) {
+		if ( ! function_exists( 'wp_tempnam' ) && defined( 'ABSPATH' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
 
-        $sensitive_prefixes = array(
-            'wp-postpass_',
-            'wp_woocommerce_session_',
-            'store_notice',
-            'edd_session_',
-            'comment_author_',
-        );
-        if ( $include_authentication ) {
-            $sensitive_prefixes[] = 'wordpress_logged_in_';
-        }
+		if ( function_exists( 'wp_tempnam' ) ) {
+			return wp_tempnam( $filename, $dir );
+		}
 
-        $sensitive_names = array(
-            'woocommerce_items_in_cart',
-            'woocommerce_cart_hash',
-            'woocommerce_recently_viewed',
-            'edd_items_in_cart',
-            'easy_digital_downloads',
-            'edd_cart_messages',
-            'edd_purchase',
-            'edd_cart_fees',
-            'edd_resume_payment',
-            'edd_cart',
-            'edd_cart_token',
-            'edd_saved_cart',
-            'cart_discounts',
-            'preset_discount',
-            '_wp_session',
-            'wordpress_no_cache',
-            'iawp_ignore_visitor',
-            'fct_cart_hash',
-            'fct_currency',
-            'client_currency',
-            'client_currency_language',
-            '_wcml_order_currency',
-            'wcml_client_currency',
-            'wcml_client_currency_language',
-            'wcml_client_country',
-            'PHPSESSID',
-        );
-        if ( function_exists( 'session_name' ) && session_name() !== '' ) {
-            $sensitive_names[] = session_name();
-        }
+		return tempnam( $dir, '.tmp-' );
+	}
 
-        foreach ( array_keys( $_COOKIE ) as $cookie_name ) {
-            $cookie_name = (string) $cookie_name;
-            if ( in_array( $cookie_name, $sensitive_names, true ) ) {
-                return true;
-            }
+	/**
+	 * Resets request-local state and captures the current page-cache generation.
+	 *
+	 * @return void
+	 */
+	public static function reset_request_cache() {
+		self::$cacheable_request         = array();
+		self::$frontend_optimizations    = array();
+		self::$backend_or_login_request  = array();
+		self::$editor_or_builder_request = array();
+		if ( class_exists( 'HSPSC_Page', false ) ) {
+			HSPSC_Page::capture_request_generation();
+		}
+	}
 
-            foreach ( $sensitive_prefixes as $prefix ) {
-                if ( strpos( $cookie_name, $prefix ) === 0 ) {
-                    return true;
-                }
-            }
-        }
+	/**
+	 * Detects privacy-sensitive cookie names independently of their values.
+	 *
+	 * @param bool $include_authentication Whether login cookies also force a bypass.
+	 * @return bool Whether the request carries a sensitive cookie.
+	 */
+	protected static function has_sensitive_cookies( $include_authentication = true ) {
+		if ( empty( $_COOKIE ) || ! is_array( $_COOKIE ) ) {
+			return false;
+		}
 
-        return (bool) apply_filters( 'hspsc_has_sensitive_cookies', false, $_COOKIE );
-    }
+		$sensitive_prefixes = array(
+			'wp-postpass_',
+			'wp_woocommerce_session_',
+			'store_notice',
+			'edd_session_',
+			'comment_author_',
+		);
+		if ( $include_authentication ) {
+			$sensitive_prefixes[] = 'wordpress_logged_in_';
+		}
 
-    protected static function is_sensitive_request_uri() {
-        $args = self::get_request_query_args();
-        $sensitive_args = array(
-            'wc-ajax', 'wc-api', 'add-to-cart', 'remove_item', 'undo_item',
-            'order-pay', 'order-received', 'download_file', 'key', '_wpnonce',
-            'fct_cart_hash', 'fluent-cart', 'rest_route', 'preview',
-            'wcmlc',
-            'edd_action', 'add_to_cart', 'discount', 'payment_key', 'eddfile',
-            'customize_changeset_uuid', 'token', 'access_token', 'cart_token', 'session_id',
-        );
-        foreach ( $sensitive_args as $arg ) {
-            if ( array_key_exists( $arg, $args ) ) {
-                return true;
-            }
-        }
-        if ( isset( $args['action'] ) && is_string( $args['action'] ) && strpos( $args['action'], 'fluent_cart_' ) === 0 ) {
-            return true;
-        }
+		$sensitive_names = array(
+			'woocommerce_items_in_cart',
+			'woocommerce_cart_hash',
+			'woocommerce_recently_viewed',
+			'edd_items_in_cart',
+			'easy_digital_downloads',
+			'edd_cart_messages',
+			'edd_purchase',
+			'edd_cart_fees',
+			'edd_resume_payment',
+			'edd_cart',
+			'edd_cart_token',
+			'edd_saved_cart',
+			'cart_discounts',
+			'preset_discount',
+			'_wp_session',
+			'wordpress_no_cache',
+			'iawp_ignore_visitor',
+			'fct_cart_hash',
+			'fct_currency',
+			'client_currency',
+			'client_currency_language',
+			'_wcml_order_currency',
+			'wcml_client_currency',
+			'wcml_client_currency_language',
+			'wcml_client_country',
+			'PHPSESSID',
+		);
+		if ( function_exists( 'session_name' ) && session_name() !== '' ) {
+			$sensitive_names[] = session_name();
+		}
 
-        $uri = strtolower( rawurldecode( self::get_request_uri() ) );
-        $sensitive_fragments = array(
-            '/cart',
-            '/checkout',
-            '/my-account',
-            '/account',
-            '/wp-json/',
-            'wc-ajax=',
-            'add-to-cart=',
-            'preview=',
-            'customize_changeset_uuid=',
-        );
+		foreach ( array_keys( $_COOKIE ) as $cookie_name ) {
+			$cookie_name = (string) $cookie_name;
+			if ( in_array( $cookie_name, $sensitive_names, true ) ) {
+				return true;
+			}
 
-        foreach ( $sensitive_fragments as $fragment ) {
-            if ( strpos( $uri, $fragment ) !== false ) {
-                return true;
-            }
-        }
+			foreach ( $sensitive_prefixes as $prefix ) {
+				if ( strpos( $cookie_name, $prefix ) === 0 ) {
+					return true;
+				}
+			}
+		}
 
-        return (bool) apply_filters( 'hspsc_is_sensitive_request_uri', false, $uri );
-    }
+		return (bool) apply_filters( 'hspsc_has_sensitive_cookies', false, $_COOKIE );
+	}
+
+	/**
+	 * Detects private commerce, preview, token, and API request markers.
+	 *
+	 * @return bool Whether the request URI requires a cache bypass.
+	 */
+	protected static function is_sensitive_request_uri() {
+		$args           = self::get_request_query_args();
+		$sensitive_args = array(
+			'wc-ajax',
+			'wc-api',
+			'add-to-cart',
+			'remove_item',
+			'undo_item',
+			'order-pay',
+			'order-received',
+			'download_file',
+			'key',
+			'_wpnonce',
+			'fct_cart_hash',
+			'fluent-cart',
+			'rest_route',
+			'preview',
+			'wcmlc',
+			'edd_action',
+			'add_to_cart',
+			'discount',
+			'payment_key',
+			'eddfile',
+			'customize_changeset_uuid',
+			'token',
+			'access_token',
+			'cart_token',
+			'session_id',
+		);
+		foreach ( $sensitive_args as $arg ) {
+			if ( array_key_exists( $arg, $args ) ) {
+				return true;
+			}
+		}
+		if ( isset( $args['action'] ) && is_string( $args['action'] ) && strpos( $args['action'], 'fluent_cart_' ) === 0 ) {
+			return true;
+		}
+
+		$uri                 = strtolower( rawurldecode( self::get_request_uri() ) );
+		$sensitive_fragments = array(
+			'/cart',
+			'/checkout',
+			'/my-account',
+			'/account',
+			'/wp-json/',
+			'wc-ajax=',
+			'add-to-cart=',
+			'preview=',
+			'customize_changeset_uuid=',
+		);
+
+		foreach ( $sensitive_fragments as $fragment ) {
+			if ( strpos( $uri, $fragment ) !== false ) {
+				return true;
+			}
+		}
+
+		return (bool) apply_filters( 'hspsc_is_sensitive_request_uri', false, $uri );
+	}
 }

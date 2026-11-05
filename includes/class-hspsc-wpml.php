@@ -121,6 +121,7 @@ class HSPSC_WPML {
 		if ( ! self::is_active() ) {
 			return '';
 		}
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Consume the documented third-party WPML API hook.
 		$current = self::language_code( apply_filters( 'wpml_current_language', null ) );
 		if ( null === $current ) {
 			return null;
@@ -249,6 +250,7 @@ class HSPSC_WPML {
 				return null;
 			}
 		}
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Consume the documented third-party WPML API hook.
 		$default = self::language_code( apply_filters( 'wpml_default_language', null ) );
 		$base    = trailingslashit( (string) get_option( 'home' ) );
 		$parsed  = self::url_parts( $base );
@@ -261,6 +263,7 @@ class HSPSC_WPML {
 			if ( false === has_filter( 'wpml_active_languages' ) ) {
 				return null;
 			}
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Consume the documented third-party WPML API hook.
 			$languages = apply_filters( 'wpml_active_languages', null, array( 'skip_missing' => 0 ) );
 			if ( ! is_array( $languages ) || empty( $languages ) ) {
 				return null;
@@ -277,6 +280,7 @@ class HSPSC_WPML {
 				return null;
 			}
 		} else {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Consume the documented third-party WPML API hook.
 			$current = self::language_code( apply_filters( 'wpml_current_language', null ) );
 			if ( null !== $current ) {
 				$codes[] = $current;
@@ -284,6 +288,7 @@ class HSPSC_WPML {
 		}
 		$roots = array();
 		foreach ( array_unique( $codes ) as $code ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Consume the documented third-party WPML API hook.
 			$url  = apply_filters( 'wpml_permalink', $base, $code, false );
 			$root = self::url_parts( $url );
 			if ( null === $root ) {

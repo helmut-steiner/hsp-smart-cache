@@ -26,6 +26,12 @@ class HSPSC_Page {
 	 */
 	protected static $buffer_cache_file = null;
 
+	/** @var string|false|null Generation observed before WordPress loads page content. */
+	protected static $request_generation = null;
+
+	/** @var string|null Generation associated with the active response buffer. */
+	protected static $buffer_generation = null;
+
 	/**
 	 * Whether shutdown has authorized final response capture.
 	 *
@@ -41,6 +47,8 @@ class HSPSC_Page {
 	protected static $buffer_interrupted = false;
 
     public static function init() {
+        // Bricks loads global data during theme bootstrap, before parse_request.
+        self::capture_request_generation();
         // Let integrations finish redirects and declare private responses first.
         add_action( 'template_redirect', array( __CLASS__, 'maybe_serve_cache' ), PHP_INT_MAX - 1 );
         add_action( 'template_redirect', array( __CLASS__, 'start_buffer' ), PHP_INT_MAX );
@@ -57,6 +65,10 @@ class HSPSC_Page {
         }
         if ( ! self::should_cache_response() ) {
             self::send_cache_status( 'BYPASS', 'response-headers' );
+            return;
+        }
+        if ( false === self::$request_generation ) {
+            self::send_cache_status( 'BYPASS', 'write-failed' );
             return;
         }
 
@@ -100,12 +112,21 @@ class HSPSC_Page {
 				self::send_cache_status( 'BYPASS', 'request-key' );
 				return;
 			}
+			$generation = self::$request_generation;
+			if ( null === $generation ) {
+				$generation = self::get_cache_generation();
+			}
+			if ( false === $generation ) {
+				self::send_cache_status( 'BYPASS', 'write-failed' );
+				return;
+			}
 			self::$buffer_ready       = false;
 			self::$buffer_interrupted = false;
 			ob_start( array( get_called_class(), 'filter_buffer' ) );
 			self::$buffer_started    = true;
 			self::$buffer_level      = ob_get_level();
 			self::$buffer_cache_file = $cache_file;
+			self::$buffer_generation = $generation;
 		}
 	}
 
@@ -145,12 +166,14 @@ class HSPSC_Page {
 		}
 
 		$cache_file = self::$buffer_cache_file;
+		$generation = self::$buffer_generation;
 		$complete   = self::$buffer_started && self::$buffer_ready
 			&& ! self::$buffer_interrupted && ! ( $phase & ( PHP_OUTPUT_HANDLER_CLEAN | PHP_OUTPUT_HANDLER_FLUSH ) );
 
 		self::$buffer_started     = false;
 		self::$buffer_level       = 0;
 		self::$buffer_cache_file  = null;
+		self::$buffer_generation  = null;
 		self::$buffer_ready       = false;
 		self::$buffer_interrupted = false;
 
@@ -170,7 +193,7 @@ class HSPSC_Page {
 		}
 
 		HSPSC_Utils::ensure_cache_dirs();
-		if ( HSPSC_Utils::atomic_write( $cache_file, $html ) ) {
+		if ( self::write_cache_file( $cache_file, $html, $generation ) ) {
 			self::send_browser_cache_headers( $cache_file, true );
 			self::send_cache_status( 'MISS' );
 			self::maybe_cleanup_expired_cache();
@@ -626,8 +649,131 @@ class HSPSC_Page {
         return HSPSC_Utils::delete_old_files( HSPSC_PATH . '/pages', $ttl, '.html' );
     }
 
+    /**
+     * Captures invalidation state before themes or the main query load content.
+     */
+    public static function capture_request_generation() {
+        self::$request_generation = null;
+        $method = isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET';
+        if ( HSPSC_Settings::get( 'page_cache' ) && 'GET' === $method && ! HSPSC_Utils::is_backend_or_login_request() ) {
+            self::$request_generation = self::get_cache_generation();
+        }
+    }
+
+    /**
+     * Locks a stable state file outside the disposable page directory.
+     *
+     * Never unlink or atomically replace this file during a purge: every worker
+     * must lock the same inode. Locks cover short reads/writes, never rendering.
+     *
+     * @return resource|false Locked stream, or false when coordination is unsafe.
+     */
+    protected static function lock_cache_state() {
+        HSPSC_Utils::ensure_cache_dirs();
+        $path = HSPSC_PATH . '/.page-cache-state';
+        if ( is_link( HSPSC_PATH ) || is_link( $path ) || ( file_exists( $path ) && ! is_file( $path ) ) ) {
+            return false;
+        }
+        $lock = @fopen( $path, 'c+b' );
+        if ( false === $lock ) {
+            return false;
+        }
+        if ( ! flock( $lock, LOCK_EX ) ) {
+            fclose( $lock );
+            return false;
+        }
+        return $lock;
+    }
+
+    /** @param resource $lock Locked state stream. */
+    protected static function unlock_cache_state( $lock ) {
+        flock( $lock, LOCK_UN );
+        fclose( $lock );
+    }
+
+    /**
+     * Reads the generation under the same lock used by purges and final writes.
+     *
+     * @param resource $lock Locked state stream.
+     * @return string|false Generation, or false for unreadable/corrupt state.
+     */
+    protected static function read_cache_generation( $lock ) {
+        rewind( $lock );
+        $generation = stream_get_contents( $lock, 64 );
+        if ( '' === $generation ) {
+            return self::advance_cache_generation( $lock );
+        }
+        return is_string( $generation ) && preg_match( '/\A[a-f0-9]{32}\z/', $generation ) ? $generation : false;
+    }
+
+    /**
+     * Changes the generation even when a purge finds no cached files.
+     *
+     * @param resource $lock Locked state stream.
+     * @return string|false New generation, or false on a storage failure.
+     */
+    protected static function advance_cache_generation( $lock ) {
+        $generation = str_replace( '-', '', wp_generate_uuid4() );
+        if ( ! rewind( $lock ) || ! ftruncate( $lock, 0 ) || strlen( $generation ) !== fwrite( $lock, $generation ) || ! fflush( $lock ) ) {
+            return false;
+        }
+        return $generation;
+    }
+
+    /** @return string|false Current persistent generation. */
+    protected static function get_cache_generation() {
+        $lock = self::lock_cache_state();
+        if ( false === $lock ) {
+            return false;
+        }
+        try {
+            return self::read_cache_generation( $lock );
+        } finally {
+            self::unlock_cache_state( $lock );
+        }
+    }
+
+    /**
+     * Prevents a pre-purge render from overwriting a newer cached response.
+     *
+     * @param string $cache_file Cache destination.
+     * @param string $html       Complete eligible HTML.
+     * @param string $generation Generation captured before rendering.
+     * @return bool Whether the response was saved.
+     */
+    protected static function write_cache_file( $cache_file, $html, $generation ) {
+        if ( false === self::$request_generation ) {
+            return false;
+        }
+        $lock = self::lock_cache_state();
+        if ( false === $lock ) {
+            return false;
+        }
+        try {
+            return is_string( $generation ) && self::read_cache_generation( $lock ) === $generation
+                && HSPSC_Utils::atomic_write( $cache_file, $html );
+        } finally {
+            self::unlock_cache_state( $lock );
+        }
+    }
+
     public static function clear_cache() {
-        HSPSC_Utils::delete_dir_contents( HSPSC_PATH . '/pages' );
+        $lock = self::lock_cache_state();
+        if ( false === $lock ) {
+            self::$request_generation = false;
+            HSPSC_Utils::delete_dir_contents( HSPSC_PATH . '/pages' );
+            return false;
+        }
+        try {
+            $advanced = self::advance_cache_generation( $lock );
+            if ( false === $advanced ) {
+                self::$request_generation = false;
+            }
+            HSPSC_Utils::delete_dir_contents( HSPSC_PATH . '/pages' );
+            return false !== $advanced;
+        } finally {
+            self::unlock_cache_state( $lock );
+        }
     }
 
     public static function clear_cache_for_url( $url ) {
@@ -638,18 +784,39 @@ class HSPSC_Page {
             return;
         }
         if ( $key ) {
-            $files = (array) glob( HSPSC_PATH . '/pages/' . $key . '-*.html' );
-            $files[] = HSPSC_PATH . '/pages/' . $key . '.html';
-            $fs = HSPSC_Utils::get_filesystem();
-            foreach ( $files as $file ) {
-                if ( ! is_file( $file ) && ! is_link( $file ) ) {
-                    continue;
+            $lock = self::lock_cache_state();
+            if ( false === $lock ) {
+                self::$request_generation = false;
+                self::delete_cache_files_for_key( $key );
+                return false;
+            }
+            try {
+                // Conservatively reject all in-flight renders; retain unrelated files.
+                $advanced = self::advance_cache_generation( $lock );
+                if ( false === $advanced ) {
+                    self::$request_generation = false;
                 }
-                if ( $fs ) {
-                    $fs->delete( $file );
-                } else {
-                    wp_delete_file( $file );
-                }
+                self::delete_cache_files_for_key( $key );
+                return false !== $advanced;
+            } finally {
+                self::unlock_cache_state( $lock );
+            }
+        }
+    }
+
+    /** @param string $key Validated URL cache key, including its language scope. */
+    protected static function delete_cache_files_for_key( $key ) {
+        $files   = (array) glob( HSPSC_PATH . '/pages/' . $key . '-*.html' );
+        $files[] = HSPSC_PATH . '/pages/' . $key . '.html';
+        $fs      = HSPSC_Utils::get_filesystem();
+        foreach ( $files as $file ) {
+            if ( ! is_file( $file ) && ! is_link( $file ) ) {
+                continue;
+            }
+            if ( $fs ) {
+                $fs->delete( $file );
+            } else {
+                wp_delete_file( $file );
             }
         }
     }

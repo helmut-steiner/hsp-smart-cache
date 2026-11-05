@@ -157,6 +157,29 @@ class HSPSC_Render_Test extends WP_UnitTestCase {
         $this->assertSame( $tag, HSPSC_Render::filter_script_tag( $tag, 'hspsc-not-managed', '/protected.js' ) );
     }
 
+    public function test_late_module_tag_preserves_attributes_and_native_loading_strategy() {
+        $this->require_native_strategies();
+        wp_enqueue_script( 'hspsc-late-module', '/booking.js' );
+        wp_enqueue_script( 'hspsc-native-module', '/native-booking.js' );
+        wp_script_add_data( 'hspsc-native-module', 'strategy', 'async' );
+        HSPSC_Render::apply_script_strategies();
+        $this->assertSame( 'defer', wp_scripts()->get_data( 'hspsc-late-module', 'strategy' ) );
+
+        $tag = '<script type="module" defer crossorigin="anonymous" src="/booking.js?locale=de"></script>';
+        $restored = HSPSC_Render::filter_script_tag( $tag, 'hspsc-late-module', '/booking.js?locale=de' );
+        $processor = new WP_HTML_Tag_Processor( $restored );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertNull( $processor->get_attribute( 'defer' ) );
+        $this->assertSame( 'module', $processor->get_attribute( 'type' ) );
+        $this->assertSame( 'anonymous', $processor->get_attribute( 'crossorigin' ) );
+        $this->assertSame( '/booking.js?locale=de', $processor->get_attribute( 'src' ) );
+        $this->assertSame( '', wp_scripts()->get_data( 'hspsc-late-module', 'strategy' ) );
+
+        $native_tag = '<script type="module" async crossorigin="anonymous" src="/native-booking.js"></script>';
+        $this->assertSame( $native_tag, HSPSC_Render::filter_script_tag( $native_tag, 'hspsc-native-module', '/native-booking.js' ) );
+        $this->assertSame( 'async', wp_scripts()->get_data( 'hspsc-native-module', 'strategy' ) );
+    }
+
     public function test_late_cart_session_reverts_only_plugin_managed_loading_strategy() {
         $this->require_native_strategies();
         wp_enqueue_script( 'hspsc-late-session', '/session.js' );

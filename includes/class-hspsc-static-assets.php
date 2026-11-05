@@ -62,6 +62,14 @@ class HSPSC_Static_Assets {
             $cache_control .= ', immutable';
         }
 
+        // A timestamp on the server cannot refresh a browser's still-fresh URL.
+        // Only HSP-generated, versioned filenames may skip revalidation.
+        $asset_pattern   = self::get_generated_asset_path_pattern( HSPSC_URL );
+        $versioned_rules = '';
+        if ( '' !== $asset_pattern ) {
+            $versioned_rules = '    Header set Cache-Control "' . $cache_control . '" "expr=%{REQUEST_URI} =~ m#' . $asset_pattern . '# && -f %{REQUEST_FILENAME}"' . "\n";
+        }
+
         $compression_rules = '';
         if ( $compression ) {
             $compression_rules = "<IfModule mod_deflate.c>\n"
@@ -75,11 +83,27 @@ class HSPSC_Static_Assets {
         return self::HTACCESS_BEGIN . "\n"
             . "<IfModule mod_headers.c>\n"
             . "  <FilesMatch \"(?i)\\.(" . self::get_cacheable_extensions_pattern() . ")$\">\n"
-            . "    Header set Cache-Control \"" . $cache_control . "\"\n"
+            . "    Header set Cache-Control \"public, no-cache, max-age=0, must-revalidate\"\n"
+            . $versioned_rules
             . "  </FilesMatch>\n"
             . "</IfModule>\n"
             . $compression_rules
             . self::HTACCESS_END . "\n";
+    }
+
+    /**
+     * Matches generated assets only within this installation's configured URL.
+     *
+     * @param string $cache_url Public HSP cache URL.
+     * @return string Apache regular expression, or an empty string for unsafe paths.
+     */
+    protected static function get_generated_asset_path_pattern( $cache_url ) {
+        $path = wp_parse_url( rtrim( $cache_url, '/' ) . '/assets/', PHP_URL_PATH );
+        if ( ! is_string( $path ) || '/' !== substr( $path, 0, 1 ) || preg_match( '/[\x00-\x20\x7f"\\\\]/', $path ) || false !== strpos( $path, '%{' ) ) {
+            return '';
+        }
+
+        return '^' . preg_quote( $path, '#' ) . '[a-f0-9]{32}\\.min\\.(?:css|js)$';
     }
 
     public static function is_cacheable_asset_url( $url ) {

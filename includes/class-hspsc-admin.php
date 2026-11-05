@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class HSPSC_Admin {
     public static function init() {
+        add_filter( 'plugin_action_links_' . HSPSC_BASENAME, array( __CLASS__, 'add_settings_link' ) );
         add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
         add_action( 'admin_post_hspsc_clear', array( __CLASS__, 'handle_clear_cache' ) );
         add_action( 'admin_post_hspsc_run_tests', array( __CLASS__, 'handle_run_tests' ) );
@@ -38,6 +39,22 @@ class HSPSC_Admin {
         add_action( 'admin_notices', array( __CLASS__, 'render_action_notice' ) );
         add_action( 'wp_footer', array( __CLASS__, 'render_action_notice' ) );
         add_action( 'update_option_' . HSPSC_Settings::OPTION_KEY, array( __CLASS__, 'handle_settings_update' ), 10, 2 );
+    }
+
+    /**
+     * Adds a shortcut to the plugin's settings for users who can manage them.
+     *
+     * @param array $links Existing plugin action links.
+     * @return array Plugin action links with the settings shortcut first.
+     */
+    public static function add_settings_link( $links ) {
+        if ( current_user_can( 'manage_options' ) ) {
+            array_unshift(
+                $links,
+                '<a href="' . esc_url( admin_url( 'options-general.php?page=hsp-smart-cache' ) ) . '">' . esc_html__( 'Settings', 'hsp-smart-cache' ) . '</a>'
+            );
+        }
+        return $links;
     }
 
     public static function register_menu() {
@@ -253,6 +270,14 @@ class HSPSC_Admin {
             return array(
                 'label'   => __( 'BYPASS', 'hsp-smart-cache' ),
                 'reason'  => __( 'WordPress admin requests are not cached.', 'hsp-smart-cache' ),
+                'details' => '',
+            );
+        }
+
+        if ( HSPSC_Utils::is_page_cache_path_excluded() ) {
+            return array(
+                'label'   => __( 'BYPASS', 'hsp-smart-cache' ),
+                'reason'  => __( 'This page path is excluded from page caching.', 'hsp-smart-cache' ),
                 'details' => '',
             );
         }
@@ -1427,6 +1452,13 @@ class HSPSC_Admin {
                                     <input type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache_ttl]" value="<?php echo esc_attr( $options['page_cache_ttl'] ); ?>" title="<?php echo esc_attr__( 'How long a page stays cached before regeneration.', 'hsp-smart-cache' ); ?>" />
                                 </label>
                             </p>
+                            <p>
+                                <label for="hspsc-page-cache-excluded-paths"><?php echo esc_html__( 'Excluded page paths', 'hsp-smart-cache' ); ?></label>
+                                <textarea id="hspsc-page-cache-excluded-paths" class="large-text" rows="4" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache_excluded_paths]" placeholder="/booking/&#10;/member-area/" aria-describedby="hspsc-page-cache-excluded-paths-help"><?php echo esc_textarea( $options['page_cache_excluded_paths'] ); ?></textarea>
+                            </p>
+                            <p id="hspsc-page-cache-excluded-paths-help" class="description">
+                                <?php echo esc_html__( 'One exact URL path per line, starting with /. Include the installation subdirectory and translated paths when needed. Queries and trailing slashes do not affect matching. Subpages, full URLs, and wildcards are not included. Asset optimizations remain enabled.', 'hsp-smart-cache' ); ?>
+                            </p>
                             <label>
                                 <input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cache_logged_in]" value="1" <?php checked( $options['cache_logged_in'] ); ?> title="<?php echo esc_attr__( 'Enable only if logged-in users see cache-safe content.', 'hsp-smart-cache' ); ?>" />
                                 <?php echo esc_html__( 'Allow page caching for logged-in users', 'hsp-smart-cache' ); ?>
@@ -1480,19 +1512,19 @@ class HSPSC_Admin {
                         <th scope="row"><?php echo esc_html__( 'Static Asset Caching', 'hsp-smart-cache' ); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_cache]" value="1" <?php checked( $options['static_asset_cache'] ); ?> title="<?php echo esc_attr__( 'Enable long-lived cache headers for CSS/JS/fonts/images.', 'hsp-smart-cache' ); ?>" />
-                                <?php echo esc_html__( 'Enable browser caching for WordPress/theme/plugin assets', 'hsp-smart-cache' ); ?>
+                                <input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_cache]" value="1" <?php checked( $options['static_asset_cache'] ); ?> title="<?php echo esc_attr__( 'Cache generated CSS/JS for longer and revalidate other static files.', 'hsp-smart-cache' ); ?>" />
+                                <?php echo esc_html__( 'Enable safe browser cache rules for static assets', 'hsp-smart-cache' ); ?>
                             </label>
                             <p>
                                 <label>
-                                    <?php echo esc_html__( 'Static asset TTL (seconds)', 'hsp-smart-cache' ); ?>
-                                    <input type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_ttl]" value="<?php echo esc_attr( $options['static_asset_ttl'] ); ?>" title="<?php echo esc_attr__( 'Cache lifetime for assets via web server rules.', 'hsp-smart-cache' ); ?>" />
+                                    <?php echo esc_html__( 'Generated CSS/JS TTL (seconds)', 'hsp-smart-cache' ); ?>
+                                    <input type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_ttl]" value="<?php echo esc_attr( $options['static_asset_ttl'] ); ?>" title="<?php echo esc_attr__( 'Cache lifetime for HSP-generated CSS/JS via web server rules.', 'hsp-smart-cache' ); ?>" />
                                 </label>
                             </p>
                             <p>
                                 <label>
-                                    <input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_immutable]" value="1" <?php checked( $options['static_asset_immutable'] ); ?> title="<?php echo esc_attr__( 'Add immutable directive to encourage long-term caching.', 'hsp-smart-cache' ); ?>" />
-                                    <?php echo esc_html__( 'Add immutable directive where supported', 'hsp-smart-cache' ); ?>
+                                    <input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_immutable]" value="1" <?php checked( $options['static_asset_immutable'] ); ?> title="<?php echo esc_attr__( 'Add immutable only to HSP-generated CSS/JS.', 'hsp-smart-cache' ); ?>" />
+                                    <?php echo esc_html__( 'Add immutable to generated CSS/JS', 'hsp-smart-cache' ); ?>
                                 </label>
                             </p>
                             <p>
@@ -2028,7 +2060,7 @@ class HSPSC_Admin {
                             template = preview.dataset.templateCacheCompress;
                         }
 
-                        preview.value = template.replace('max-age=0', 'max-age=' + ttl);
+                        preview.value = template.replace('public, max-age=0', 'public, max-age=' + ttl);
                     }
 
                     document.addEventListener('input', function(e) {

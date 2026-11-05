@@ -2,12 +2,13 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.8.1
+ * Version: 0.9.0
  * Requires at least: 7.1.3
  * Requires PHP: 8.4
  * Update URI: https://github.com/helmut-steiner/hsp-smart-cache
  * Author: Helmut Steiner
- * License: Proprietary
+ * License: HSP Personal Noncommercial Contribution License 1.0
+ * License URI: https://github.com/helmut-steiner/hsp-smart-cache/blob/main/LICENSE
  * Text Domain: hsp-smart-cache
  */
 
@@ -15,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'HSPSC_VERSION', '0.8.1' );
+define( 'HSPSC_VERSION', '0.9.0' );
 define( 'HSPSC_BASENAME', plugin_basename( __FILE__ ) );
 define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );
 define( 'HSPSC_URL', content_url( '/cache/hspsc' ) );
@@ -27,6 +28,7 @@ require_once __DIR__ . '/includes/class-hspsc-commerce.php';
 require_once __DIR__ . '/includes/class-hspsc-analytics.php';
 require_once __DIR__ . '/includes/class-hspsc-seo.php';
 require_once __DIR__ . '/includes/class-hspsc-images.php';
+require_once __DIR__ . '/includes/class-hspsc-bricks.php';
 require_once __DIR__ . '/includes/class-hspsc-admin.php';
 require_once __DIR__ . '/includes/class-hspsc-minify.php';
 require_once __DIR__ . '/includes/class-hspsc-page.php';
@@ -41,7 +43,7 @@ require_once __DIR__ . '/includes/class-hspsc-preload.php';
 require_once __DIR__ . '/includes/class-hspsc-updater.php';
 
 class HSPSC_Plugin {
-    const CACHE_SCHEMA = 4;
+    const CACHE_SCHEMA = 5;
 
     public static function init() {
         self::maybe_upgrade_cache_schema();
@@ -51,6 +53,7 @@ class HSPSC_Plugin {
         HSPSC_Analytics::init();
         HSPSC_SEO::init();
         HSPSC_Images::init();
+        HSPSC_Bricks::init();
         HSPSC_Admin::init();
         HSPSC_Minify::init();
         HSPSC_Page::init();
@@ -65,7 +68,9 @@ class HSPSC_Plugin {
         add_filter( 'robots_txt', array( __CLASS__, 'filter_robots_txt' ), 10, 2 );
 
         add_action( 'save_post', array( __CLASS__, 'handle_post_change' ), 10, 3 );
-        add_action( 'deleted_post', array( __CLASS__, 'handle_post_delete' ) );
+        // REST saves can persist additional fields after save_post has fired.
+        add_action( 'wp_after_insert_post', array( __CLASS__, 'handle_post_change' ), 10, 3 );
+        add_action( 'deleted_post', array( __CLASS__, 'handle_post_delete' ), 10, 2 );
         add_action( 'edit_terms', array( __CLASS__, 'flush_all_caches' ) );
         add_action( 'edited_term', array( __CLASS__, 'flush_all_caches' ) );
         add_action( 'delete_term', array( __CLASS__, 'flush_all_caches' ) );
@@ -81,7 +86,6 @@ class HSPSC_Plugin {
         add_action( 'updated_option', array( __CLASS__, 'handle_updated_option' ), 10, 3 );
         add_action( 'added_option', array( __CLASS__, 'handle_added_option' ), 10, 2 );
         add_action( 'deleted_option', array( __CLASS__, 'handle_deleted_option' ), 10, 1 );
-        add_action( 'bricks/generate_css_file', array( __CLASS__, 'flush_render_caches' ) );
     }
 
     public static function maybe_upgrade_cache_schema() {
@@ -90,6 +94,8 @@ class HSPSC_Plugin {
         }
 
         self::flush_render_caches();
+        // Refresh only installations that already opted into managed server rules.
+        HSPSC_Static_Assets::apply_rules( null, HSPSC_Settings::get_all() );
         update_option( 'hspsc_cache_schema', self::CACHE_SCHEMA, false );
     }
 
@@ -121,14 +127,29 @@ class HSPSC_Plugin {
         if ( ! $post || $post->post_status === 'auto-draft' ) {
             return;
         }
-        HSPSC_Page::clear_cache_for_post( $post_id );
-    }
-
-    public static function handle_post_delete( $post_id ) {
-        if ( ! $post_id ) {
+        if ( self::is_shared_render_post_type( $post->post_type ) ) {
+            self::flush_render_caches();
             return;
         }
         HSPSC_Page::clear_cache_for_post( $post_id );
+    }
+
+    public static function handle_post_delete( $post_id, $post = null ) {
+        if ( ! $post_id ) {
+            return;
+        }
+        // deleted_post supplies the original object after its database row is gone.
+        $post = $post instanceof WP_Post ? $post : get_post( $post_id );
+        if ( $post && self::is_shared_render_post_type( $post->post_type ) ) {
+            self::flush_render_caches();
+            return;
+        }
+        HSPSC_Page::clear_cache_for_post( $post_id );
+    }
+
+    protected static function is_shared_render_post_type( $post_type ) {
+        return in_array( $post_type, array( 'wp_template', 'wp_template_part', 'wp_block', 'wp_global_styles', 'wp_navigation', 'custom_css' ), true )
+            || HSPSC_Bricks::is_shared_post_type( $post_type );
     }
 
     public static function handle_comment_change( $comment_id ) {

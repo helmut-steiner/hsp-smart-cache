@@ -19,9 +19,12 @@ class HSPSC_Minify_Read_Counting_Fixture extends HSPSC_Minify {
 class HSPSC_Minify_Test extends WP_UnitTestCase {
     protected $asset_files = array();
     protected $original_cookies;
+    protected $original_scripts;
 
     public function set_up(): void {
         parent::set_up();
+        $this->original_scripts = isset( $GLOBALS['wp_scripts'] ) ? $GLOBALS['wp_scripts'] : null;
+        $GLOBALS['wp_scripts'] = new WP_Scripts();
         $this->original_cookies = $_COOKIE;
         $_COOKIE = array();
         wp_set_current_user( 0 );
@@ -37,6 +40,7 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
         }
         wp_deregister_script( 'hspsc-test-protected' );
         wp_deregister_style( 'hspsc-test-protected' );
+        $GLOBALS['wp_scripts'] = $this->original_scripts;
         $_COOKIE = $this->original_cookies;
         HSPSC_Utils::reset_request_cache();
         $this->reset_asset_url_cache();
@@ -59,9 +63,11 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
 
     protected function reset_asset_url_cache() {
         $ref = new ReflectionClass( 'HSPSC_Minify' );
-        $property = $ref->getProperty( 'asset_url_cache' );
-        $property->setAccessible( true );
-        $property->setValue( null, array() );
+        foreach ( array( 'asset_url_cache', 'original_script_urls', 'original_style_urls' ) as $name ) {
+            $property = $ref->getProperty( $name );
+            $property->setAccessible( true );
+            $property->setValue( null, array() );
+        }
     }
 
     public function test_minify_html_removes_comments_and_whitespace() {
@@ -161,6 +167,53 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
 		$this->assertSame( 2, HSPSC_Minify_Read_Counting_Fixture::$source_reads );
 		$this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $changed, PHP_URL_PATH ) );
 	}
+
+    /**
+     * Explicit URL versions survive deployments that retain source timestamps.
+     *
+     * @dataProvider asset_query_version_provider
+     */
+    public function test_asset_query_versions_change_generated_urls_without_source_mtime_changes( $type, $parameter, $before, $after ) {
+        $src   = $this->create_asset( 'query-version-' . $parameter . '.' . $type, $before );
+        $file  = WP_CONTENT_DIR . '/hspsc-safety-query-version-' . $parameter . '.' . $type;
+        $mtime = filemtime( $file );
+        $first = add_query_arg( $parameter, 'one', $src );
+        HSPSC_Minify_Read_Counting_Fixture::$source_reads = 0;
+
+        $generated = HSPSC_Minify_Read_Counting_Fixture::optimize( $first, $type );
+        $this->assertNotSame( $first, $generated );
+        $this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $generated, PHP_URL_PATH ) );
+        $this->assertSame( 1, HSPSC_Minify_Read_Counting_Fixture::$source_reads );
+
+        file_put_contents( $file, $after );
+        touch( $file, $mtime );
+        clearstatcache( true, $file );
+        $this->assertSame( $mtime, filemtime( $file ) );
+        $this->reset_asset_url_cache();
+
+        $second  = add_query_arg( $parameter, 'two', $src );
+        $changed = HSPSC_Minify_Read_Counting_Fixture::optimize( $second, $type );
+        $this->assertNotSame( $second, $changed );
+        $this->assertNotSame( $generated, $changed );
+        $generated_file      = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $changed, PHP_URL_PATH ) );
+        $this->asset_files[] = $generated_file;
+        $this->assertSame( $after, file_get_contents( $generated_file ) );
+        $this->assertSame( 2, HSPSC_Minify_Read_Counting_Fixture::$source_reads );
+
+        // A later request with the same version still uses the on-disk fast path.
+        $this->reset_asset_url_cache();
+        $this->assertSame( $changed, HSPSC_Minify_Read_Counting_Fixture::optimize( $second, $type ) );
+        $this->assertSame( 2, HSPSC_Minify_Read_Counting_Fixture::$source_reads );
+    }
+
+    public function asset_query_version_provider() {
+        return array(
+            'CSS WordPress version' => array( 'css', 'ver', 'body{color:red}', 'body{color:blue}' ),
+            'JS WordPress version'  => array( 'js', 'ver', 'window.ready=1;', 'window.ready=2;' ),
+            'CSS custom version'    => array( 'css', 'build', 'body{color:red}', 'body{color:blue}' ),
+            'JS custom version'     => array( 'js', 'build', 'window.ready=1;', 'window.ready=2;' ),
+        );
+    }
 
     public function test_asset_memoization_rechecks_late_cart_sessions_without_caching_bypasses() {
         $src = $this->create_asset( 'late-cart.css', 'body { color: red; }' );
@@ -304,6 +357,149 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
         $restored = HSPSC_Minify::restore_excluded_script_url( $tag, 'hspsc-test-protected', $generated );
         $this->assertStringContainsString( esc_url( $src ), $restored );
         $this->assertStringNotContainsString( esc_url( $generated ), $restored );
+    }
+
+    /**
+     * Vite-style booking bundles and their icon fonts keep their import base.
+     * This is an API-shaped fixture, with no Amelia dependency or vendor code.
+     */
+    public function test_booking_module_chunks_and_icon_fonts_keep_original_urls() {
+        $script = $this->create_asset(
+            'booking-public.js',
+            'import{mount}from"./stepForm-fixture.js";import"./customerPanel-fixture.js";'
+                . 'const lazy=()=>import("./calendar-fixture.js");const base=import.meta.url;'
+        );
+        $style = $this->create_asset(
+            'booking-style.css',
+            '@font-face{font-family:booking;src:url(./fonts/booking-icons.woff2?fixture)}'
+        );
+        $this->assertSame( $script, HSPSC_Minify::filter_script_src( $script, 'hspsc-booking-module' ) );
+        $this->assertSame( $style, HSPSC_Minify::filter_style_src( $style, 'hspsc-booking-style' ) );
+    }
+
+    public function test_late_module_tag_restores_root_relative_source_without_changing_payload() {
+        $src = add_query_arg( 'locale', 'de', $this->create_asset( 'late-relative.js', 'window.ready = true;' ) );
+        $generated = HSPSC_Minify::filter_script_src( $src, 'hspsc-test-protected' );
+        $this->assertNotSame( $src, $generated );
+        $this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $generated, PHP_URL_PATH ) );
+
+        // Booking integrations can add type=module and strip the origin later.
+        $relative = wp_parse_url( $generated, PHP_URL_PATH );
+        $payload = 'window.assetHint = "' . esc_url( $generated ) . '";';
+        $tag = "<script type='module' async crossorigin src='" . esc_url( $relative ) . "'>" . $payload . '</script>';
+        $restored = HSPSC_Minify::restore_excluded_script_url( $tag, 'hspsc-test-protected', $generated );
+        $processor = new WP_HTML_Tag_Processor( $restored );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertSame( esc_url_raw( $src ), $processor->get_attribute( 'src' ) );
+        $this->assertSame( 'module', $processor->get_attribute( 'type' ) );
+        $this->assertTrue( $processor->get_attribute( 'async' ) );
+        $this->assertTrue( $processor->get_attribute( 'crossorigin' ) );
+        $this->assertStringContainsString( $payload, $restored );
+
+        $classic_tag = '<script src="' . esc_url( $generated ) . '"></script>';
+        $this->assertSame( $classic_tag, HSPSC_Minify::restore_excluded_script_url( $classic_tag, 'hspsc-test-protected', $generated ) );
+    }
+
+    public function test_late_stylesheet_opt_out_restores_root_relative_href() {
+        $src = $this->create_asset( 'late-relative.css', 'body { color: red; }' );
+        $generated = HSPSC_Minify::filter_style_src( $src, 'hspsc-test-protected' );
+        $this->assertNotSame( $src, $generated );
+        $this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $generated, PHP_URL_PATH ) );
+        $relative = wp_parse_url( $generated, PHP_URL_PATH );
+        $tag = '<link data-no-optimize="1" rel="stylesheet" media="print" href="' . esc_url( $relative ) . '" />';
+        $restored = HSPSC_Minify::restore_excluded_style_url( $tag, 'hspsc-test-protected', $generated );
+        $processor = new WP_HTML_Tag_Processor( $restored );
+        $this->assertTrue( $processor->next_tag( 'link' ) );
+        $this->assertSame( esc_url_raw( $src ), $processor->get_attribute( 'href' ) );
+        $this->assertSame( 'print', $processor->get_attribute( 'media' ) );
+        $this->assertSame( '1', $processor->get_attribute( 'data-no-optimize' ) );
+    }
+
+    public function test_late_module_restoration_preserves_wordpress_inline_scripts() {
+        $src = add_query_arg( array( 'locale' => 'de', 'view' => 'booking' ), $this->create_asset( 'inline-module.js', 'window.ready = true;' ) );
+        $generated = HSPSC_Minify::filter_script_src( $src, 'hspsc-test-protected' );
+        $this->assertNotSame( $src, $generated );
+        $this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $generated, PHP_URL_PATH ) );
+        wp_register_script( 'hspsc-test-protected', $src, array(), null );
+        $before = 'window.bookingSettings = {"locale":"de","asset":"' . $generated . '"};';
+        $after = 'window.bookingReady = true;';
+        wp_add_inline_script( 'hspsc-test-protected', $before, 'before' );
+        wp_add_inline_script( 'hspsc-test-protected', $after, 'after' );
+        $late_module = static function ( $tag, $handle ) {
+            if ( 'hspsc-test-protected' !== $handle ) {
+                return $tag;
+            }
+            $processor = new WP_HTML_Tag_Processor( $tag );
+            while ( $processor->next_tag( 'script' ) ) {
+                $url = $processor->get_attribute( 'src' );
+                if ( is_string( $url ) ) {
+                    $processor->set_attribute( 'src', wp_make_link_relative( $url ) );
+                    $processor->set_attribute( 'type', 'module' );
+                    $processor->set_attribute( 'crossorigin', true );
+                } else {
+                    $processor->set_attribute( 'type', 'text/javascript' );
+                }
+            }
+            return $processor->get_updated_html();
+        };
+        add_filter( 'script_loader_tag', $late_module, 10, 2 );
+        try {
+            ob_start();
+            wp_scripts()->do_items( array( 'hspsc-test-protected' ) );
+            $output = ob_get_clean();
+        } finally {
+            remove_filter( 'script_loader_tag', $late_module, 10 );
+        }
+
+        $processor = new WP_HTML_Tag_Processor( $output );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertNull( $processor->get_attribute( 'src' ) );
+        $this->assertSame( 'text/javascript', $processor->get_attribute( 'type' ) );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertSame( $src, $processor->get_attribute( 'src' ) );
+        $this->assertSame( 'module', $processor->get_attribute( 'type' ) );
+        $this->assertTrue( $processor->get_attribute( 'crossorigin' ) );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertNull( $processor->get_attribute( 'src' ) );
+        $this->assertStringContainsString( $before, $output );
+        $this->assertStringContainsString( $after, $output );
+    }
+
+    public function test_late_restoration_ignores_unrelated_tags_and_inline_opt_out_text() {
+        $src = $this->create_asset( 'unrelated.js', 'window.ready = true;' );
+        $generated = HSPSC_Minify::filter_script_src( $src, 'hspsc-test-protected' );
+        $this->assertNotSame( $src, $generated );
+        $this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $generated, PHP_URL_PATH ) );
+        $relative = wp_make_link_relative( $generated );
+        $unrelated = '<script type="module" src="https://unrelated.example' . esc_url( $relative ) . '"></script>';
+        $inline = '<script>window.hint = " data-no-optimize=1";</script>';
+        $classic = '<script src="' . esc_url( $relative ) . '"></script>';
+        $this->assertSame( $unrelated . $inline . $classic, HSPSC_Minify::restore_excluded_script_url( $unrelated . $inline . $classic, 'hspsc-test-protected', $generated ) );
+
+        $module = '<script type="module" src="' . esc_url( $relative ) . '"></script>';
+        $restored = HSPSC_Minify::restore_excluded_script_url( $unrelated . $inline . $module, 'hspsc-test-protected', $generated );
+        $this->assertStringStartsWith( $unrelated . $inline, $restored );
+        $processor = new WP_HTML_Tag_Processor( $restored );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertTrue( $processor->next_tag( 'script' ) );
+        $this->assertSame( $src, $processor->get_attribute( 'src' ) );
+    }
+
+    public function test_stylesheet_restoration_matches_escaped_query_and_skips_other_links() {
+        $src = $this->create_asset( 'escaped.css', 'body { color: red; }' );
+        $generated = HSPSC_Minify::filter_style_src( $src, 'hspsc-test-protected' );
+        $this->assertNotSame( $src, $generated );
+        $this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $generated, PHP_URL_PATH ) );
+        $filtered = add_query_arg( array( 'ver' => '1', 'locale' => 'de' ), $generated );
+        $preconnect = '<link rel="preconnect" href="https://unrelated.example" />';
+        $tag = $preconnect . '<link data-no-optimize="1" rel="stylesheet" href="' . esc_url( wp_make_link_relative( $filtered ) ) . '" />';
+        $restored = HSPSC_Minify::restore_excluded_style_url( $tag, 'hspsc-test-protected', esc_url( $filtered ) );
+        $this->assertStringStartsWith( $preconnect, $restored );
+        $processor = new WP_HTML_Tag_Processor( $restored );
+        $this->assertTrue( $processor->next_tag( 'link' ) );
+        $this->assertTrue( $processor->next_tag( 'link' ) );
+        $this->assertSame( $src, $processor->get_attribute( 'href' ) );
     }
 
     public function test_stylesheet_no_optimize_metadata_and_late_attribute_are_respected() {

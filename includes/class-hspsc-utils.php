@@ -134,7 +134,7 @@ class HSPSC_Utils {
         if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
             return false;
         }
-        if ( self::has_sensitive_cookies() || self::is_sensitive_request_uri() ) {
+        if ( self::is_page_cache_path_excluded() || self::has_sensitive_cookies() || self::is_sensitive_request_uri() ) {
             return false;
         }
         if ( self::get_request_method() !== 'GET' ) {
@@ -151,6 +151,66 @@ class HSPSC_Utils {
         }
 
         return (bool) apply_filters( 'hspsc_is_request_cacheable', true );
+    }
+
+    /**
+     * Match configured exact URL paths independently of query parameters.
+     *
+     * Checked before serving a hit and again before writing the rendered page.
+     * Frontend asset optimizations have a separate eligibility policy.
+     *
+     * @return bool Whether this path is excluded from page caching.
+     */
+    public static function is_page_cache_path_excluded() {
+        $configured = HSPSC_Settings::get( 'page_cache_excluded_paths', '' );
+        if ( ! is_string( $configured ) || '' === trim( $configured ) ) {
+            return false;
+        }
+
+        $path = self::normalize_page_cache_path( wp_parse_url( self::get_request_uri(), PHP_URL_PATH ) );
+        if ( null === $path ) {
+            return false;
+        }
+        foreach ( preg_split( '/\r\n|\r|\n/', $configured ) as $excluded ) {
+            if ( $path === self::normalize_page_cache_path( $excluded ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Normalize a host-relative path for exact exclusion matching.
+     *
+     * @param mixed $path URL path, including an installation subdirectory if used.
+     * @return string|null Normalized path with a trailing slash, or invalid input.
+     */
+    public static function normalize_page_cache_path( $path ) {
+        if ( ! is_string( $path ) ) {
+            return null;
+        }
+        $path = trim( $path );
+        if ( '' === $path || '/' !== $path[0] || str_starts_with( $path, '//' ) ) {
+            return null;
+        }
+        $path = rawurldecode( $path );
+        if ( preg_match( '/[\x00-\x1F\x7F?#\\\\*<>]/', $path ) ) {
+            return null;
+        }
+
+        $segments = array();
+        foreach ( explode( '/', $path ) as $segment ) {
+            if ( '' === $segment || '.' === $segment ) {
+                continue;
+            }
+            if ( '..' === $segment ) {
+                array_pop( $segments );
+            } else {
+                $segments[] = $segment;
+            }
+        }
+        // Preserve literal percent signs when a saved path is normalized again.
+        return empty( $segments ) ? '/' : '/' . str_replace( '%', '%25', implode( '/', $segments ) ) . '/';
     }
 
     public static function is_backend_or_login_request() {
@@ -371,6 +431,9 @@ class HSPSC_Utils {
         self::$frontend_optimizations = array();
         self::$backend_or_login_request = array();
         self::$editor_or_builder_request = array();
+        if ( class_exists( 'HSPSC_Page', false ) ) {
+            HSPSC_Page::capture_request_generation();
+        }
     }
 
     protected static function has_sensitive_cookies( $include_authentication = true ) {

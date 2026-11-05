@@ -8,6 +8,7 @@ This page documents every stored option in `hspsc_settings`. Options are configu
 | --- | --- | --- | --- |
 | `page_cache` | `true` | Boolean | Enables full-page HTML caching for cacheable visitor requests. Cached files are stored in `wp-content/cache/hspsc/pages`. |
 | `page_cache_ttl` | `3600` | Seconds, minimum `60` | Controls how long a cached page file is considered fresh before it is regenerated. |
+| `page_cache_excluded_paths` | Empty | Multiline text | Exact host-relative URL paths to exclude from page caching, one per line. Include installation subdirectories and each translated path. Queries are ignored; percent encoding, repeated separators, dot segments, and trailing slashes are normalized. Literal percent signs stay encoded as `%25`, preserving their meaning across repeated saves. Matching is case-sensitive and does not include subpages. Full URLs and wildcards are rejected. Exclusions are checked before cached hits, before buffering, and before final storage; the frontend toolbar shows BYPASS for excluded paths. Asset optimizations remain independent. |
 | `cache_logged_in` | `false` | Boolean | Allows page caching for logged-in users. Keep disabled unless logged-in output is safe to share for the current site. |
 | `robots_disallow_ai` | `false` | Boolean | Adds `robots.txt` disallow rules for known AI crawler user agents when the site is public. |
 
@@ -30,11 +31,17 @@ This page documents every stored option in `hspsc_settings`. Options are configu
 
 | Option key | Default | Type | Description |
 | --- | --- | --- | --- |
-| `static_asset_cache` | `true` | Boolean | Enables generated web server rules for long-lived caching of static files such as CSS, JS, images, fonts, audio, and video. |
-| `static_asset_ttl` | `31536000` | Seconds, minimum `60` | `max-age` value used in the generated static asset cache rules. |
-| `static_asset_immutable` | `true` | Boolean | Adds the `immutable` Cache-Control directive to static asset rules. Best for versioned assets. |
+| `static_asset_cache` | `true` | Boolean | Enables Apache rules that revalidate mutable CSS, JS, images, fonts, audio, and video, while caching existing HSP-generated CSS/JS for the configured lifetime. |
+| `static_asset_ttl` | `31536000` | Seconds, minimum `60` | `max-age` for HSP-generated CSS/JS under this installation's cache URL. Other static files use `no-cache, max-age=0, must-revalidate`, including original files with a query version. |
+| `static_asset_immutable` | `true` | Boolean | Adds `immutable` only to the HSP-generated CSS/JS rule. Their filenames include source path, modification time, and query version. |
 | `static_asset_auto_write` | `false` | Boolean | Automatically writes the generated rules to `.htaccess` when the file is writable. Keep disabled if you prefer manual server config changes. |
 | `static_asset_compression` | `false` | Boolean | Adds gzip/deflate compression rules for supported static asset types. |
+
+Version 0.9.0 clears existing page/asset caches and refreshes Apache rules only when automatic writes are already enabled. If rules were installed manually, replace the old HSP block with the new settings-screen snippet. Apache 2.4 with `mod_headers` is required; nginx and CDN policies are configured separately. Previously cached long-lived URLs cannot be remotely evicted by changing these rules: use a new asset URL/version for an immediate update of an already-cached file.
+
+Publishing native posts/pages clears page output, including archives. Native shared templates, template parts, synced blocks, navigation, global styles, and custom CSS clear consuming pages and generated assets. Optional Bricks observers cover content/settings metadata and shared templates, including inline CSS; save ordering was reviewed against Bricks 2.4.4. Page writes and purges share a short filesystem lock and persistent generation outside the pages directory. Requests that began loading content before a purge cannot repopulate the cache afterward. Targeted purges retain unrelated existing files but conservatively reject all currently rendering responses.
+
+Local HTTP checks for 0.9.0 used WordPress 7.1.4, PHP 8.4.27, Bricks 2.4.5, and nginx 1.26.1. Native post/page publishing and authenticated Bricks saves in inline/external CSS modes returned updated HTML for old ETags and 304 responses for current ETags. Metadata-only saves of isolated draft header templates invalidated cached pages. Changing a CSS query version with the source timestamp held constant produced a new generated URL serving the updated bytes. Temporary content, login sessions, and asset fixtures were removed, and Bricks settings were restored. These are HTTP/API integration checks, not browser-UI, booking-flow, or general Bricks certification tests. The local nginx configuration already revalidated original static assets; the generated Apache policy was checked separately against a real Apache server.
 
 ## Render Optimization
 
@@ -117,7 +124,7 @@ Plugin activation and deactivation clear render caches so newly enabled or remov
 
 Browser HTML revalidation accepts matching server-added gzip/Brotli validators as well as ordinary validators. Only an eligible, fresh page-cache hit can return `304 Not Modified`; login, cart, analytics opt-out, and representation checks still run first. Malformed conditional headers and unsupported compression suffixes receive a normal response. This saves repeat HTML downloads while WordPress startup and privacy checks still run.
 
-This PHP revalidation path applies to HTML pages. CSS and JavaScript served directly by the web server use its own conditional-request handling; their long-lived immutable cache headers avoid normal revalidation before expiry. Apache's default compression suffix can affect those files too. Static-file ETag/compression policy must be configured in the web server, outside the HTML matcher. Nginx's native gzip normally uses weak ETags instead of Apache-style suffixes; 0.8.1 preserves these weak validators. Standalone nginx ignores `.htaccess`, so its static cache headers and compression need nginx configuration. A proxy/CDN layer can introduce separate behavior.
+This PHP revalidation path applies to HTML pages. CSS and JavaScript served directly by the web server use its own conditional-request handling. The generated Apache rules give long-lived caching only to HSP-generated CSS/JS; mutable original URLs revalidate. Apache's default compression suffix can affect those files too. Static-file ETag/compression policy must be configured in the web server, outside the HTML matcher. Nginx's native gzip normally uses weak ETags instead of Apache-style suffixes; 0.8.1 preserves these weak validators. Standalone nginx ignores `.htaccess`, so its static cache headers and compression need nginx configuration. A proxy/CDN layer can introduce separate behavior.
 
 Local verification covered WordPress behind Apache gzip and nginx 1.30.6 proxying Apache with upstream compression disabled. Matching revalidation returned 304 with zero body, compatible ETag/Vary metadata, and privacy bypasses intact. The nginx proxy check confirmed that PHP generated the 304; it was not a PHP-FPM/FastCGI integration test. Brotli suffix behavior is covered by regression fixtures and source review.
 

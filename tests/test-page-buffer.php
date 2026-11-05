@@ -78,6 +78,91 @@ class HSPSC_Page_Buffer_Test extends WP_UnitTestCase {
 		$this->assertSame( $output, file_get_contents( $this->cache_file ) );
 	}
 
+	/** @dataProvider purge_types */
+	public function test_purge_rejects_an_in_flight_response_even_with_no_existing_file( $targeted ) {
+		ob_start();
+		HSPSC_Page_Buffer_Fixture::start_buffer();
+		echo '<html><body>Before publishing</body></html>';
+		if ( $targeted ) {
+			HSPSC_Page::clear_cache_for_url( home_url( '/buffer-regression/' ) );
+		} else {
+			HSPSC_Page::clear_cache();
+		}
+		HSPSC_Page_Buffer_Fixture::save_buffer();
+		$output = ob_get_clean();
+
+		$this->assertSame( '<html><body>Before publishing</body></html>', $output );
+		$this->assertFileDoesNotExist( $this->cache_file );
+	}
+
+	public static function purge_types() {
+		return array( 'whole cache' => array( false ), 'one URL' => array( true ) );
+	}
+
+	public function test_old_render_cannot_overwrite_a_post_purge_response() {
+		ob_start();
+		HSPSC_Page_Buffer_Fixture::start_buffer();
+		echo '<html>Old response</html>';
+		HSPSC_Page::clear_cache();
+		HSPSC_Utils::atomic_write( $this->cache_file, '<html>New response from another request</html>' );
+		HSPSC_Page_Buffer_Fixture::save_buffer();
+		$this->assertSame( '<html>Old response</html>', ob_get_clean() );
+		$this->assertSame( '<html>New response from another request</html>', file_get_contents( $this->cache_file ) );
+	}
+
+	public function test_content_loaded_before_buffering_is_also_protected_from_a_purge() {
+		HSPSC_Page::capture_request_generation();
+		$loaded_content = '<html>Content loaded by the old main query</html>';
+		HSPSC_Page::clear_cache();
+		ob_start();
+		HSPSC_Page_Buffer_Fixture::start_buffer();
+		echo $loaded_content;
+		HSPSC_Page_Buffer_Fixture::save_buffer();
+		$this->assertSame( $loaded_content, ob_get_clean() );
+		$this->assertFileDoesNotExist( $this->cache_file );
+	}
+
+	public function test_a_new_request_can_cache_after_invalidation() {
+		HSPSC_Page::clear_cache();
+		HSPSC_Page::capture_request_generation();
+		ob_start();
+		HSPSC_Page_Buffer_Fixture::start_buffer();
+		echo '<html>Published content</html>';
+		HSPSC_Page_Buffer_Fixture::save_buffer();
+		$this->assertSame( '<html>Published content</html>', ob_get_clean() );
+		$this->assertSame( '<html>Published content</html>', file_get_contents( $this->cache_file ) );
+	}
+
+	public function test_main_query_does_not_replace_the_generation_seen_during_theme_bootstrap() {
+		HSPSC_Page::capture_request_generation();
+		HSPSC_Page::clear_cache();
+		do_action( 'parse_request', $GLOBALS['wp'] );
+		ob_start();
+		HSPSC_Page_Buffer_Fixture::start_buffer();
+		echo '<html>Shared data loaded before the purge</html>';
+		HSPSC_Page_Buffer_Fixture::save_buffer();
+		$this->assertSame( '<html>Shared data loaded before the purge</html>', ob_get_clean() );
+		$this->assertFileDoesNotExist( $this->cache_file );
+	}
+
+	public function test_corrupt_invalidation_state_disables_writes_until_a_purge_repairs_it() {
+		$state_file = HSPSC_PATH . '/.page-cache-state';
+		file_put_contents( $state_file, 'invalid-state' );
+		try {
+			HSPSC_Page::capture_request_generation();
+			ob_start();
+			HSPSC_Page_Buffer_Fixture::start_buffer();
+			echo '<html>Uncoordinated response</html>';
+			HSPSC_Page_Buffer_Fixture::save_buffer();
+			$this->assertSame( '<html>Uncoordinated response</html>', ob_get_clean() );
+			$this->assertFileDoesNotExist( $this->cache_file );
+		} finally {
+			HSPSC_Page::clear_cache();
+			HSPSC_Page::capture_request_generation();
+		}
+		$this->assertMatchesRegularExpression( '/\A[a-f0-9]{32}\z/', file_get_contents( $state_file ) );
+	}
+
 	/**
 	 * Foreign callbacks retain ownership and their final output becomes the cache.
 	 */

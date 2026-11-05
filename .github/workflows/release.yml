@@ -21,21 +21,9 @@ jobs:
           ZIP_NAME="${PLUGIN_SLUG}-${GITHUB_REF_NAME}.zip"
           mkdir -p dist/${PLUGIN_SLUG}
 
-          rsync -a --delete ./ dist/${PLUGIN_SLUG}/ \
-            --exclude '.git/' \
-            --exclude '.github/' \
-            --exclude 'bin/' \
-            --exclude 'tests/' \
-            --exclude 'phpunit.xml.dist' \
-            --exclude 'node_modules/' \
-            --exclude '*.sh' \
-            --exclude '*.xml' \
-            --exclude '*.md' \
-            --exclude '*.yml' \
-            --exclude '*.yaml' \
-            --exclude '*.json' \
-            --exclude '*.lock' \
-            --exclude '*.gitignore'
+          rsync -a --relative \
+            hsp-smart-cache.php uninstall.php readme.txt LICENSE \
+            includes dropins languages dist/${PLUGIN_SLUG}/
 
           (cd dist && zip -r "../${ZIP_NAME}" "${PLUGIN_SLUG}")
           echo "zip_name=${ZIP_NAME}" >> $GITHUB_OUTPUT

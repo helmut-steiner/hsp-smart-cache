@@ -1,0 +1,88 @@
+HSP PERSONAL NONCOMMERCIAL CONTRIBUTION LICENSE - REUSE GUIDE
+
+Version 1.0 was adopted for HSP Smart Cache on 5 November 2026.
+The authoritative project terms are in LICENSE. The complete reusable text in
+docs/license-template.txt is an identical copy. This guide explains those terms
+and their reuse; it is not part of the operative license.
+
+The license uses "this software" rather than a product name. It names Helmut
+Steiner as copyright owner and Licensor and requires no software-name, URL,
+or contact placeholders. Its HSP name identifies the license, not the software
+covered by it.
+
+REUSING THE LICENSE FOR YOUR OTHER SOFTWARE AND PLUGINS
+
+  1. Copy the complete docs/license-template.txt text into the other project's
+     LICENSE file. Check that you have the rights necessary to license the
+     software under these terms and retain all third-party licensing notices.
+  2. Check the copyright years against that project's actual history and update
+     the notice where appropriate. A different owner's project also requires
+     changing the copyright-owner and Licensor notices.
+  3. Identify that software's Original Project in its README, official
+     documentation, website, or package metadata. Supply a working contribution
+     channel and a private security-reporting contact or a documented way to
+     request private delivery. These project details belong in the software's
+     documentation rather than in license placeholders.
+  4. Retain those upstream details with redistributed copies. A fork cannot
+     redirect the contribution obligation to itself, and reusing this license
+     does not route unrelated software contributions to HSP Smart Cache.
+  5. Use "HSP Personal Noncommercial Contribution License 1.0" consistently in
+     project notices. Where supported, add a License URI pointing to that
+     project's adopted LICENSE file. Explain the contribution requirements and
+     the rights acknowledgment in its contribution instructions.
+
+The wording covers applications, command-line tools, libraries, plugins, and
+other software, as well as websites. Ordinary settings, user data, and output
+are excluded from the contribution requirement. Transformed or generated
+copies of the Software itself are not exempt merely because they are output.
+
+POLICY SUMMARY
+
+  - Personal noncommercial use by individuals is permitted. Business, client,
+    organizational, advertising, affiliate, and fundraising uses require
+    separate written permission. Ordinary hosting costs and donations to the
+    Licensor are allowed under the stated conditions.
+  - Substantive modifications, including private, experimental, unfinished,
+    and later abandoned changes, must be submitted within 30 calendar days
+    of first saving each substantive change, or before redistribution,
+    whichever is earlier. Transient editor states are not required.
+  - Eligible noncommercial forks may be shared for free with source and notices.
+  - Contributors retain their copyright and grant the Licensor the section 5
+    rights, including commercial and proprietary relicensing rights. This is
+    a license of their rights, not a transfer of ownership or a promise to
+    merge a patch.
+  - Section 4 provides safe-delivery suspensions when a channel is unavailable
+    or private delivery cannot yet be arranged. Contributors must keep dated
+    records and the patch, check contact locations at least every 30 days,
+    and deliver within 14 days after learning, or when required checks would
+    reveal, that safe delivery is available.
+  - Earlier copies retain permissions already granted under MIT or another
+    license. Third-party terms and mandatory statutory rights remain intact.
+
+HSP SMART CACHE PROJECT CHANNELS
+
+Original Project:
+  https://github.com/helmut-steiner/hsp-smart-cache
+
+Ordinary contributions:
+  https://github.com/helmut-steiner/hsp-smart-cache/pulls
+  Follow CONTRIBUTING.md, including its section 5 rights acknowledgment.
+
+Commercial permission and requests for a private delivery channel:
+  https://github.com/helmut-steiner/hsp-smart-cache/issues
+  Address a non-sensitive request to Helmut Steiner. Do not include
+  vulnerability details, exploit code, credentials, or private site data.
+  Follow SECURITY.md and section 4 of LICENSE for safe delivery.
+
+Essential project and submission details are also in readme.txt, which is
+included with LICENSE in the plugin release ZIP. The reusable template and
+this guide are repository documentation and need not be bundled with a plugin
+that already includes the complete license and its project instructions.
+
+The license is custom; its name is not an SPDX-listed identifier or a claim
+of OSI approval. Using the same name and version for unchanged terms helps
+users identify them. Substantive changes should be reviewed and clearly
+identified with a distinct license version or name. This guide makes no legal
+determination about third-party integrations or enforceability in a particular
+jurisdiction; the operative license preserves applicable third-party and
+mandatory rights.

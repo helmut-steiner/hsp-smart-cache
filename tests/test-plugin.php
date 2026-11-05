@@ -98,12 +98,13 @@ class HSPSC_Plugin_Test extends WP_UnitTestCase {
         $this->assertNotFalse( has_action( 'send_headers', array( 'HSPSC_Minify', 'maybe_send_asset_headers' ) ) );
         $this->assertNotFalse( has_filter( 'robots_txt', array( 'HSPSC_Plugin', 'filter_robots_txt' ) ) );
         $this->assertNotFalse( has_action( 'save_post', array( 'HSPSC_Plugin', 'handle_post_change' ) ) );
+        $this->assertNotFalse( has_action( 'wp_after_insert_post', array( 'HSPSC_Plugin', 'handle_post_change' ) ) );
         $this->assertNotFalse( has_action( 'deleted_post', array( 'HSPSC_Plugin', 'handle_post_delete' ) ) );
         $this->assertNotFalse( has_action( 'comment_post', array( 'HSPSC_Plugin', 'handle_comment_change' ) ) );
         $this->assertNotFalse( has_action( 'updated_option', array( 'HSPSC_Plugin', 'handle_updated_option' ) ) );
         $this->assertNotFalse( has_action( 'added_option', array( 'HSPSC_Plugin', 'handle_added_option' ) ) );
         $this->assertNotFalse( has_action( 'deleted_option', array( 'HSPSC_Plugin', 'handle_deleted_option' ) ) );
-        $this->assertNotFalse( has_action( 'bricks/generate_css_file', array( 'HSPSC_Plugin', 'flush_render_caches' ) ) );
+        $this->assertNotFalse( has_action( 'after_setup_theme', array( 'HSPSC_Bricks', 'register_hooks' ) ) );
     }
 
     public function test_cache_schema_upgrade_purges_legacy_pages_and_assets_only_once() {

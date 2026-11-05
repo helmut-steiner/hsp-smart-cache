@@ -1,5 +1,21 @@
 ﻿# Changelog
 
+## 0.9.0
+
+- Adopt the reusable HSP Personal Noncommercial Contribution License 1.0, permitting personal noncommercial use and requiring modifications to be contributed back; preserve earlier grants and third-party terms, and document contribution and safe security-reporting channels.
+- Add a Settings shortcut to the plugin's row on the WordPress Plugins page.
+- Invalidate consuming pages after native shared-template, synced-block, navigation, global-style, and custom-CSS changes, and after final WordPress post persistence.
+- Observe Bricks content/settings metadata saves and shared-template changes in both inline and external CSS modes. Save ordering was reviewed against Bricks 2.4.4; local HTTP publishing/revalidation checks passed with Bricks 2.4.5 on WordPress 7.1.4/PHP 8.4.27, alongside plugin-independent regression fixtures.
+- Coordinate page purges and writes with a persistent generation and stable lock, preventing requests started before invalidation from restoring stale HTML.
+- Preserve source asset query versions in generated CSS/JS filenames without rereading source contents on warm hits.
+- Restrict long-lived Apache asset caching to existing HSP-generated CSS/JS; other static URLs revalidate. Upgrade render-cache schema to 5 and refresh server rules only for existing auto-write opt-ins. Manually installed rules require replacement.
+
+- Add native exact-path page-cache exclusions, checked before cache hits and again before storing HTML, with independent asset optimization and reusable settings UI.
+- Preserve literal percent escapes across repeated exclusion saves and URL matching, and show BYPASS for excluded paths in the frontend toolbar even when cached files exist.
+- Fix Amelia-style late module and stylesheet opt-outs when integrations make asset URLs root-relative; restore the original asset URL while preserving module attributes, inline configuration, and unrelated tags.
+- Cover booking module chunks, relative icon fonts, WordPress inline-script output, escaped stylesheet URLs, and late module loading strategies with plugin-independent regression fixtures. Live Amelia booking flows were not tested.
+- Package only plugin runtime files in release ZIPs, excluding development dependencies, local artifacts, and nested distribution directories.
+
 ## 0.8.1
 
 - Raise the supported baseline to WordPress 7.1.3+ and PHP 8.4+; keep plugin headers, updater metadata, documentation and test environments aligned. Use current maintenance/security patches within supported PHP branches.

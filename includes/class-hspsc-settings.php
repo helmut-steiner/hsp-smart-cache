@@ -18,6 +18,7 @@ class HSPSC_Settings {
         return array(
             'page_cache'     => true,
             'page_cache_ttl' => 3600,
+            'page_cache_excluded_paths' => '',
             'cache_logged_in' => false,
             'optimize_logged_in' => false,
             'robots_disallow_ai' => false,
@@ -110,6 +111,7 @@ class HSPSC_Settings {
         $output   = array();
 
         $output['page_cache']     = ! empty( $input['page_cache'] );
+        $output['page_cache_excluded_paths'] = self::sanitize_page_cache_excluded_paths( $input['page_cache_excluded_paths'] ?? '' );
         $output['page_cache_ttl'] = isset( $input['page_cache_ttl'] ) ? max( 60, intval( $input['page_cache_ttl'] ) ) : $defaults['page_cache_ttl'];
         $output['cache_logged_in'] = ! empty( $input['cache_logged_in'] );
         $output['optimize_logged_in'] = ! empty( $input['optimize_logged_in'] );
@@ -156,5 +158,26 @@ class HSPSC_Settings {
         self::$options_cache = $sanitized;
 
         return $sanitized;
+    }
+
+    /**
+     * Normalize exact URL paths without accepting hosts, queries, or wildcards.
+     *
+     * @param mixed $input One path per line.
+     * @return string Unique normalized paths.
+     */
+    public static function sanitize_page_cache_excluded_paths( $input ) {
+        if ( ! is_string( $input ) ) {
+            return '';
+        }
+
+        $paths = array();
+        foreach ( preg_split( '/\r\n|\r|\n/', $input ) as $path ) {
+            $path = HSPSC_Utils::normalize_page_cache_path( $path );
+            if ( null !== $path ) {
+                $paths[] = $path;
+            }
+        }
+        return implode( "\n", array_unique( $paths ) );
     }
 }

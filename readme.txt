@@ -4,8 +4,9 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 7.1.3
 Tested up to: 7.1.3
 Requires PHP: 8.4
-Stable tag: 0.8.1
-License: Proprietary
+Stable tag: 0.9.0
+License: HSP Personal Noncommercial Contribution License 1.0
+License URI: https://github.com/helmut-steiner/hsp-smart-cache/blob/main/LICENSE
 Fast page caching and asset optimization for WordPress with simple controls.
 
 == Description ==
@@ -40,6 +41,13 @@ See the [Option Reference](https://github.com/helmut-steiner/hsp-smart-cache/blo
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 3. Configure settings under Settings → HSP Smart Cache.
 
+== License and Contributions ==
+Copyright (c) 2026 Helmut Steiner. HSP Smart Cache uses the HSP Personal Noncommercial Contribution License 1.0; the complete terms are included in LICENSE. Personal noncommercial use is permitted. Commercial, business, and organizational activity requires separate written permission from Helmut Steiner.
+
+The Original Project is [helmut-steiner/hsp-smart-cache](https://github.com/helmut-steiner/hsp-smart-cache). Submit substantive modifications by [pull request](https://github.com/helmut-steiner/hsp-smart-cache/pulls) within 30 calendar days of first saving each substantive change, or before distributing a copy containing it, whichever comes first. This includes private, experimental, unfinished, and later abandoned changes. Follow the [contribution instructions](https://github.com/helmut-steiner/hsp-smart-cache/blob/main/CONTRIBUTING.md), including the section 5 rights acknowledgment. Contributors retain their copyright while granting Helmut Steiner rights to incorporate their contributions and distribute them under commercial or proprietary licenses.
+
+For commercial permission or a private security delivery channel, open a [non-sensitive contact request](https://github.com/helmut-steiner/hsp-smart-cache/issues) for Helmut Steiner. Do not publish vulnerability details, exploit code, credentials, signing keys, or private site data. If safe delivery is unavailable, follow section 4 of LICENSE: retain a dated record and submission-ready copy, check the documented contact locations at least every 30 days, and deliver within 14 days after you learn, or would learn through those checks, that safe delivery is available. Do not disclose sensitive details publicly merely to meet the deadline. Earlier copies retain their previously granted permissions, and third-party material retains its own terms.
+
 == Frequently Asked Questions ==
 = Does it cache logged-in users by default? =
 No. You can enable this option in settings if your content is safe to cache per user.
@@ -53,7 +61,7 @@ Use the **Run Cache Tests** button on the settings page.
 = How does WPML integration work? =
 When WPML is active, documented APIs isolate page output for language directories, separate domains, and query URLs such as `?lang=de`. Unknown or conflicting language contexts bypass caching and frontend transformations. Language-only WPML pages remain cacheable. Translated WooCommerce/FluentCart private pages stay excluded. WCML currency cookies or its registered multicurrency API bypass page caching and frontend transformations, including first visits before cookies exist, when geolocation may personalize prices. WPML scripts keep their source URLs, localization data, and loading behavior; visitor-language redirect opt-outs remain under WPML's control. Translation, string removal, source-language/source-string edits, and language-setting changes invalidate cached pages. Ordinary frontend string registration leaves cached pages intact.
 
-Manual preload preserves XML-escaped language query arguments and fetches only exact configured home, site, or currently API-resolvable WPML language origins, without following redirects. Early/admin preload may skip other language domains before WPML's full active-language map is available. Page-cache namespace and render-cache schema 4 purge older page and asset cache files when the schema changes.
+Manual preload preserves XML-escaped language query arguments and fetches only exact configured home, site, or currently API-resolvable WPML language origins, without following redirects. Early/admin preload may skip other language domains before WPML's full active-language map is available. Page-cache namespace 4 and render-cache schema 5 purge older page and asset cache files when the schema changes.
 
 Normal PHPUnit and CI coverage uses API fixtures without requiring WPML/WCML, Independent Analytics, Slim SEO, or WebP Express plugins, private ZIP files, or license keys. Optional live integration checks run separately on a local development installation, with tested versions and configurations reported separately. These checks do not establish WPML certification.
 
@@ -68,6 +76,21 @@ Source review covered supplied Independent Analytics Pro 2.14.10 and Slim SEO Pr
 When headers can still be sent, X-HSPSC-Cache reports HIT, MISS, or BYPASS. X-HSPSC-Cache-Reason uses fixed codes: private-request, response-headers, request-key, buffer-conflict, late-private-response, or write-failed. These headers reveal no cookie values, signing secrets, or filesystem paths. The option reference explains each code. Absence of a header alone does not identify the source of a slow request.
 
 == Changelog ==
+
+= 0.9.0 =
+
+* Adopt the reusable HSP Personal Noncommercial Contribution License 1.0, permitting personal noncommercial use and requiring modifications to be contributed back; preserve earlier grants and third-party terms, and document contribution and safe security-reporting channels.
+* Add a Settings shortcut on the WordPress Plugins page.
+* Invalidate pages after final WordPress publishing and shared-template, synced-block, navigation, global-style, and custom-CSS changes.
+* Cover Bricks metadata-only saves and shared templates with inline or external CSS; source reviewed against Bricks 2.4.4, with local HTTP publishing/revalidation checks on Bricks 2.4.5 and independent regression fixtures.
+* Prevent pre-purge requests from restoring stale HTML through coordinated page-cache generations and writes.
+* Preserve asset query versions in generated filenames while retaining warm-hit source-I/O savings.
+* Revalidate mutable static URLs; reserve long-lived Apache caching for HSP-generated CSS/JS. Upgrade render-cache schema to 5 and refresh opted-in automatic rules. Replace manually installed rules with the new snippet.
+* Add configurable exact-path page-cache exclusions before lookup and final storage; asset optimization remains independent.
+* Preserve encoded literal percent signs when saving exclusions again, and show BYPASS for excluded paths in the frontend toolbar.
+* Fix Amelia-style late module and stylesheet opt-outs when integrations make asset URLs root-relative; preserve original URLs, module attributes, inline configuration, and unrelated tags.
+* Add plugin-independent coverage for booking chunks, relative icon fonts, inline scripts, escaped stylesheet URLs, and late module loading strategies. Live Amelia booking flows were not tested.
+* Include only plugin runtime files in release ZIPs, excluding development dependencies and local artifacts.
 
 = 0.8.1 =
 * Require WordPress 7.1.3+ and PHP 8.4+; align the main plugin header, update information, readme and test environments with the supported baseline.

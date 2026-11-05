@@ -109,6 +109,61 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Path exclusions override cache-file diagnostics for every logged-in policy.
+	 *
+	 * @dataProvider excluded_path_toolbar_states
+	 * @param bool   $cache_logged_in Whether authenticated pages may be cached.
+	 * @param string $file_state      Existing anonymous cache state.
+	 */
+	public function test_excluded_path_toolbar_shows_bypass_without_public_hit_details( $cache_logged_in, $file_state ) {
+		$original_options = HSPSC_Settings::get_all();
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+		$file = $this->create_public_cache_for_toolbar();
+
+		try {
+			$options = HSPSC_Settings::get_all();
+			$options['cache_logged_in'] = $cache_logged_in;
+			$options['page_cache_excluded_paths'] = '/';
+			update_option( HSPSC_Settings::OPTION_KEY, $options );
+			wp_delete_file( $file );
+			if ( 'missing' !== $file_state ) {
+				file_put_contents( $file, '<html>previously cached public page</html>' );
+				if ( 'stale' === $file_state ) {
+					touch( $file, time() - $options['page_cache_ttl'] - 1 );
+				}
+			}
+			clearstatcache( true, $file );
+
+			$bar = new WP_Admin_Bar();
+			$bar->initialize();
+			HSPSC_Admin::register_admin_bar( $bar );
+
+			$this->assertTrue( HSPSC_Utils::is_page_cache_path_excluded() );
+			$this->assertFalse( HSPSC_Utils::is_request_cacheable() );
+			$this->assertSame( 'HSP Cache: BYPASS', $bar->get_node( 'hspsc' )->title );
+			$this->assertSame( 'Status: BYPASS', $bar->get_node( 'hspsc-status' )->title );
+			$this->assertStringContainsString( 'This page path is excluded from page caching.', $bar->get_node( 'hspsc-status-reason' )->title );
+			$this->assertNull( $bar->get_node( 'hspsc-status-details' ) );
+		} finally {
+			wp_delete_file( $file );
+			update_option( HSPSC_Settings::OPTION_KEY, $original_options );
+			wp_set_current_user( 0 );
+		}
+	}
+
+	public function excluded_path_toolbar_states() {
+		return array(
+			'logged-in caching disabled, no file'    => array( false, 'missing' ),
+			'logged-in caching disabled, fresh file' => array( false, 'fresh' ),
+			'logged-in caching disabled, stale file' => array( false, 'stale' ),
+			'logged-in caching enabled, no file'     => array( true, 'missing' ),
+			'logged-in caching enabled, fresh file'  => array( true, 'fresh' ),
+			'logged-in caching enabled, stale file'  => array( true, 'stale' ),
+		);
+	}
+
+	/**
 	 * Creates a fresh anonymous cache file for the current frontend URL.
 	 *
 	 * @return string Cache filename.

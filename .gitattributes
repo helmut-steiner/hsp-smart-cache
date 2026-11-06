@@ -8,3 +8,7 @@ package-lock.json -text !eol whitespace=blank-at-eol,blank-at-eof,space-before-t
 *.xml text eol=lf
 *.po text eol=lf
 *.pot text eol=lf
+# Preserve committed mixed endings in untouched legacy test fixtures.
+tests/test-render.php -text !eol
+tests/test-settings.php -text !eol
+tests/test-updater.php -text !eol

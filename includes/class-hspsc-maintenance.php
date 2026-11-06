@@ -305,14 +305,19 @@ class HSPSC_Maintenance {
 
 		$tables_written = 0;
 		$rows_written   = 0;
+		$error          = '';
 
-		self::write_backup_line( $handle, '-- HSP Smart Cache database backup', $compressed );
-		self::write_backup_line( $handle, '-- Created at GMT: ' . gmdate( 'c' ), $compressed );
-		self::write_backup_line( $handle, '-- Site URL: ' . site_url(), $compressed );
-		self::write_backup_line( $handle, 'SET FOREIGN_KEY_CHECKS=0;', $compressed );
-		self::write_backup_line( $handle, '', $compressed );
+		foreach ( array( '-- HSP Smart Cache database backup', '-- Created at GMT: ' . gmdate( 'c' ), '-- Site URL: ' . site_url(), 'SET FOREIGN_KEY_CHECKS=0;', '' ) as $line ) {
+			if ( ! static::write_backup_line( $handle, $line, $compressed ) ) {
+				$error = 'write_failed';
+				break;
+			}
+		}
 
 		foreach ( $tables as $table ) {
+			if ( '' !== $error ) {
+				break;
+			}
 			$table = (string) $table;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Read the current schema into the backup using a prepared identifier; SHOW CREATE TABLE does not change the schema.
 			$create_row = $wpdb->get_row( $wpdb->prepare( 'SHOW CREATE TABLE %i', $table ), ARRAY_A );
@@ -326,34 +331,46 @@ class HSPSC_Maintenance {
 				}
 			}
 
-			if ( '' === $create_sql ) {
-				continue;
+			if ( '' === $create_sql || ! empty( $wpdb->last_error ) ) {
+				$error = 'schema_read_failed';
+				break;
 			}
 
-			self::write_backup_line( $handle, 'DROP TABLE IF EXISTS ' . self::quote_identifier( $table ) . ';', $compressed );
-			self::write_backup_line( $handle, rtrim( $create_sql, " \t\n\r\0\x0B;" ) . ';', $compressed );
+			if ( ! static::write_backup_line( $handle, 'DROP TABLE IF EXISTS ' . self::quote_identifier( $table ) . ';', $compressed )
+				|| ! static::write_backup_line( $handle, rtrim( $create_sql, " \t\n\r\0\x0B;" ) . ';', $compressed ) ) {
+				$error = 'write_failed';
+				break;
+			}
 
 			$offset     = 0;
 			$batch_size = 500;
 			do {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Stream current database rows into the backup using prepared identifiers and numeric limits; an object-cache snapshot is unsuitable.
 				$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i LIMIT %d, %d', $table, $offset, $batch_size ), ARRAY_A );
-				if ( empty( $rows ) || ! is_array( $rows ) ) {
+				if ( ! is_array( $rows ) || ! empty( $wpdb->last_error ) ) {
+					$error = 'rows_read_failed';
+					break;
+				}
+				if ( empty( $rows ) ) {
 					break;
 				}
 
 				foreach ( $rows as $row ) {
 					if ( ! is_array( $row ) || empty( $row ) ) {
-						continue;
+						$error = 'rows_read_failed';
+						break 2;
 					}
 
 					$columns = array_map( array( __CLASS__, 'quote_identifier' ), array_keys( $row ) );
 					$values  = array_map( array( __CLASS__, 'sql_literal' ), array_values( $row ) );
-					self::write_backup_line(
+					if ( ! static::write_backup_line(
 						$handle,
 						'INSERT INTO ' . self::quote_identifier( $table ) . ' (' . implode( ', ', $columns ) . ') VALUES (' . implode( ', ', $values ) . ');',
 						$compressed
-					);
+					) ) {
+						$error = 'write_failed';
+						break 2;
+					}
 					++$rows_written;
 				}
 
@@ -361,18 +378,31 @@ class HSPSC_Maintenance {
 				$row_count = count( $rows );
 			} while ( $row_count === $batch_size );
 
-			self::write_backup_line( $handle, '', $compressed );
+			if ( '' !== $error ) {
+				break;
+			}
+			if ( ! static::write_backup_line( $handle, '', $compressed ) ) {
+				$error = 'write_failed';
+				break;
+			}
 			++$tables_written;
 		}
 
-		self::write_backup_line( $handle, 'SET FOREIGN_KEY_CHECKS=1;', $compressed );
+		if ( '' === $error && ! static::write_backup_line( $handle, 'SET FOREIGN_KEY_CHECKS=1;', $compressed ) ) {
+			$error = 'write_failed';
+		}
 
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close and check the local backup stream before signing its bytes.
 		$closed = $compressed ? gzclose( $handle ) : fclose( $handle );
-		if ( ! $closed ) {
+		if ( ! $closed && '' === $error ) {
+			$error = 'close_failed';
+		}
+		if ( '' !== $error ) {
+			wp_delete_file( $path );
+			wp_delete_file( $path . '.sig' );
 			return array(
 				'ok'    => false,
-				'error' => 'close_failed',
+				'error' => $error,
 			);
 		}
 		if ( ! self::sign_backup( $path ) ) {
@@ -430,7 +460,7 @@ class HSPSC_Maintenance {
 		$backups = array();
 		foreach ( $files as $path ) {
 			$name = basename( $path );
-			if ( ! self::get_backup_file_path( $name ) ) {
+			if ( ! self::get_backup_file_path( $name ) || ! self::is_backup_for_current_site( $path ) ) {
 				continue;
 			}
 			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- A validated backup may disappear before stat; the listing represents an unavailable timestamp as zero.
@@ -464,6 +494,10 @@ class HSPSC_Maintenance {
 
 		if ( ! file_exists( $path ) ) {
 			$error = self::build_backup_delete_error( 'missing_file', $file, $path );
+			return false;
+		}
+		if ( ! self::is_backup_for_current_site( $path ) ) {
+			$error = self::build_backup_delete_error( 'site_scope_mismatch', $file, $path );
 			return false;
 		}
 
@@ -669,6 +703,10 @@ class HSPSC_Maintenance {
 					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Restore this connection setting after a failed restore statement; it is fixed SQL and cannot be cached.
 					$wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
 				}
+				if ( ! empty( $result['tables'] ) ) {
+					// Earlier DROP, CREATE or INSERT statements already changed the database.
+					HSPSC_Plugin::flush_all_caches();
+				}
 				return self::build_restore_result(
 					false,
 					'query_failed',
@@ -766,11 +804,6 @@ class HSPSC_Maintenance {
 			return array();
 		}
 
-		$prefix = isset( $wpdb->prefix ) ? (string) $wpdb->prefix : '';
-		if ( '' === $prefix ) {
-			return $tables;
-		}
-
 		return array_values(
 			array_filter(
 				$tables,
@@ -791,7 +824,23 @@ class HSPSC_Maintenance {
 		global $wpdb;
 
 		$prefix = isset( $wpdb->prefix ) ? (string) $wpdb->prefix : '';
-		return '' === $prefix || strpos( (string) $table, $prefix ) === 0;
+		$table  = (string) $table;
+		if ( '' === $prefix || ! preg_match( '/^[A-Za-z0-9_$]+$/D', $table ) || strpos( $table, $prefix ) !== 0 ) {
+			return false;
+		}
+		if ( is_multisite() ) {
+			if ( ! isset( $wpdb->base_prefix ) || ! method_exists( $wpdb, 'tables' ) ) {
+				return false;
+			}
+			// These are per-site operations, including when a network administrator runs them.
+			if ( in_array( $table, $wpdb->tables( 'global', true ), true ) ) {
+				return false;
+			}
+			if ( $prefix === $wpdb->base_prefix && preg_match( '/^' . preg_quote( $prefix, '/' ) . '[0-9]+_/', $table ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -872,6 +921,10 @@ class HSPSC_Maintenance {
 		$scope = trim( $host . '-' . $install_dir, '-' );
 		$scope = strtolower( preg_replace( '/[^A-Za-z0-9_-]+/', '-', $scope ) );
 		$scope = trim( $scope, '-' );
+		if ( is_multisite() ) {
+			// Old shared multisite directories/signatures remain ambiguous and are not adopted.
+			$scope .= '-network-' . get_current_network_id() . '-blog-' . get_current_blog_id();
+		}
 
 		return sprintf(
 			'%s-%s',
@@ -903,8 +956,52 @@ class HSPSC_Maintenance {
 	 * @return string Hexadecimal keyed SHA-256 signature.
 	 */
 	protected static function backup_signature( $file, $contents ) {
-		$context = 'hspsc-backup-v1|' . self::get_backup_site_dir_name() . '|' . basename( $file ) . '|';
-		return hash_hmac( 'sha256', $context . $contents, wp_salt( 'auth' ) );
+		return hash_hmac( 'sha256', self::backup_signature_context( $file ) . $contents, wp_salt( 'auth' ) );
+	}
+
+	/**
+	 * Binds a signature to the current installation, multisite blog and filename.
+	 *
+	 * @param string $file Backup basename.
+	 * @return string Signature context preceding the exact backup bytes.
+	 */
+	protected static function backup_signature_context( $file ) {
+		return 'hspsc-backup-v1|' . self::get_backup_site_dir_name() . '|' . basename( $file ) . '|';
+	}
+
+	/**
+	 * Authenticates a backup stream without loading another full copy into memory.
+	 *
+	 * @param string $path Regular backup file to hash.
+	 * @return string|false Keyed signature, or false when the stream cannot be read.
+	 */
+	protected static function backup_file_signature( $path ) {
+		if ( ! is_file( $path ) || is_link( $path ) ) {
+			return false;
+		}
+		$hash = hash_init( 'sha256', HASH_HMAC, wp_salt( 'auth' ) );
+		hash_update( $hash, self::backup_signature_context( basename( $path ) ) );
+		return hash_update_file( $hash, $path ) ? hash_final( $hash ) : false;
+	}
+
+	/**
+	 * Rejects foreign or ambiguous backups even when a multisite filter shares a directory.
+	 *
+	 * @param string $path Candidate backup file.
+	 * @return bool Whether listing/deletion may treat it as a current-site backup.
+	 */
+	protected static function is_backup_for_current_site( $path ) {
+		if ( ! is_multisite() ) {
+			return true;
+		}
+		$signature_path = $path . '.sig';
+		if ( ! is_file( $signature_path ) || is_link( $signature_path ) ) {
+			return false;
+		}
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Read only a regular local signature sidecar; the backup itself is authenticated through a streaming hash.
+		$signature = file_get_contents( $signature_path );
+		$expected  = self::backup_file_signature( $path );
+		return is_string( $signature ) && is_string( $expected ) && hash_equals( $expected, trim( $signature ) );
 	}
 
 	/**
@@ -914,9 +1011,8 @@ class HSPSC_Maintenance {
 	 * @return bool Whether the backup was read and its signature saved.
 	 */
 	protected static function sign_backup( $path ) {
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Sign the exact local backup bytes just written, before any decompression or transformation.
-		$contents = file_get_contents( $path );
-		return false !== $contents && HSPSC_Utils::atomic_write( $path . '.sig', self::backup_signature( basename( $path ), $contents ) );
+		$signature = self::backup_file_signature( $path );
+		return false !== $signature && HSPSC_Utils::atomic_write( $path . '.sig', $signature );
 	}
 
 	/**
@@ -993,12 +1089,13 @@ class HSPSC_Maintenance {
 	 * @param resource $handle Open backup stream.
 	 * @param string   $line SQL or comment text without its final newline.
 	 * @param bool     $compressed Whether the stream was opened with gzopen().
-	 * @return int|false Number of bytes written, or false on failure.
+	 * @return bool Whether the complete line was written.
 	 */
 	protected static function write_backup_line( $handle, $line, $compressed ) {
 		$data = $line . "\n";
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- Append to the already-open local backup stream so large dumps do not need to be held in memory.
-		return $compressed ? gzwrite( $handle, $data ) : fwrite( $handle, $data );
+		$written = $compressed ? gzwrite( $handle, $data ) : fwrite( $handle, $data );
+		return strlen( $data ) === $written;
 	}
 
 	/**

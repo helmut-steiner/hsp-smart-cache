@@ -242,6 +242,76 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The logged-in frontend toolbar inspects the active session's private entry.
+	 */
+	public function test_toolbar_distinguishes_current_private_session_from_public_cache() {
+		$original_options = HSPSC_Settings::get_all();
+		$cookies          = $_COOKIE;
+		$user             = get_current_user_id();
+		$admin_id         = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+		$public  = $this->create_public_cache_for_toolbar();
+		$private = null;
+		$method  = new ReflectionMethod( 'HSPSC_Admin', 'get_admin_bar_cache_status' );
+		$method->setAccessible( true );
+		try {
+			update_option( HSPSC_Settings::OPTION_KEY, array_merge( HSPSC_Settings::defaults(), array( 'cache_logged_in' => true ) ) );
+			file_put_contents( $public, '<html>Fresh public entry</html>' );
+			$_COOKIE = array( LOGGED_IN_COOKIE => wp_generate_auth_cookie( $admin_id, time() + HOUR_IN_SECONDS, 'logged_in', 'toolbar-session' ) );
+			$this->assertTrue( HSPSC_Utils::is_request_cacheable() );
+			$this->assertSame( 'MISS', $method->invoke( null )['label'] );
+
+			$private = HSPSC_Page::get_cache_info_for_request()['file'];
+			wp_mkdir_p( dirname( $private ) );
+			file_put_contents( $private, HSPSC_Page::PRIVATE_FILE_GUARD . '<html>Fresh private entry</html>' );
+			$status = $method->invoke( null );
+			$this->assertSame( 'HIT', $status['label'] );
+			$this->assertStringContainsString( 'response headers show the current request', $status['details'] );
+
+			$_COOKIE['woocommerce_cart_hash'] = 'private-cart';
+			$this->assertSame( 'BYPASS', $method->invoke( null )['label'] );
+			unset( $_COOKIE['woocommerce_cart_hash'] );
+			$_COOKIE[ LOGGED_IN_COOKIE ] = wp_generate_auth_cookie( $admin_id, time() + HOUR_IN_SECONDS, 'logged_in', 'other-session' );
+			$this->assertSame( 'MISS', $method->invoke( null )['label'] );
+		} finally {
+			if ( $private ) {
+				wp_delete_file( $private );
+			}
+			wp_delete_file( $public );
+			update_option( HSPSC_Settings::OPTION_KEY, $original_options );
+			$_COOKIE = $cookies;
+			wp_set_current_user( $user );
+		}
+	}
+
+	/**
+	 * Enabling logged-in frontend caching never changes the admin-screen status.
+	 */
+	public function test_settings_screen_toolbar_bypasses_enabled_logged_in_cache() {
+		$original_options = HSPSC_Settings::get_all();
+		$screen           = get_current_screen();
+		$user             = get_current_user_id();
+		try {
+			update_option( HSPSC_Settings::OPTION_KEY, array_merge( HSPSC_Settings::defaults(), array( 'cache_logged_in' => true ) ) );
+			wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+			set_current_screen( 'settings_page_hsp-smart-cache' );
+			$_SERVER['REQUEST_URI'] = '/wp-admin/options-general.php?page=hsp-smart-cache';
+			$bar = new WP_Admin_Bar();
+			$bar->initialize();
+			HSPSC_Admin::register_admin_bar( $bar );
+
+			$this->assertSame( 'HSP Cache: BYPASS', $bar->get_node( 'hspsc' )->title );
+			$this->assertStringContainsString( 'WordPress admin requests are not cached.', $bar->get_node( 'hspsc-status-reason' )->title );
+			$this->assertNull( $bar->get_node( 'hspsc-clear-current' ) );
+			$this->assertNull( $bar->get_node( 'hspsc-rebuild-current' ) );
+		} finally {
+			set_current_screen( $screen ?: 'front' );
+			update_option( HSPSC_Settings::OPTION_KEY, $original_options );
+			wp_set_current_user( $user );
+		}
+	}
+
+	/**
 	 * Path exclusions override cache-file diagnostics for every logged-in policy.
 	 *
 	 * @dataProvider excluded_path_toolbar_states
@@ -540,6 +610,10 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $cache_file = $method->invoke( null, $target_url );
         file_put_contents( $cache_file, 'cached' );
         $this->assertFileExists( $cache_file );
+		$private_file = HSPSC_PATH . '/pages/private/' . substr( basename( $cache_file ), 0, 32 ) . '-user-' . md5( 'other-session' ) . '-' . md5( 'text/html' ) . '.php';
+		wp_mkdir_p( dirname( $private_file ) );
+		file_put_contents( $private_file, HSPSC_Page::PRIVATE_FILE_GUARD . 'cached private page' );
+		$this->assertFileExists( $private_file );
 
         $_GET['_wpnonce'] = wp_create_nonce( 'hspsc_clear_current' );
         $_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
@@ -552,12 +626,14 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 
         try {
             HSPSC_Admin::handle_clear_current();
+			$this->assertFileDoesNotExist( $cache_file );
+			$this->assertFileDoesNotExist( $private_file );
         } finally {
             remove_filter( 'wp_redirect', $capture_redirect );
+			wp_delete_file( $private_file );
+			wp_delete_file( $cache_file );
+			wp_set_current_user( 0 );
         }
-
-        $this->assertFileDoesNotExist( $cache_file );
-        wp_set_current_user( 0 );
     }
 
     public function test_handle_run_preload_sets_result_transient() {

@@ -1,6 +1,193 @@
 <?php
 
 class HSPSC_Page_Test extends WP_UnitTestCase {
+	protected function invoke_page( $name, ...$args ) {
+		$method = new ReflectionMethod( 'HSPSC_Page', $name );
+		$method->setAccessible( true );
+		return $method->invokeArgs( null, $args );
+	}
+
+	/**
+	 * Authenticated responses have executable guards and URL-wide invalidation.
+	 */
+	public function test_authenticated_cache_files_are_guarded_and_all_users_invalidate_together() {
+		$server = $_SERVER;
+		$user   = get_current_user_id();
+		$files  = array();
+		$url    = home_url( '/authenticated-storage/' );
+		try {
+			$home = wp_parse_url( home_url() );
+			$_SERVER['HTTP_HOST']   = $home['host'] . ( isset( $home['port'] ) ? ':' . $home['port'] : '' );
+			$_SERVER['REQUEST_URI'] = '/authenticated-storage/';
+			$_SERVER['HTTP_ACCEPT'] = 'text/html';
+			wp_set_current_user( self::factory()->user->create() );
+			$first   = $this->get_current_cache_path();
+			$files[] = $first;
+			$this->assertTrue( $this->invoke_page( 'write_private_cache_file', $first, '<html>First user</html>' ) );
+			wp_set_current_user( self::factory()->user->create() );
+			$second  = $this->get_current_cache_path();
+			$files[] = $second;
+			$this->assertTrue( $this->invoke_page( 'write_private_cache_file', $second, '<html>Second user</html>' ) );
+			$public  = HSPSC_Page::get_cache_file_path_for_url( $url );
+			$files[] = $public;
+			file_put_contents( $public, '<html>Anonymous visitor</html>' );
+
+			$this->assertNotSame( $first, $second );
+			$this->assertStringStartsWith( HSPSC_PATH . '/pages/private/', $first );
+			$this->assertStringEndsWith( '.php', $first );
+			$this->assertStringEndsWith( '.html', $public );
+			$this->assertSame( HSPSC_Page::PRIVATE_FILE_GUARD . '<html>First user</html>', file_get_contents( $first ) );
+			foreach ( array( 'index.php', '.htaccess', 'web.config' ) as $protection ) {
+				$this->assertFileExists( dirname( $first ) . '/' . $protection );
+			}
+			$snapshot = $this->invoke_page( 'open_cache_snapshot', $first, 3600 );
+			$this->assertIsArray( $snapshot );
+			ob_start();
+			$this->invoke_page( 'stream_cache_file', $snapshot['handle'] );
+			$this->assertSame( '<html>First user</html>', ob_get_clean() );
+			fclose( $snapshot['handle'] );
+			$this->assertSame( $snapshot['etag'], $this->invoke_page( 'get_content_etag', $first, '<html>First user</html>' ) );
+
+			HSPSC_Page::clear_cache_for_url( $url );
+			foreach ( $files as $file ) {
+				$this->assertFileDoesNotExist( $file );
+			}
+		} finally {
+			foreach ( $files as $file ) {
+				wp_delete_file( $file );
+			}
+			$_SERVER = $server;
+			wp_set_current_user( $user );
+		}
+	}
+
+	/**
+	 * Unguarded private files are unusable and cleanup preserves deny metadata.
+	 */
+	public function test_private_cache_requires_its_guard_and_cleanup_preserves_protections() {
+		$server = $_SERVER;
+		$user   = get_current_user_id();
+		$file   = null;
+		try {
+			$home = wp_parse_url( home_url() );
+			$_SERVER['HTTP_HOST']   = $home['host'] . ( isset( $home['port'] ) ? ':' . $home['port'] : '' );
+			$_SERVER['REQUEST_URI'] = '/guarded-storage/';
+			wp_set_current_user( self::factory()->user->create() );
+			$file = $this->get_current_cache_path();
+			$this->assertTrue( $this->invoke_page( 'write_private_cache_file', $file, '<html>Private body</html>' ) );
+			file_put_contents( $file, '<html>Missing guard</html>' );
+			$this->assertFalse( $this->invoke_page( 'open_cache_snapshot', $file, 3600 ) );
+			$this->assertTrue( $this->invoke_page( 'write_private_cache_file', $file, '<html>Private body</html>' ) );
+			$old = time() - (int) HSPSC_Settings::get( 'page_cache_ttl' ) - 10;
+			touch( $file, $old );
+			foreach ( array( 'index.php', '.htaccess', 'web.config' ) as $protection ) {
+				touch( dirname( $file ) . '/' . $protection, $old );
+			}
+			clearstatcache();
+			HSPSC_Page::cleanup_expired_cache();
+			$this->assertFileDoesNotExist( $file );
+			foreach ( array( 'index.php', '.htaccess', 'web.config' ) as $protection ) {
+				$this->assertFileExists( dirname( $file ) . '/' . $protection );
+			}
+		} finally {
+			if ( $file ) {
+				wp_delete_file( $file );
+			}
+			$_SERVER = $server;
+			wp_set_current_user( $user );
+		}
+	}
+
+	/**
+	 * Distinct login sessions cannot share cached nonce-bearing frontend HTML.
+	 */
+	public function test_authenticated_cache_key_isolates_login_sessions() {
+		$server  = $_SERVER;
+		$cookies = $_COOKIE;
+		$user    = get_current_user_id();
+		try {
+			$home = wp_parse_url( home_url() );
+			$_SERVER['HTTP_HOST']   = $home['host'] . ( isset( $home['port'] ) ? ':' . $home['port'] : '' );
+			$_SERVER['REQUEST_URI'] = '/session-isolation/';
+			$user_id = self::factory()->user->create();
+			wp_set_current_user( $user_id );
+			$_COOKIE[ LOGGED_IN_COOKIE ] = wp_generate_auth_cookie( $user_id, time() + HOUR_IN_SECONDS, 'logged_in', 'first-session' );
+			$first = $this->get_current_cache_path();
+			$_COOKIE[ LOGGED_IN_COOKIE ] = wp_generate_auth_cookie( $user_id, time() + HOUR_IN_SECONDS, 'logged_in', 'second-session' );
+			$this->assertNotSame( $first, $this->get_current_cache_path() );
+		} finally {
+			$_SERVER = $server;
+			$_COOKIE = $cookies;
+			wp_set_current_user( $user );
+		}
+	}
+
+	/**
+	 * Failed access-deny setup must not persist any authenticated response body.
+	 */
+	public function test_private_write_fails_closed_when_protection_is_blocked() {
+		$private = HSPSC_PATH . '/pages/private';
+		$file    = $private . '/' . str_repeat( 'a', 32 ) . '-user-' . str_repeat( 'b', 32 ) . '-' . str_repeat( 'c', 32 ) . '.php';
+		$this->assertTrue( $this->invoke_page( 'ensure_private_cache_directory' ) );
+		$rules = file_get_contents( $private . '/.htaccess' );
+		wp_delete_file( $private . '/.htaccess' );
+		mkdir( $private . '/.htaccess' );
+		try {
+			$this->assertFalse( $this->invoke_page( 'write_private_cache_file', $file, '<html>Must remain unsaved</html>' ) );
+			$this->assertFileDoesNotExist( $file );
+		} finally {
+			rmdir( $private . '/.htaccess' );
+			HSPSC_Utils::atomic_write( $private . '/.htaccess', $rules );
+			wp_delete_file( $file );
+		}
+	}
+
+	/**
+	 * Core's login default can be replaced without accepting later private headers.
+	 */
+	public function test_authenticated_header_filter_preserves_integration_privacy_vetoes() {
+		$server  = $_SERVER;
+		$cookies = $_COOKIE;
+		$user    = get_current_user_id();
+		$options = HSPSC_Settings::get_all();
+		$core    = array(
+			'Content-Type'  => 'text/html; charset=UTF-8',
+			'Cache-Control' => 'no-cache, must-revalidate, max-age=0, no-store, private',
+			'Expires'       => 'Wed, 11 Jan 1984 05:00:00 GMT',
+		);
+		$late = static function ( $headers ) {
+			$headers['Cache-Control'] = 'private, no-store';
+			return $headers;
+		};
+		try {
+			$this->go_to( home_url( '/' ) );
+			$_SERVER['REQUEST_METHOD'] = 'GET';
+			$_COOKIE = array();
+			wp_set_current_user( self::factory()->user->create() );
+			update_option( HSPSC_Settings::OPTION_KEY, array_merge( $options, array( 'page_cache' => true, 'cache_logged_in' => true ) ) );
+			$filtered = HSPSC_Page::filter_authenticated_cache_headers( $core );
+			$this->assertArrayNotHasKey( 'Cache-Control', $filtered );
+			$this->assertSame( $core['Expires'], $filtered['Expires'] );
+			$custom = array_merge( $core, array( 'Cache-Control' => 'private, no-store' ) );
+			$this->assertSame( $custom, HSPSC_Page::filter_authenticated_cache_headers( $custom ) );
+			add_filter( 'wp_headers', $late, 10 );
+			$filtered = apply_filters( 'wp_headers', $core );
+			$this->assertSame( 'private, no-store', $filtered['Cache-Control'] );
+			$lines = array();
+			foreach ( $filtered as $name => $value ) {
+				$lines[] = $name . ': ' . $value;
+			}
+			$this->assertFalse( $this->invoke_page( 'should_cache_response', 200, $lines ) );
+			update_option( HSPSC_Settings::OPTION_KEY, array_merge( $options, array( 'cache_logged_in' => false ) ) );
+			$this->assertSame( $core, HSPSC_Page::filter_authenticated_cache_headers( $core ) );
+		} finally {
+			remove_filter( 'wp_headers', $late, 10 );
+			update_option( HSPSC_Settings::OPTION_KEY, $options );
+			$_SERVER = $server;
+			$_COOKIE = $cookies;
+			wp_set_current_user( $user );
+		}
+	}
     protected function get_cache_path_for_url( $url ) {
         $ref = new ReflectionClass( 'HSPSC_Page' );
         $method = $ref->getMethod( 'get_cache_file_path_for_url' );

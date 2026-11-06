@@ -2,6 +2,8 @@
 
 class HSPSC_Maintenance_WPDB_Mock {
     public $prefix = 'wp_';
+    public $base_prefix = 'wp_';
+    public $last_error = '';
     public $posts = 'wp_posts';
     public $comments = 'wp_comments';
     public $commentmeta = 'wp_commentmeta';
@@ -19,13 +21,27 @@ class HSPSC_Maintenance_WPDB_Mock {
 
     public function query( $sql ) {
         $this->queries[] = $sql;
+        return $this->query_fails( $sql ) ? false : 1;
+    }
+
+    private function query_fails( $sql ) {
+        $this->last_error = '';
         foreach ( $this->query_fail_patterns as $pattern ) {
             if ( stripos( $sql, $pattern ) !== false ) {
-                return false;
+                $this->last_error = 'Simulated database query failure.';
+                return true;
             }
         }
+        return false;
+    }
 
-        return 1;
+    public function tables( $scope = 'all', $prefix = true ) {
+        return array_map(
+            function ( $table ) use ( $prefix ) {
+                return ( $prefix ? $this->base_prefix : '' ) . $table;
+            },
+            array( 'users', 'usermeta', 'blogs', 'blogmeta', 'site', 'sitemeta', 'signups', 'registration_log' )
+        );
     }
 
     public function esc_like( $text ) {
@@ -106,6 +122,9 @@ class HSPSC_Maintenance_WPDB_Mock {
 
     public function get_results( $sql, $output = OBJECT ) {
         $this->queries[] = $sql;
+        if ( $this->query_fails( $sql ) ) {
+            return array();
+        }
         if ( stripos( $sql, 'SHOW TABLE STATUS' ) !== false ) {
             return $this->status_rows;
         }
@@ -125,6 +144,9 @@ class HSPSC_Maintenance_WPDB_Mock {
 
     public function get_row( $sql, $output = OBJECT ) {
         $this->queries[] = $sql;
+        if ( $this->query_fails( $sql ) ) {
+            return null;
+        }
         if ( preg_match( '/SHOW\s+CREATE\s+TABLE\s+`([^`]+)`/i', $sql, $matches ) ) {
             $table = $matches[1];
             return array(
@@ -149,6 +171,27 @@ class HSPSC_Maintenance_WPDB_Mock {
 
     public function suppress_errors( $suppress = null ) {
         return false;
+    }
+}
+
+class HSPSC_Maintenance_Failed_Write extends HSPSC_Maintenance {
+    protected static function write_backup_line( $handle, $line, $compressed ) {
+        return strpos( $line, 'INSERT INTO ' ) === 0 ? false : parent::write_backup_line( $handle, $line, $compressed );
+    }
+}
+
+class HSPSC_Maintenance_Short_Write_Stream {
+    public $context;
+    private $remaining = 2;
+
+    public function stream_open( $path, $mode, $options, &$opened_path ) {
+        return true;
+    }
+
+    public function stream_write( $data ) {
+        $written = min( strlen( $data ), $this->remaining );
+        $this->remaining -= $written;
+        return $written;
     }
 }
 
@@ -410,6 +453,57 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertStringContainsString( "Semi; colon and \\'quote\\'", $contents );
     }
 
+    /** @dataProvider failed_backup_reads */
+    public function test_failed_database_reads_remove_the_incomplete_unsigned_backup( $pattern, $error ) {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_posts', 'wp_options' );
+        for ( $i = 1; $i <= 501; ++$i ) {
+            $wpdb->table_rows['wp_posts'][] = array( 'ID' => $i );
+        }
+        $wpdb->query_fail_patterns = array( $pattern );
+
+        $backup = HSPSC_Maintenance::create_backup();
+
+        $this->assertFalse( $backup['ok'] );
+        $this->assertSame( $error, $backup['error'] );
+        $this->assertSame( array(), glob( $this->backup_dir . '/*.sql*' ) );
+    }
+
+    public static function failed_backup_reads() {
+        return array(
+            'schema after one completed table' => array( 'SHOW CREATE TABLE `wp_options`', 'schema_read_failed' ),
+            'second row batch' => array( 'SELECT * FROM `wp_posts` LIMIT 500, 500', 'rows_read_failed' ),
+        );
+    }
+
+    public function test_failed_backup_line_write_removes_the_partial_dump_and_signature() {
+        global $wpdb;
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->tables = array( 'wp_posts' );
+        $wpdb->table_rows['wp_posts'] = array( array( 'ID' => 1 ) );
+
+        $backup = HSPSC_Maintenance_Failed_Write::create_backup();
+
+        $this->assertFalse( $backup['ok'] );
+        $this->assertSame( 'write_failed', $backup['error'] );
+        $this->assertSame( array(), glob( $this->backup_dir . '/*.sql*' ) );
+    }
+
+    public function test_short_backup_line_writes_are_reported_as_failures() {
+        $scheme = 'hspsc-short-write';
+        $this->assertTrue( stream_wrapper_register( $scheme, 'HSPSC_Maintenance_Short_Write_Stream' ) );
+        $handle = fopen( $scheme . '://backup', 'wb' );
+        try {
+            $writer = new ReflectionMethod( 'HSPSC_Maintenance', 'write_backup_line' );
+            $writer->setAccessible( true );
+            $this->assertFalse( $writer->invoke( null, $handle, 'A complete backup line', false ) );
+        } finally {
+            fclose( $handle );
+            stream_wrapper_unregister( $scheme );
+        }
+    }
+
     /**
      * Checks SQL dump replay without the writer's placeholder-unescape filters.
      */
@@ -627,6 +721,39 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         $this->assertSame( 1, $restore['statement'] );
     }
 
+    public function test_partially_executed_restore_invalidates_page_asset_and_object_caches_on_failure() {
+        global $wpdb;
+        HSPSC_Utils::ensure_cache_dirs();
+        $page = HSPSC_PATH . '/pages/partial-restore.html';
+        $asset = HSPSC_PATH . '/assets/partial-restore.min.js';
+        file_put_contents( $page, 'old database page' );
+        file_put_contents( $asset, 'old database asset' );
+        wp_cache_set( 'partial-restore', 'old database value', 'hspsc-tests' );
+        $wpdb = new HSPSC_Maintenance_WPDB_Mock();
+        $wpdb->query_fail_patterns = array( "VALUES ('2')" );
+        $file = 'hsp-db-backup-2026-04-25_10-20-44.sql';
+        wp_mkdir_p( $this->backup_dir );
+        file_put_contents(
+            $this->backup_dir . '/' . $file,
+            "SET FOREIGN_KEY_CHECKS=0;\nDROP TABLE IF EXISTS `wp_posts`;\nCREATE TABLE `wp_posts` (`ID` bigint NOT NULL);\nINSERT INTO `wp_posts` (`ID`) VALUES ('1');\nINSERT INTO `wp_posts` (`ID`) VALUES ('2');\nSET FOREIGN_KEY_CHECKS=1;"
+        );
+        try {
+            $restore = $this->restore_signed_fixture( $file );
+
+            $this->assertFalse( $restore['ok'] );
+            $this->assertSame( 'query_failed', $restore['error'] );
+            $this->assertSame( 4, $restore['executed'] );
+            $this->assertFileDoesNotExist( $page );
+            $this->assertFileDoesNotExist( $asset );
+            $this->assertFalse( wp_cache_get( 'partial-restore', 'hspsc-tests', false, $found ) );
+            $this->assertFalse( $found );
+            $this->assertContains( 'SET FOREIGN_KEY_CHECKS=1', $wpdb->queries );
+        } finally {
+            wp_delete_file( $page );
+            wp_delete_file( $asset );
+        }
+    }
+
     public function test_list_and_delete_backups_work() {
         global $wpdb;
         $wpdb = new HSPSC_Maintenance_WPDB_Mock();
@@ -816,6 +943,116 @@ class HSPSC_Maintenance_Test extends WP_UnitTestCase {
         } finally {
             remove_filter( 'hspsc_db_backup_dir', $same_directory );
             remove_filter( 'home_url', $different_site );
+        }
+    }
+
+    public function test_multisite_backup_scope_and_table_ownership_fail_closed() {
+        if ( ! function_exists( 'proc_open' ) ) {
+            $this->markTestSkipped( 'PHP process execution unavailable.' );
+        }
+        $directory = trailingslashit( sys_get_temp_dir() ) . 'hspsc-multisite-backups-' . wp_generate_uuid4();
+        wp_mkdir_p( $directory . '/wordpress' );
+        $script = tempnam( sys_get_temp_dir(), 'hspsc-multisite-test-' );
+        $body = <<<'PHP'
+define( 'ARRAY_A', 'ARRAY_A' );
+define( 'OBJECT', 'OBJECT' );
+$blog_id = 2;
+$backup_override = null;
+function is_multisite() { return true; }
+function get_current_blog_id() { global $blog_id; return $blog_id; }
+function get_current_network_id() { return 1; }
+function home_url() { return 'https://example.test/site-' . get_current_blog_id() . '/'; }
+function site_url() { return home_url(); }
+function untrailingslashit( $path ) { return rtrim( $path, '/\\' ); }
+function trailingslashit( $path ) { return untrailingslashit( $path ) . '/'; }
+function wp_normalize_path( $path ) { return str_replace( '\\', '/', $path ); }
+function wp_parse_url( $url, $part = -1 ) { return parse_url( $url, $part ); }
+function wp_is_writable( $path ) { return is_writable( $path ); }
+function wp_mkdir_p( $path ) { return is_dir( $path ) || mkdir( $path, 0777, true ); }
+function wp_generate_password( $length, $special, $extra ) { return substr( bin2hex( random_bytes( 12 ) ), 0, $length ); }
+function wp_salt( $scheme ) { return 'isolated-multisite-backup-test-key'; }
+function wp_delete_file( $path ) { return ! file_exists( $path ) || unlink( $path ); }
+function apply_filters( $name, $value ) { global $backup_override; return 'hspsc_db_backup_dir' === $name && null !== $backup_override ? $backup_override : $value; }
+class WP_UnitTestCase {}
+class HSPSC_Utils {
+    public static function atomic_write( $path, $contents ) { return strlen( $contents ) === file_put_contents( $path, $contents ); }
+}
+require HSPSC_TEST_REPOSITORY . '/includes/class-hspsc-maintenance.php';
+require HSPSC_TEST_REPOSITORY . '/tests/test-maintenance.php';
+$scope_method = new ReflectionMethod( 'HSPSC_Maintenance', 'get_backup_site_dir_name' );
+$scope_two = $scope_method->invoke( null );
+$blog_id = 3;
+$scope_three = $scope_method->invoke( null );
+$data = array( 'scopes_differ' => $scope_two !== $scope_three );
+$backup_override = HSPSC_TEST_DIRECTORY . '/shared-backups';
+$wpdb = new HSPSC_Maintenance_WPDB_Mock();
+$blog_id = 2;
+$wpdb->prefix = 'wp_2_';
+$wpdb->tables = array( 'wp_2_posts' );
+$backup_two = HSPSC_Maintenance::create_backup();
+$blog_id = 3;
+$wpdb->prefix = 'wp_3_';
+$wpdb->tables = array( 'wp_3_posts' );
+$backup_three = HSPSC_Maintenance::create_backup();
+$blog_id = 2;
+$wpdb->prefix = 'wp_2_';
+$data['created'] = $backup_two['ok'] && $backup_three['ok'];
+$data['visible_files'] = array_column( HSPSC_Maintenance::list_backups(), 'file' );
+$data['own_file'] = $backup_two['file'];
+$data['foreign_delete'] = HSPSC_Maintenance::delete_backup( $backup_three['file'] );
+$data['foreign_exists'] = file_exists( $backup_three['path'] );
+$data['foreign_restore_error'] = HSPSC_Maintenance::restore_backup( $backup_three['file'] )['error'];
+$legacy_file = 'hsp-db-backup-2026-11-05_20-00-00-ABCDEF123456.sql';
+$legacy_sql = 'DROP TABLE IF EXISTS `wp_2_posts`;';
+$legacy_scope = 'example-test-wordpress-' . substr( md5( wp_normalize_path( ABSPATH ) ), 0, 12 );
+file_put_contents( $backup_override . '/' . $legacy_file, $legacy_sql );
+file_put_contents( $backup_override . '/' . $legacy_file . '.sig', hash_hmac( 'sha256', 'hspsc-backup-v1|' . $legacy_scope . '|' . $legacy_file . '|' . $legacy_sql, wp_salt( 'auth' ) ) );
+$data['legacy_visible'] = in_array( $legacy_file, array_column( HSPSC_Maintenance::list_backups(), 'file' ), true );
+$data['legacy_delete'] = HSPSC_Maintenance::delete_backup( $legacy_file );
+$data['legacy_restore_error'] = HSPSC_Maintenance::restore_backup( $legacy_file )['error'];
+$blog_id = 1;
+$wpdb->prefix = 'wp_';
+$wpdb->tables = array( 'wp_posts', 'wp_2_posts', 'wp_users', 'wp_usermeta', 'wp_sitemeta', 'other_logs' );
+$tables_method = new ReflectionMethod( 'HSPSC_Maintenance', 'get_tables' );
+$data['main_site_tables'] = $tables_method->invoke( null );
+$blog_id = 2;
+$wpdb->prefix = 'wp_2_';
+$wpdb->tables = array( 'wp_posts', 'wp_2_posts', 'wp_3_posts', 'wp_users', 'wp_sitemeta', 'other_logs' );
+$data['subsite_tables'] = $tables_method->invoke( null );
+echo json_encode( $data );
+PHP;
+        file_put_contents(
+            $script,
+            '<?php define( "ABSPATH", ' . var_export( $directory . '/wordpress/', true ) . ' );'
+            . 'define( "WP_CONTENT_DIR", ' . var_export( $directory . '/wordpress/wp-content', true ) . ' );'
+            . 'define( "HSPSC_TEST_DIRECTORY", ' . var_export( $directory, true ) . ' );'
+            . 'define( "HSPSC_TEST_REPOSITORY", ' . var_export( dirname( __DIR__ ), true ) . ' );' . $body
+        );
+        try {
+            $process = proc_open( array( PHP_BINARY, $script ), array( 0 => array( 'pipe', 'r' ), 1 => array( 'pipe', 'w' ), 2 => array( 'pipe', 'w' ) ), $pipes );
+            $this->assertIsResource( $process );
+            fclose( $pipes[0] );
+            $stdout = stream_get_contents( $pipes[1] );
+            $stderr = stream_get_contents( $pipes[2] );
+            fclose( $pipes[1] );
+            fclose( $pipes[2] );
+            $this->assertSame( 0, proc_close( $process ), $stderr );
+            $result = json_decode( $stdout, true );
+            $this->assertIsArray( $result, $stdout . $stderr );
+            $this->assertTrue( $result['scopes_differ'] );
+            $this->assertTrue( $result['created'] );
+            $this->assertSame( array( $result['own_file'] ), $result['visible_files'] );
+            $this->assertFalse( $result['foreign_delete'] );
+            $this->assertTrue( $result['foreign_exists'] );
+            $this->assertSame( 'integrity_failed', $result['foreign_restore_error'] );
+            $this->assertFalse( $result['legacy_visible'] );
+            $this->assertFalse( $result['legacy_delete'] );
+            $this->assertSame( 'integrity_failed', $result['legacy_restore_error'] );
+            $this->assertSame( array( 'wp_posts' ), $result['main_site_tables'] );
+            $this->assertSame( array( 'wp_2_posts' ), $result['subsite_tables'] );
+        } finally {
+            unlink( $script );
+            $this->delete_dir_recursively( $directory );
         }
     }
 

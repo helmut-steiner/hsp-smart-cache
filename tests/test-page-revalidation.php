@@ -20,6 +20,102 @@ class HSPSC_Page_Revalidation_Test extends WP_UnitTestCase {
 		return $method->invoke( null, $field, $etag, $encoding );
 	}
 
+	private function invoke_page( $name, ...$args ) {
+		$method = new ReflectionMethod( 'HSPSC_Page', $name );
+		$method->setAccessible( true );
+		return $method->invokeArgs( null, $args );
+	}
+
+	/**
+	 * Two changed bodies written during one timestamp second need new validators.
+	 */
+	public function test_rebuilt_content_changes_the_validator_even_with_the_same_mtime() {
+		HSPSC_Utils::ensure_cache_dirs();
+		$file = HSPSC_Page::get_cache_file_path_for_url( home_url( '/same-second-rebuild/' ) );
+		try {
+			file_put_contents( $file, '<html>Before publishing</html>' );
+			$mtime = filemtime( $file );
+			$first = $this->invoke_page( 'open_cache_snapshot', $file, 3600 );
+			$this->assertIsArray( $first );
+			fclose( $first['handle'] );
+			file_put_contents( $file, '<html>After publishing</html>' );
+			touch( $file, $mtime );
+			clearstatcache( true, $file );
+			$second = $this->invoke_page( 'open_cache_snapshot', $file, 3600 );
+			$this->assertIsArray( $second );
+			fclose( $second['handle'] );
+
+			$this->assertNotSame( $first['etag'], $second['etag'] );
+			$this->assertNull( $this->get_match( $first['etag'], null, $second['etag'] ) );
+			$this->assertSame( $second['etag'], $this->invoke_page( 'get_content_etag', $file, '<html>After publishing</html>' ) );
+		} finally {
+			wp_delete_file( $file );
+		}
+	}
+
+	/**
+	 * An opened snapshot retains matching headers and body across atomic replacement.
+	 */
+	public function test_opened_snapshot_survives_a_concurrent_cache_replacement() {
+		HSPSC_Utils::ensure_cache_dirs();
+		$file = HSPSC_Page::get_cache_file_path_for_url( home_url( '/replaced-snapshot/' ) );
+		try {
+			file_put_contents( $file, '<html>Selected response</html>' );
+			$snapshot = $this->invoke_page( 'open_cache_snapshot', $file, 3600 );
+			$this->assertIsArray( $snapshot );
+			$this->assertTrue( HSPSC_Utils::atomic_write( $file, '<html>New response</html>' ) );
+			ob_start();
+			$this->invoke_page( 'stream_cache_file', $snapshot['handle'] );
+			$output = ob_get_clean();
+			fclose( $snapshot['handle'] );
+
+			$this->assertSame( '<html>Selected response</html>', $output );
+			$this->assertSame( $snapshot['etag'], $this->invoke_page( 'get_content_etag', $file, $output ) );
+			$this->assertSame( '<html>New response</html>', file_get_contents( $file ) );
+		} finally {
+			wp_delete_file( $file );
+		}
+	}
+
+	/**
+	 * Responses larger than the memory limit remain complete after disk spilling.
+	 */
+	public function test_large_snapshot_preserves_the_complete_body_after_source_removal() {
+		HSPSC_Utils::ensure_cache_dirs();
+		$file = HSPSC_Page::get_cache_file_path_for_url( home_url( '/large-snapshot/' ) );
+		$html = '<html>' . str_repeat( 'large response ', 160000 ) . '</html>';
+		try {
+			file_put_contents( $file, $html );
+			$snapshot = $this->invoke_page( 'open_cache_snapshot', $file, 3600 );
+			$this->assertIsArray( $snapshot );
+			wp_delete_file( $file );
+			$output = stream_get_contents( $snapshot['handle'] );
+			fclose( $snapshot['handle'] );
+			$this->assertGreaterThan( 2097152, strlen( $output ) );
+			$this->assertSame( hash( 'sha256', $html ), hash( 'sha256', $output ) );
+			$this->assertSame( $snapshot['etag'], $this->invoke_page( 'get_content_etag', $file, $output ) );
+		} finally {
+			wp_delete_file( $file );
+		}
+	}
+
+	/**
+	 * A failed open remains a cache miss and cannot select a bodyless HIT.
+	 */
+	public function test_missing_or_expired_file_does_not_produce_a_cache_snapshot() {
+		HSPSC_Utils::ensure_cache_dirs();
+		$file = HSPSC_Page::get_cache_file_path_for_url( home_url( '/unavailable-snapshot/' ) );
+		wp_delete_file( $file );
+		$this->assertFalse( $this->invoke_page( 'open_cache_snapshot', $file, 60 ) );
+		try {
+			file_put_contents( $file, '<html>Expired response</html>' );
+			touch( $file, time() - 120 );
+			$this->assertFalse( $this->invoke_page( 'open_cache_snapshot', $file, 60 ) );
+		} finally {
+			wp_delete_file( $file );
+		}
+	}
+
 	/**
 	 * Complete legal fields can identify the current representation and coding.
 	 *
@@ -194,8 +290,8 @@ class HSPSC_Page_Revalidation_Test extends WP_UnitTestCase {
 			$old_file = $method->invoke( null );
 			$_SERVER['HTTP_ACCEPT'] = 'text/html,image/webp';
 			$current_file = $method->invoke( null );
-			$old_etag     = '"' . md5( $old_file . '|12345' ) . '-gzip"';
-			$current_etag = '"' . md5( $current_file . '|12345' ) . '"';
+			$old_etag     = substr( $this->invoke_page( 'get_content_etag', $old_file, '<html>Same body</html>' ), 0, -1 ) . '-gzip"';
+			$current_etag = $this->invoke_page( 'get_content_etag', $current_file, '<html>Same body</html>' );
 
 			$this->assertNotSame( $old_file, $current_file );
 			$this->assertNull( $this->get_match( $old_etag, 'gzip', $current_etag ) );

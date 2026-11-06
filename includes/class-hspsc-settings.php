@@ -150,6 +150,7 @@ class HSPSC_Settings {
 
 	/**
 	 * Normalizes each setting according to its supported type and bounds.
+	 * Critical CSS remains raw text; its style output boundary neutralizes closing tags.
 	 *
 	 * @param array $input Submitted plugin settings.
 	 * @return array Sanitized configuration merged with defaults.
@@ -181,7 +182,7 @@ class HSPSC_Settings {
 		$output['render_preconnect_urls']    = isset( $input['render_preconnect_urls'] ) ? sanitize_textarea_field( $input['render_preconnect_urls'] ) : '';
 		$output['render_preload_fonts']      = isset( $input['render_preload_fonts'] ) ? sanitize_textarea_field( $input['render_preload_fonts'] ) : '';
 		$output['render_preload_css']        = isset( $input['render_preload_css'] ) ? sanitize_textarea_field( $input['render_preload_css'] ) : '';
-		$output['render_critical_css']       = isset( $input['render_critical_css'] ) ? wp_kses_post( $input['render_critical_css'] ) : '';
+		$output['render_critical_css']       = isset( $input['render_critical_css'] ) && is_string( $input['render_critical_css'] ) ? wp_check_invalid_utf8( $input['render_critical_css'], true ) : '';
 		$output['perf_lazy_images']          = ! empty( $input['perf_lazy_images'] );
 		$output['perf_lazy_iframes']         = ! empty( $input['perf_lazy_iframes'] );
 		$output['perf_decoding_async']       = ! empty( $input['perf_decoding_async'] );

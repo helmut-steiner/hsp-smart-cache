@@ -320,6 +320,12 @@ class HSPSC_Minify {
 				return $src;
 			}
 		}
+		// Refresh at most daily so an in-flight render cannot race aged-file GC.
+		$target_mtime = filemtime( $target );
+		if ( false === $target_mtime || ( time() - $target_mtime >= DAY_IN_SECONDS && ! self::refresh_asset_usage( $target ) ) ) {
+			self::$asset_url_cache[ $cache_key ] = $src;
+			return $src;
+		}
 
 		self::$asset_url_cache[ $cache_key ] = HSPSC_URL . '/assets/' . $filename;
 		return self::$asset_url_cache[ $cache_key ];
@@ -589,6 +595,124 @@ class HSPSC_Minify {
 	 * @return int Number of files deleted.
 	 */
 	public static function cleanup_old_assets() {
-		return HSPSC_Utils::delete_old_files( HSPSC_PATH . '/assets', MONTH_IN_SECONDS );
+		$directory = HSPSC_PATH . '/assets';
+		if ( ! is_dir( $directory ) || is_link( $directory ) ) {
+			return 0;
+		}
+		$items = scandir( $directory );
+		if ( false === $items ) {
+			return 0;
+		}
+		$candidates = array();
+		$cutoff     = time() - MONTH_IN_SECONDS;
+		foreach ( $items as $item ) {
+			$path = $directory . '/' . $item;
+			if ( preg_match( '/\A[a-f0-9]{32}\.min\.(?:css|js)\z/', $item ) && ! is_link( $path ) && is_file( $path ) ) {
+				$mtime = filemtime( $path );
+				if ( false !== $mtime && $mtime < $cutoff ) {
+					$candidates[ $item ] = $path;
+				}
+			}
+		}
+		if ( ! $candidates ) {
+			return 0;
+		}
+		$references = self::get_fresh_page_asset_references( $candidates );
+		if ( false === $references ) {
+			return 0;
+		}
+		$deleted = 0;
+		foreach ( $candidates as $name => $path ) {
+			// Another request may have reused this asset while pages were scanned.
+			clearstatcache( true, $path );
+			$mtime = is_file( $path ) && ! is_link( $path ) ? filemtime( $path ) : false;
+			if ( ! isset( $references[ $name ] ) && false !== $mtime && $mtime < $cutoff ) {
+				wp_delete_file( $path );
+				if ( ! file_exists( $path ) ) {
+					++$deleted;
+				}
+			}
+		}
+		return $deleted;
+	}
+
+	/**
+	 * Records recent reuse without rewriting asset contents or touching every hit.
+	 *
+	 * @param string $path Validated generated asset path.
+	 * @return bool Whether its usage timestamp was refreshed.
+	 */
+	protected static function refresh_asset_usage( $path ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_touch, WordPress.PHP.NoSilencedErrors.Discouraged -- A checked generated file needs a cheap best-effort timestamp refresh; failure falls back to the original source.
+		return @touch( $path );
+	}
+
+	/**
+	 * Protects aged assets referenced by any still-fresh public or private page.
+	 *
+	 * This scan runs only during garbage collection, never on asset cache hits.
+	 * Unreadable page storage prevents deletion rather than risking broken output.
+	 *
+	 * @param array $candidates Generated basenames mapped to their paths.
+	 * @return array|false Referenced candidate names, or false on a read failure.
+	 */
+	protected static function get_fresh_page_asset_references( $candidates ) {
+		$references = array();
+		$ttl        = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
+		$patterns   = array(
+			HSPSC_PATH . '/pages'         => '/\A[a-f0-9]{32}-[a-f0-9]{32}\.html\z/',
+			HSPSC_PATH . '/pages/private' => '/\A[a-f0-9]{32}-user-[a-f0-9]{32}-[a-f0-9]{32}\.php\z/',
+		);
+		foreach ( $patterns as $directory => $pattern ) {
+			if ( ! is_dir( $directory ) ) {
+				continue;
+			}
+			if ( is_link( $directory ) ) {
+				return false;
+			}
+			$items = scandir( $directory );
+			if ( false === $items ) {
+				return false;
+			}
+			foreach ( $items as $item ) {
+				$path = $directory . '/' . $item;
+				if ( ! preg_match( $pattern, $item ) || ! is_file( $path ) || is_link( $path ) ) {
+					continue;
+				}
+				$mtime = filemtime( $path );
+				if ( false === $mtime ) {
+					return false;
+				}
+				if ( time() - $mtime > $ttl ) {
+					continue;
+				}
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Stream a validated owned page to keep garbage-collection memory bounded.
+				$handle = fopen( $path, 'rb' );
+				if ( false === $handle ) {
+					return false;
+				}
+				$tail = '';
+				while ( ! feof( $handle ) ) {
+					// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- Read the bounded stream opened above.
+					$chunk = fread( $handle, 65536 );
+					if ( false === $chunk ) {
+						// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the owned read stream before abandoning cleanup.
+						fclose( $handle );
+						return false;
+					}
+					$text = $tail . $chunk;
+					preg_match_all( '/[a-f0-9]{32}\.min\.(?:css|js)/', $text, $matches );
+					foreach ( $matches[0] as $name ) {
+						if ( isset( $candidates[ $name ] ) ) {
+							$references[ $name ] = true;
+						}
+					}
+					$tail = substr( $text, -64 );
+				}
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the owned bounded read stream.
+				fclose( $handle );
+			}
+		}
+		return $references;
 	}
 }

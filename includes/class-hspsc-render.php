@@ -195,7 +195,17 @@ class HSPSC_Render {
 		if ( empty( $css ) ) {
 			return;
 		}
-		echo "<style id=\"hsp-critical-css\">\n" . esc_html( $css ) . "\n</style>\n";
+		// Style is raw text: HTML entities would change selectors and CSS strings.
+		// Escape only an HTML closing-style sequence, preserving its CSS value.
+		$css = preg_replace_callback(
+			'~</style~i',
+			static function ( $matches ) {
+				return '\\3C ' . substr( $matches[0], 1 );
+			},
+			$css
+		);
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS raw text has its HTML closing delimiter neutralized above; HTML escaping would corrupt valid CSS.
+		echo "<style id=\"hsp-critical-css\">\n" . $css . "\n</style>\n";
 	}
 
 	/**

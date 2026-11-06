@@ -205,7 +205,8 @@ class HSPSC_Updater {
 	 */
 	protected static function get_latest_release() {
 		$cached = get_site_transient( self::RELEASE_TRANSIENT );
-		if ( is_array( $cached ) && ! empty( $cached['tag_name'] ) ) {
+		// An empty array is the cached failure result, distinct from an expired transient.
+		if ( is_array( $cached ) ) {
 			return $cached;
 		}
 
@@ -218,6 +219,7 @@ class HSPSC_Updater {
 		);
 
 		if ( is_wp_error( $response ) ) {
+			set_site_transient( self::RELEASE_TRANSIENT, array(), 10 * MINUTE_IN_SECONDS );
 			return array();
 		}
 

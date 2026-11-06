@@ -9,7 +9,7 @@ This page documents every stored option in `hspsc_settings`. Options are configu
 | `page_cache` | `true` | Boolean | Enables full-page HTML caching for cacheable visitor requests. Cached files are stored in `wp-content/cache/hspsc/pages`. |
 | `page_cache_ttl` | `3600` | Seconds, minimum `60` | Controls how long a cached page file is considered fresh before it is regenerated. |
 | `page_cache_excluded_paths` | Empty | Multiline text | Exact host-relative URL paths to exclude from page caching, one per line. Include installation subdirectories and each translated path. Queries are ignored; percent encoding, repeated separators, dot segments, and trailing slashes are normalized. Literal percent signs stay encoded as `%25`, preserving their meaning across repeated saves. Matching is case-sensitive and does not include subpages. Full URLs and wildcards are rejected. Exclusions are checked before cached hits, before buffering, and before final storage; the frontend toolbar shows BYPASS for excluded paths. Asset optimizations remain independent. |
-| `cache_logged_in` | `false` | Boolean | Allows page caching for logged-in users. Keep disabled unless logged-in output is safe to share for the current site. |
+| `cache_logged_in` | `false` | Boolean | Allows eligible frontend HTML to be cached separately for authenticated users. Admin/settings, login, REST, AJAX, cron, builder, commerce-session and other private requests always bypass. |
 | `robots_disallow_ai` | `false` | Boolean | Adds `robots.txt` disallow rules for known AI crawler user agents when the site is public. |
 
 ## Frontend Optimization Scope
@@ -73,7 +73,7 @@ Local HTTP checks for 0.9.0 used WordPress 7.1.4, PHP 8.4.27, Bricks 2.4.5, and 
 | Option key | Default | Type | Description |
 | --- | --- | --- | --- |
 | `preload_enabled` | `false` | Boolean | Enables the manual preload action, which warms page cache entries from sitemap URLs. |
-| `preload_sitemap_url` | Empty | URL | Sitemap URL used as the source for preload URLs. If empty, the plugin falls back to the site's default sitemap URL. |
+| `preload_sitemap_url` | Empty | URL | Sitemap or sitemap-index URL used for preload. If empty, uses WordPress's core sitemap URL. Child sitemaps are traversed within bounded limits. |
 | `preload_limit` | `50` | Integer, minimum `1` | Maximum number of URLs warmed during one preload run. |
 | `preload_timeout` | `8` | Seconds, minimum `3` | Per-request timeout used while warming each URL. |
 
@@ -143,7 +143,13 @@ Eligible responses expose `X-HSPSC-Cache: HIT` or `MISS`. A bypass exposes `X-HS
 
 Page capture waits for nested buffers, including WordPress 6.9+ template enhancements, to finish naturally. It does not close foreign buffers. Final privacy and representation checks apply to the completed output.
 
+Anonymous HTML files reside in `wp-content/cache/hspsc/pages/`. Authenticated frontend entries use guarded PHP files in `pages/private/`, isolated by user and login session and protected by directory access-deny rules. WordPress admin and settings pages always bypass the page cache. Other privacy exclusions remain active, and frontend optimization retains its separate opt-in. URL purges invalidate anonymous and authenticated representations together.
+
+HTML validators identify the cached response bytes. Cache hits open and validate a response snapshot before emitting HIT headers; missing or unreadable entries fall back to rendering. Asset cleanup retains generated CSS/JS referenced by fresh cached HTML.
+
 With logged-in page caching disabled, the frontend admin toolbar shows `BYPASS` for the current visit. Its details separately report `Public cache: HIT`, `STALE`, or `MISS` for anonymous visitors. A public cache file does not make the authenticated request eligible.
+
+With logged-in caching enabled, the frontend toolbar checks the current login session’s entry when the page is generated. Cached HTML can include that earlier toolbar status. Inspect `X-HSPSC-Cache` in the response headers for the result of the current request.
 
 These diagnostics do not expose cookie values, signing secrets, or filesystem paths. Absence of a header alone does not identify the source of a slow request.
 
@@ -153,7 +159,7 @@ WPML integration is optional and requires no additional plugin setting. Document
 
 Configured WooCommerce and FluentCart private pages also exclude their WPML page translations through `wpml_object_id`. WCML currency cookies or a registered `wcml_price_currency` multicurrency API bypass page caching and frontend transformations, even without cookies: geolocation can personalize the first visitor's prices. When WCML is present but its currency API is unavailable, an unresolved multicurrency setting also bypasses caching. Language-only WPML pages remain cacheable. WPML/WCML script handles retain their original source URLs, language query arguments, localization data, and loading behavior. HSP Smart Cache does not enable visitor-language redirects or override WPML's redirect enqueue opt-out.
 
-Translation events, string removal, source-language changes, source-string edits, and WPML language-setting changes invalidate cached pages. Ordinary frontend string registration leaves cached pages intact. Page-cache namespace and render-cache schema 4 purge older page and asset cache files when the schema changes. Persistent object-cache keys retain WordPress semantics rather than receiving a global language suffix.
+Translation events, string removal, source-language changes, source-string edits, and WPML language-setting changes invalidate cached pages. Ordinary frontend string registration leaves cached pages intact. Page-cache namespace 4 and render-cache schema 6 purge older page and asset cache files when the schema changes. Persistent object-cache keys retain WordPress semantics rather than receiving a global language suffix.
 
 Normal PHPUnit and CI coverage uses API fixtures without requiring WPML/WCML plugins, private ZIP files, or license keys. Optional live integration checks run separately on a local development installation; report their tested versions, configurations, and results independently. These checks do not establish WPML certification.
 
@@ -195,3 +201,7 @@ These controls are not stored options, but they appear on the settings screen an
 | Delete Backup | Deletes a listed SQL backup after nonce and capability checks. |
 
 Backups default to `<parent-of-ABSPATH>/hspsc-db-backups/<site-scope>/` when writable, otherwise `WP_CONTENT_DIR/hspsc-db-backups/<site-scope>/`; `hspsc_db_backup_dir` can override this location. Backups survive cache purges and uninstall. Keep the `.sig` file with its matching backup: changing its filename, site scope, contents, or WordPress auth signing keys invalidates restore verification. Older unsigned backups are rejected by the built-in restore; create a new signed backup before using it. Runtime SQL errors can still leave a partial restore because database DDL is not transactional.
+
+Backup creation aborts and removes incomplete output on database-read or file-write failures; optimization will not proceed with such a backup. If restore fails after changing a table, caches are invalidated to reflect the partial database state.
+
+On multisite, backup storage and signatures include the network and blog IDs. Per-site maintenance excludes network/global tables and other blogs' tables. Legacy multisite backups from the old ambiguous shared scope are not automatically adopted; existing signed single-site backups remain compatible. Uninstall refuses directory links or resolved paths outside the disposable cache tree.

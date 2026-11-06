@@ -78,6 +78,35 @@ class HSPSC_Page_Buffer_Test extends WP_UnitTestCase {
 		$this->assertSame( $output, file_get_contents( $this->cache_file ) );
 	}
 
+	/**
+	 * The authenticated frontend body is unchanged while its stored file is guarded.
+	 */
+	public function test_authenticated_frontend_buffer_uses_private_storage() {
+		$options                    = HSPSC_Settings::get_all();
+		$options['cache_logged_in'] = true;
+		update_option( HSPSC_Settings::OPTION_KEY, $options );
+		wp_set_current_user( self::factory()->user->create() );
+		$_COOKIE[ LOGGED_IN_COOKIE ] = 'logged-in-session';
+		$method = new ReflectionMethod( 'HSPSC_Page', 'get_cache_file_path' );
+		$method->setAccessible( true );
+		$file = $method->invoke( null );
+		try {
+			HSPSC_Page::capture_request_generation();
+			ob_start();
+			HSPSC_Page_Buffer_Fixture::start_buffer();
+			echo '<html>Authenticated frontend</html>';
+			HSPSC_Page_Buffer_Fixture::save_buffer();
+			$this->assertSame( '<html>Authenticated frontend</html>', ob_get_clean() );
+			$this->assertStringStartsWith( HSPSC_PATH . '/pages/private/', $file );
+			$this->assertSame( HSPSC_Page::PRIVATE_FILE_GUARD . '<html>Authenticated frontend</html>', file_get_contents( $file ) );
+			$this->assertFileDoesNotExist( $this->cache_file );
+		} finally {
+			wp_delete_file( $file );
+			wp_set_current_user( 0 );
+			unset( $_COOKIE[ LOGGED_IN_COOKIE ] );
+		}
+	}
+
 	/** @dataProvider purge_types */
 	public function test_purge_rejects_an_in_flight_response_even_with_no_existing_file( $targeted ) {
 		ob_start();

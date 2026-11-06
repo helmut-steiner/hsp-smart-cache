@@ -2,7 +2,7 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.9.1
+ * Version: 0.10.0
  * Requires at least: 7.1.3
  * Requires PHP: 8.4
  * Update URI: https://github.com/helmut-steiner/hsp-smart-cache
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'HSPSC_VERSION', '0.9.1' );
+define( 'HSPSC_VERSION', '0.10.0' );
 define( 'HSPSC_BASENAME', plugin_basename( __FILE__ ) );
 define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );
 define( 'HSPSC_URL', content_url( '/cache/hspsc' ) );
@@ -49,7 +49,7 @@ require_once __DIR__ . '/includes/class-hspsc-updater.php';
  * Bootstraps plugin modules and shared cache invalidation.
  */
 class HSPSC_Plugin {
-	const CACHE_SCHEMA = 5;
+	const CACHE_SCHEMA = 6;
 
 	/**
 	 * Initializes modules and registers lifecycle invalidation hooks.

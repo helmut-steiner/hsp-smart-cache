@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 7.1.3
 Tested up to: 7.1.3
 Requires PHP: 8.4
-Stable tag: 0.9.1
+Stable tag: 0.10.0
 License: HSP Personal Noncommercial Contribution License 1.0
 License URI: https://github.com/helmut-steiner/hsp-smart-cache/blob/main/LICENSE
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -53,7 +53,7 @@ For commercial permission or a private security delivery channel, open a [non-se
 The interface is available in English and includes complete translations for German (de_DE), Spanish (es_ES), French (fr_FR), Italian (it_IT), Brazilian Portuguese (pt_BR), Dutch (nl_NL), Polish (pl_PL), Russian (ru_RU), Japanese (ja), Simplified Chinese (zh_CN), and Arabic (ar). WordPress selects the translation from the site language or the signed-in user's profile language. Other locales fall back to English unless a matching WordPress language pack is installed. Bundled PO sources, compiled MO files, and the POT template are in the languages directory.
 
 = Does it cache logged-in users by default? =
-No. You can enable this option in settings if your content is safe to cache per user.
+No. When enabled, only eligible frontend HTML is cached, separately for each user and login session. WordPress admin and settings pages always bypass page caching, as do other private request contexts.
 
 = How do I clear the cache? =
 Use the **Clear All Caches** button on the settings page.
@@ -64,7 +64,7 @@ Use the **Run Cache Tests** button on the settings page.
 = How does WPML integration work? =
 When WPML is active, documented APIs isolate page output for language directories, separate domains, and query URLs such as `?lang=de`. Unknown or conflicting language contexts bypass caching and frontend transformations. Language-only WPML pages remain cacheable. Translated WooCommerce/FluentCart private pages stay excluded. WCML currency cookies or its registered multicurrency API bypass page caching and frontend transformations, including first visits before cookies exist, when geolocation may personalize prices. WPML scripts keep their source URLs, localization data, and loading behavior; visitor-language redirect opt-outs remain under WPML's control. Translation, string removal, source-language/source-string edits, and language-setting changes invalidate cached pages. Ordinary frontend string registration leaves cached pages intact.
 
-Manual preload preserves XML-escaped language query arguments and fetches only exact configured home, site, or currently API-resolvable WPML language origins, without following redirects. Early/admin preload may skip other language domains before WPML's full active-language map is available. Page-cache namespace 4 and render-cache schema 5 purge older page and asset cache files when the schema changes.
+Manual preload preserves XML-escaped language query arguments and fetches only exact configured home, site, or currently API-resolvable WPML language origins, without following redirects. Early/admin preload may skip other language domains before WPML's full active-language map is available. Page-cache namespace 4 and render-cache schema 6 purge older page and asset cache files when the schema changes.
 
 Normal PHPUnit and CI coverage uses API fixtures without requiring WPML/WCML, Independent Analytics, Slim SEO, or WebP Express plugins, private ZIP files, or license keys. Optional live integration checks run separately on a local development installation, with tested versions and configurations reported separately. These checks do not establish WPML certification.
 
@@ -79,6 +79,18 @@ Source review covered supplied Independent Analytics Pro 2.14.10 and Slim SEO Pr
 When headers can still be sent, X-HSPSC-Cache reports HIT, MISS, or BYPASS. X-HSPSC-Cache-Reason uses fixed codes: private-request, response-headers, request-key, buffer-conflict, late-private-response, or write-failed. These headers reveal no cookie values, signing secrets, or filesystem paths. The option reference explains each code. Absence of a header alone does not identify the source of a slow request.
 
 == Changelog ==
+
+= 0.10.0 =
+
+* Fix opt-in logged-in frontend caching with per-user and login-session isolation in guarded private storage. Admin, settings, login, REST, AJAX, cron, builder, and private session requests remain uncached. Upgrade render-cache schema to 6.
+* Bind HTML validators to response content and serve validated immutable snapshots to prevent incorrect revalidation and incomplete cache hits during file replacement.
+* Correct toolbar diagnostics for the current login session and explain that cached toolbar text records the page-generation state.
+* Retain generated assets referenced by fresh cached pages, preserve critical CSS syntax, and safely neutralize closing style tags.
+* Traverse sitemap indexes with origin checks and bounded limits, using WordPress's core sitemap by default.
+* Reject incomplete database backups and invalidate caches when a restore fails after changing tables.
+* Isolate multisite backup storage, signatures, and tables. Signed single-site backups remain compatible; ambiguous legacy multisite backups are not automatically adopted.
+* Keep uninstall within the cache tree without following symbolic links or junctions, and cache failed update lookups.
+* Add regression tests for authentication boundaries, private storage, concurrent file replacement, maintenance failures, asset retention, sitemap traversal, and diagnostics.
 
 = 0.9.1 =
 

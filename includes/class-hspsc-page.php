@@ -14,6 +14,18 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class HSPSC_Page {
 	/**
+	 * Stops direct execution of authenticated cache files before any HTML output.
+	 */
+	const PRIVATE_FILE_GUARD = "<?php exit; ?>\n";
+
+	/**
+	 * Whether the early header filter removed WordPress's default login policy.
+	 *
+	 * @var bool
+	 */
+	protected static $authenticated_headers_pending = false;
+
+	/**
 	 * Whether the owned output buffer is still active.
 	 *
 	 * @var bool
@@ -70,10 +82,49 @@ class HSPSC_Page {
 	public static function init() {
 		// Bricks loads global data during theme bootstrap, before parse_request.
 		self::capture_request_generation();
+		add_filter( 'wp_headers', array( __CLASS__, 'filter_authenticated_cache_headers' ), PHP_INT_MIN );
+		add_action( 'shutdown', array( __CLASS__, 'restore_authenticated_cache_headers' ), -1 );
 		// Let integrations finish redirects and declare private responses first.
 		add_action( 'template_redirect', array( __CLASS__, 'maybe_serve_cache' ), PHP_INT_MAX - 1 );
 		add_action( 'template_redirect', array( __CLASS__, 'start_buffer' ), PHP_INT_MAX );
 		add_action( 'shutdown', array( __CLASS__, 'save_buffer' ), 0 );
+	}
+
+	/**
+	 * Removes only core's unmodified login policy before integration header filters.
+	 *
+	 * WordPress sends these headers before the wp action. Language resolution is
+	 * deferred to the normal lookup after wp; every other eligibility guard runs
+	 * here too. Later private/no-store headers remain a veto, even if identical to
+	 * core's original value. Expires stays in the past until the final cache policy.
+	 *
+	 * @param array $headers Core response headers, before ordinary plugin filters.
+	 * @return array Headers with only an eligible core-owned Cache-Control removed.
+	 */
+	public static function filter_authenticated_cache_headers( $headers ) {
+		self::$authenticated_headers_pending = false;
+		if ( ! HSPSC_Settings::get( 'page_cache' ) || ! HSPSC_Settings::get( 'cache_logged_in' )
+			|| ! is_user_logged_in() || ! HSPSC_Utils::is_request_cacheable( false ) ) {
+			return $headers;
+		}
+		$core_policy = 'no-cache, must-revalidate, max-age=0, no-store, private';
+		if ( isset( $headers['Cache-Control'] ) && $core_policy === $headers['Cache-Control'] ) {
+			unset( $headers['Cache-Control'] );
+			self::$authenticated_headers_pending = true;
+		}
+		return $headers;
+	}
+
+	/**
+	 * Restores browser privacy if an opted-in request ends without cache capture.
+	 *
+	 * @return void
+	 */
+	public static function restore_authenticated_cache_headers() {
+		if ( self::$authenticated_headers_pending && ! self::$buffer_started && ! headers_sent() ) {
+			nocache_headers();
+			self::$authenticated_headers_pending = false;
+		}
 	}
 
 	/**
@@ -83,6 +134,7 @@ class HSPSC_Page {
 	 */
 	public static function maybe_serve_cache() {
 		if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
+			self::restore_authenticated_cache_headers();
 			return;
 		}
 		if ( ! HSPSC_Utils::is_request_cacheable() ) {
@@ -104,16 +156,17 @@ class HSPSC_Page {
 			return;
 		}
 
-		$ttl = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
-		if ( file_exists( $cache_file ) ) {
-			$age = time() - filemtime( $cache_file );
-			if ( $age <= $ttl ) {
-				header( 'Content-Type: text/html; charset=' . get_option( 'blog_charset', 'UTF-8' ) );
-				header( 'X-HSPSC-Cache: HIT' );
-				self::send_browser_cache_headers( $cache_file );
-				self::stream_cache_file( $cache_file );
-				exit;
+		$ttl      = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
+		$snapshot = self::open_cache_snapshot( $cache_file, $ttl );
+		if ( false !== $snapshot ) {
+			header( 'Content-Type: text/html; charset=' . get_option( 'blog_charset', 'UTF-8' ) );
+			header( 'X-HSPSC-Cache: HIT' );
+			if ( ! self::send_browser_cache_headers( $snapshot['etag'] ) ) {
+				self::stream_cache_file( $snapshot['handle'] );
 			}
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the same immutable file snapshot used for validation and output.
+			fclose( $snapshot['handle'] );
+			exit;
 		}
 		self::send_cache_status( 'MISS' );
 	}
@@ -125,6 +178,7 @@ class HSPSC_Page {
 	 */
 	public static function start_buffer() {
 		if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
+			self::restore_authenticated_cache_headers();
 			return;
 		}
 		if ( ! HSPSC_Utils::is_request_cacheable() ) {
@@ -220,7 +274,7 @@ class HSPSC_Page {
 
 		HSPSC_Utils::ensure_cache_dirs();
 		if ( self::write_cache_file( $cache_file, $html, $generation ) ) {
-			self::send_browser_cache_headers( $cache_file, true );
+			self::send_browser_cache_headers( self::get_content_etag( $cache_file, $html ), true );
 			self::send_cache_status( 'MISS' );
 			self::maybe_cleanup_expired_cache();
 		} else {
@@ -292,8 +346,9 @@ class HSPSC_Page {
 		if ( headers_sent() ) {
 			return;
 		}
-		if ( 'BYPASS' === $status && 'response-headers' !== $reason ) {
+		if ( 'BYPASS' === $status && ( 'response-headers' !== $reason || self::$authenticated_headers_pending ) ) {
 			nocache_headers();
+			self::$authenticated_headers_pending = false;
 		}
 		header( 'X-HSPSC-Cache: ' . $status );
 		if ( '' !== $reason ) {
@@ -304,32 +359,36 @@ class HSPSC_Page {
 	/**
 	 * Emits HTML revalidation metadata and handles eligible conditional hits.
 	 *
-	 * @param string|null $cache_file Selected cache file, if one exists.
+	 * @param string|null $etag Validator for the exact selected HTML bytes.
 	 * @param bool        $is_miss Whether this response was generated instead of served from cache.
-	 * @return void
+	 * @return bool Whether an eligible conditional hit selected a bodyless 304.
 	 */
-	protected static function send_browser_cache_headers( $cache_file = null, $is_miss = false ) {
+	protected static function send_browser_cache_headers( $etag = null, $is_miss = false ) {
 		if ( headers_sent() ) {
-			return;
+			return false;
 		}
 		// The cache filename isolates every Accept representation, including image formats.
 		header( 'Vary: Accept', false );
+		$is_logged_in = is_user_logged_in();
 		if ( ! HSPSC_Settings::get( 'browser_cache' ) ) {
-			return;
+			if ( $is_logged_in ) {
+				nocache_headers();
+			}
+			self::$authenticated_headers_pending = false;
+			return false;
 		}
 
-		$ttl          = intval( HSPSC_Settings::get( 'browser_cache_html_ttl', 600 ) );
-		$is_logged_in = is_user_logged_in();
+		$ttl = intval( HSPSC_Settings::get( 'browser_cache_html_ttl', 600 ) );
 
 		if ( $is_logged_in && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
-			return;
+			return false;
 		}
 
 		// Revalidate HTML after session/currency changes; only the origin selects a variant.
 		header( 'Cache-Control: private, no-cache, max-age=' . $ttl . ', must-revalidate' );
+		self::$authenticated_headers_pending = false;
 
-		if ( $cache_file && file_exists( $cache_file ) ) {
-			$etag = '"' . md5( $cache_file . '|' . filemtime( $cache_file ) ) . '"';
+		if ( is_string( $etag ) ) {
 			header( 'ETag: ' . $etag );
 
 			if ( ! $is_miss ) {
@@ -348,10 +407,11 @@ class HSPSC_Page {
 						header( 'Content-Encoding: ' . $match['encoding'] );
 					}
 					status_header( 304 );
-					exit;
+					return true;
 				}
 			}
 		}
+		return false;
 	}
 
 	/**
@@ -518,11 +578,12 @@ class HSPSC_Page {
 			if ( $user_id <= 0 ) {
 				return '';
 			}
-			$user_context = '|user:' . $user_id . ':' . wp_salt( 'auth' );
+			$user_context = '|user:' . $user_id . ':' . wp_salt( 'auth' ) . ':' . wp_get_session_token();
 		}
 
 		$language_context = HSPSC_WPML::request_context();
-		return self::get_url_cache_key( $ssl . '://' . $host . $uri, $user_context, $language_context );
+		$key              = self::get_url_cache_key( $ssl . '://' . $host . $uri, '', $language_context );
+		return $key && '' !== $user_context ? $key . '-user-' . md5( $user_context ) : $key;
 	}
 
 	/**
@@ -556,6 +617,9 @@ class HSPSC_Page {
 		$accept = self::get_request_accept();
 		if ( ! $key || null === $accept ) {
 			return null;
+		}
+		if ( false !== strpos( $key, '-user-' ) ) {
+			return HSPSC_PATH . '/pages/private/' . $key . '-' . md5( $accept ) . '.php';
 		}
 		return HSPSC_PATH . '/pages/' . $key . '-' . md5( $accept ) . '.html';
 	}
@@ -624,7 +688,25 @@ class HSPSC_Page {
 	 * @return array Cache availability, freshness, age, size and configured lifetime.
 	 */
 	public static function get_cache_info_for_url( $url ) {
-		$file   = self::get_cache_file_path_for_url( $url );
+		return self::get_cache_info_for_file( self::get_cache_file_path_for_url( $url ) );
+	}
+
+	/**
+	 * Reports the file state for the current URL, language, user session and Accept.
+	 *
+	 * @return array Cache availability, freshness, age, size and configured lifetime.
+	 */
+	public static function get_cache_info_for_request() {
+		return self::get_cache_info_for_file( self::get_cache_file_path() );
+	}
+
+	/**
+	 * Reads file metadata for a resolved cache representation.
+	 *
+	 * @param string|null $file Resolved cache file, or null when no safe key exists.
+	 * @return array Cache availability, freshness, age, size and configured lifetime.
+	 */
+	protected static function get_cache_info_for_file( $file ) {
 		$ttl    = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
 		$exists = $file && file_exists( $file );
 		$mtime  = $exists ? filemtime( $file ) : false;
@@ -700,31 +782,92 @@ class HSPSC_Page {
 	}
 
 	/**
-	 * Streams trusted cached HTML without buffering the complete file in memory.
+	 * Derives a representation-specific validator from the actual response bytes.
 	 *
-	 * @param string $cache_file Plugin-generated page-cache path.
+	 * @param string $cache_file Plugin-generated cache destination.
+	 * @param string $html Exact HTML response body, without a private-file guard.
+	 * @return string Quoted content validator.
+	 */
+	protected static function get_content_etag( $cache_file, $html ) {
+		return '"' . md5( $cache_file . '|' . $html ) . '"';
+	}
+
+	/**
+	 * Identifies authenticated files within the dedicated private cache subtree.
+	 *
+	 * @param string $cache_file Plugin-generated cache path.
+	 * @return bool Whether the file requires the authenticated storage guard.
+	 */
+	protected static function is_private_cache_file( $cache_file ) {
+		return strpos( $cache_file, HSPSC_PATH . '/pages/private/' ) === 0;
+	}
+
+	/**
+	 * Opens and validates one stable file snapshot before committing a cache hit.
+	 *
+	 * Copy the opened file before publishing its headers. Some shared filesystems
+	 * also mutate old open handles during replacement, so a descriptor alone is not
+	 * a stable snapshot. The temporary stream uses at most 2 MiB of memory and spills
+	 * larger responses into PHP's private temporary storage. Validate the complete
+	 * copy before using it for both the content hash and response body.
+	 *
+	 * @param string $cache_file Plugin-generated cache path.
+	 * @param int    $ttl Maximum fresh file age in seconds.
+	 * @return array|false Open handle and content validator, or false for a miss.
+	 */
+	protected static function open_cache_snapshot( $cache_file, $ttl ) {
+		if ( is_link( $cache_file ) ) {
+			return false;
+		}
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- A missing or concurrently removed local cache is an ordinary miss; validate the opened snapshot before sending headers.
+		$handle = @fopen( $cache_file, 'rb' );
+		if ( false === $handle ) {
+			return false;
+		}
+		$stat   = fstat( $handle );
+		$offset = self::is_private_cache_file( $cache_file ) ? strlen( self::PRIVATE_FILE_GUARD ) : 0;
+		$valid  = is_array( $stat ) && 0100000 === ( $stat['mode'] & 0170000 )
+			&& time() - $stat['mtime'] <= $ttl && $stat['size'] >= $offset;
+		if ( $valid && $offset > 0 ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- Validate the guard on the already-opened local cache source.
+			$valid = self::PRIVATE_FILE_GUARD === fread( $handle, $offset );
+		}
+		$snapshot = false;
+		if ( $valid ) {
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- PHP's bounded temporary stream keeps a private immutable response snapshot outside the public cache directory.
+			$snapshot = @fopen( 'php://temp/maxmemory:2097152', 'w+b' );
+			$valid    = false !== $snapshot && stream_copy_to_stream( $handle, $snapshot ) === $stat['size'] - $offset
+				&& rewind( $snapshot );
+		}
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- The source is no longer needed after copying; replacement cannot change the selected temporary snapshot.
+		fclose( $handle );
+		if ( $valid ) {
+			$hash = hash_init( 'md5' );
+			hash_update( $hash, $cache_file . '|' );
+			$valid = hash_update_stream( $hash, $snapshot ) === $stat['size'] - $offset
+				&& rewind( $snapshot );
+			if ( $valid ) {
+				return array(
+					'handle' => $snapshot,
+					'etag'   => '"' . hash_final( $hash ) . '"',
+				);
+			}
+		}
+		if ( is_resource( $snapshot ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Discard an incomplete or unreadable temporary copy before HIT.
+			fclose( $snapshot );
+		}
+		return false;
+	}
+
+	/**
+	 * Streams the same validated snapshot used to compute the response validator.
+	 *
+	 * @param resource $handle Open cache snapshot positioned at the HTML body.
 	 * @return void
 	 */
-	protected static function stream_cache_file( $cache_file ) {
-		if ( ! is_readable( $cache_file ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- A local stream avoids loading an entire generated HTML response into memory.
-		$handle = fopen( $cache_file, 'rb' );
-		if ( $handle ) {
-			fpassthru( $handle );
-			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the local response stream opened above.
-			fclose( $handle );
-			return;
-		}
-
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Fallback reads only the plugin-generated local cache path, never a remote URL.
-		$contents = file_get_contents( $cache_file );
-		if ( false !== $contents ) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Emit trusted cached HTML unchanged; escaping would corrupt the page.
-			echo $contents;
-		}
+	protected static function stream_cache_file( $handle ) {
+		fpassthru( $handle );
 	}
 
 	/**
@@ -747,8 +890,25 @@ class HSPSC_Page {
 	 * @return int Number of removed files.
 	 */
 	public static function cleanup_expired_cache() {
-		$ttl = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
-		return HSPSC_Utils::delete_old_files( HSPSC_PATH . '/pages', $ttl, '.html' );
+		$ttl     = intval( HSPSC_Settings::get( 'page_cache_ttl', 3600 ) );
+		$deleted = HSPSC_Utils::delete_old_files( HSPSC_PATH . '/pages', $ttl, '.html' );
+		$private = HSPSC_PATH . '/pages/private';
+		if ( ! is_dir( $private ) || is_link( $private ) ) {
+			return $deleted;
+		}
+		foreach ( (array) glob( $private . '/*.php' ) as $file ) {
+			if ( is_link( $file ) || ! preg_match( '/\A[a-f0-9]{32}-user-[a-f0-9]{32}-[a-f0-9]{32}\.php\z/', basename( $file ) ) ) {
+				continue;
+			}
+			$mtime = filemtime( $file );
+			if ( false !== $mtime && $mtime < time() - $ttl ) {
+				wp_delete_file( $file );
+				if ( ! file_exists( $file ) ) {
+					++$deleted;
+				}
+			}
+		}
+		return $deleted;
 	}
 
 	/**
@@ -866,11 +1026,77 @@ class HSPSC_Page {
 			return false;
 		}
 		try {
-			return is_string( $generation ) && self::read_cache_generation( $lock ) === $generation
-				&& HSPSC_Utils::atomic_write( $cache_file, $html );
+			if ( ! is_string( $generation ) || self::read_cache_generation( $lock ) !== $generation ) {
+				return false;
+			}
+			return self::is_private_cache_file( $cache_file )
+				? self::write_private_cache_file( $cache_file, $html )
+				: HSPSC_Utils::atomic_write( $cache_file, $html );
 		} finally {
 			self::unlock_cache_state( $lock );
 		}
+	}
+
+	/**
+	 * Ensures deny rules before storing any authenticated response bytes.
+	 *
+	 * @return bool Whether the dedicated private directory is protected.
+	 */
+	protected static function ensure_private_cache_directory() {
+		$dir = HSPSC_PATH . '/pages/private';
+		if ( is_link( HSPSC_PATH . '/pages' ) || is_link( $dir ) || ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) ) {
+			return false;
+		}
+		$protections = array(
+			'index.php'  => "<?php exit;\n",
+			'.htaccess'  => "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n",
+			'web.config' => "<?xml version=\"1.0\" encoding=\"UTF-8\"?><configuration><system.webServer><security><authorization><remove users=\"*\" roles=\"\" verbs=\"\" /><add accessType=\"Deny\" users=\"*\" /></authorization></security></system.webServer></configuration>\n",
+		);
+		foreach ( $protections as $name => $contents ) {
+			$file = $dir . '/' . $name;
+			if ( is_link( $file ) || ( file_exists( $file ) && ! is_file( $file ) ) ) {
+				return false;
+			}
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Verify the exact local access-deny file before persisting private HTML.
+			$existing = is_file( $file ) ? file_get_contents( $file ) : false;
+			if ( $contents !== $existing && ! HSPSC_Utils::atomic_write( $file, $contents ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Atomically stores guarded private HTML with guarded PHP temporary files too.
+	 *
+	 * @param string $cache_file Authenticated cache destination.
+	 * @param string $html Exact HTML body.
+	 * @return bool Whether the complete protected payload replaced the destination.
+	 */
+	protected static function write_private_cache_file( $cache_file, $html ) {
+		if ( ! self::ensure_private_cache_directory() ) {
+			return false;
+		}
+		$tmp = dirname( $cache_file ) . '/.hspsc-' . str_replace( '-', '', wp_generate_uuid4() ) . '.php';
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Exclusive creation prevents following a temporary-file link; PHP extension and exit guard protect all private temporary bytes.
+		$handle = @fopen( $tmp, 'x+b' );
+		if ( false === $handle ) {
+			return false;
+		}
+		$payload = self::PRIVATE_FILE_GUARD . $html;
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- A checked complete write precedes the same-directory private cache replacement.
+		$written = fwrite( $handle, $payload );
+		$success = strlen( $payload ) === $written && fflush( $handle );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the exclusively created private temporary stream before renaming.
+		fclose( $handle );
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- Private permissions complement the PHP guard and access-deny files where supported.
+		@chmod( $tmp, 0600 );
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.rename_rename -- Same-directory atomic replacement preserves stable opened snapshots.
+		if ( $success && @rename( $tmp, $cache_file ) ) {
+			return true;
+		}
+		wp_delete_file( $tmp );
+		return false;
 	}
 
 	/**
@@ -938,7 +1164,10 @@ class HSPSC_Page {
 	 * @return void
 	 */
 	protected static function delete_cache_files_for_key( $key ) {
-		$files   = (array) glob( HSPSC_PATH . '/pages/' . $key . '-*.html' );
+		$files   = array_merge(
+			(array) glob( HSPSC_PATH . '/pages/' . $key . '-*.html' ),
+			(array) glob( HSPSC_PATH . '/pages/private/' . $key . '-user-*.php' )
+		);
 		$files[] = HSPSC_PATH . '/pages/' . $key . '.html';
 		$fs      = HSPSC_Utils::get_filesystem();
 		foreach ( $files as $file ) {

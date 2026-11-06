@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## 0.10.0
+
+- Fix opt-in logged-in page caching while keeping admin, settings, login, REST, AJAX, cron, builder, and private session requests uncached. Isolate eligible frontend entries by user and login session in guarded private storage, and upgrade render-cache schema to 6.
+- Derive HTML validators from response content and serve validated immutable snapshots, preventing incorrect revalidation and incomplete cache hits during concurrent file replacement.
+- Report the current login session's cache state in the frontend toolbar, retain separate anonymous diagnostics when logged-in caching is disabled, and clarify cached toolbar snapshot behavior.
+- Preserve generated CSS/JS referenced by fresh page caches, retain valid critical CSS syntax, and neutralize closing style tags safely.
+- Traverse sitemap indexes with origin validation, deduplication, and bounded requests, depth, and response sizes; use WordPress's core sitemap when no custom URL is configured.
+- Abort incomplete database backups on read or write failures and invalidate caches after partially executed restores fail.
+- Isolate multisite backup storage, signatures, and table ownership. Existing signed single-site backups remain compatible; ambiguous legacy multisite backups are not automatically adopted.
+- Prevent uninstall from following symbolic links or Windows junctions outside the cache tree, and cache failed update lookups to avoid repeated remote requests.
+- Add regression coverage for frontend-only authentication, storage races, maintenance failures, asset retention, sitemap traversal, and cache diagnostics.
+
 ## 0.9.1
 
 - Apply WordPress coding standards across shipped PHP, document cache/storage boundaries, and add a Composer/CI standards check with explicit exceptions for required WordPress APIs and low-level cache operations.

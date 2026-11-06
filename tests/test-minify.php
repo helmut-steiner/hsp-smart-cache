@@ -172,6 +172,76 @@ class HSPSC_Minify_Test extends WP_UnitTestCase {
 		$this->asset_files[] = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $changed, PHP_URL_PATH ) );
 	}
 
+	/** Reused assets refresh their usage timestamp without rereading source bytes. */
+	public function test_aged_generated_asset_reuse_refreshes_timestamp_without_source_io() {
+		$src = $this->create_asset( 'aged-reuse.css', 'body { color: red; }' );
+		HSPSC_Minify_Read_Counting_Fixture::$source_reads = 0;
+		$url = HSPSC_Minify_Read_Counting_Fixture::optimize( $src, 'css' );
+		$asset = HSPSC_PATH . '/assets/' . basename( wp_parse_url( $url, PHP_URL_PATH ) );
+		$this->asset_files[] = $asset;
+		touch( $asset, time() - MONTH_IN_SECONDS - DAY_IN_SECONDS );
+		clearstatcache( true, $asset );
+		$this->reset_asset_url_cache();
+		$this->assertSame( $url, HSPSC_Minify_Read_Counting_Fixture::optimize( $src, 'css' ) );
+		clearstatcache( true, $asset );
+		$this->assertGreaterThan( time() - 10, filemtime( $asset ) );
+		$this->assertSame( 1, HSPSC_Minify_Read_Counting_Fixture::$source_reads );
+	}
+
+	/** Garbage collection preserves assets linked from fresh public/private pages. */
+	public function test_asset_gc_preserves_fresh_page_references_and_deletes_only_orphans() {
+		HSPSC_Utils::ensure_cache_dirs();
+		wp_mkdir_p( HSPSC_PATH . '/pages/private' );
+		$public_asset = md5( 'hspsc-public-reference' ) . '.min.css';
+		$private_asset = md5( 'hspsc-private-reference' ) . '.min.js';
+		$expired_asset = md5( 'hspsc-expired-reference' ) . '.min.css';
+		foreach ( array( $public_asset, $private_asset, $expired_asset ) as $name ) {
+			$path = HSPSC_PATH . '/assets/' . $name;
+			file_put_contents( $path, '/* cached asset */' );
+			touch( $path, time() - MONTH_IN_SECONDS - DAY_IN_SECONDS );
+			$this->asset_files[] = $path;
+		}
+		$public_page = HSPSC_PATH . '/pages/' . md5( 'public-reference' ) . '-' . md5( '' ) . '.html';
+		$private_page = HSPSC_PATH . '/pages/private/' . md5( 'private-reference' ) . '-user-' . md5( 'user' ) . '-' . md5( '' ) . '.php';
+		$expired_page = HSPSC_PATH . '/pages/' . md5( 'expired-reference' ) . '-' . md5( '' ) . '.html';
+		// The basename crosses the stream chunk boundary and may use a CDN origin.
+		file_put_contents( $public_page, str_repeat( ' ', 65520 ) . '<link href="https://cdn.example.test/' . $public_asset . '">' );
+		file_put_contents( $private_page, "<?php exit; ?>\n" . '<script src="/cache/hspsc/assets/' . $private_asset . '"></script>' );
+		file_put_contents( $expired_page, '<link href="/cache/hspsc/assets/' . $expired_asset . '">' );
+		touch( $expired_page, time() - HSPSC_Settings::get( 'page_cache_ttl' ) - 10 );
+		$this->asset_files = array_merge( $this->asset_files, array( $public_page, $private_page, $expired_page ) );
+		$unowned = HSPSC_PATH . '/assets/hspsc-unowned-old.css';
+		file_put_contents( $unowned, 'keep' );
+		touch( $unowned, time() - 2 * MONTH_IN_SECONDS );
+		$this->asset_files[] = $unowned;
+		clearstatcache();
+
+		HSPSC_Minify::cleanup_old_assets();
+		$this->assertFileExists( HSPSC_PATH . '/assets/' . $public_asset );
+		$this->assertFileExists( HSPSC_PATH . '/assets/' . $private_asset );
+		$this->assertFileDoesNotExist( HSPSC_PATH . '/assets/' . $expired_asset );
+		$this->assertFileExists( $unowned );
+	}
+
+	/** A configured page lifetime longer than one month also protects its assets. */
+	public function test_asset_gc_respects_long_lived_page_cache_references() {
+		update_option( HSPSC_Settings::OPTION_KEY, array_merge( HSPSC_Settings::defaults(), array(
+			'page_cache_ttl' => 2 * MONTH_IN_SECONDS,
+		) ) );
+		HSPSC_Utils::ensure_cache_dirs();
+		$name = md5( 'hspsc-long-lived-reference' ) . '.min.css';
+		$asset = HSPSC_PATH . '/assets/' . $name;
+		$page = HSPSC_PATH . '/pages/' . md5( 'long-lived-reference' ) . '-' . md5( '' ) . '.html';
+		file_put_contents( $asset, 'body{color:red}' );
+		file_put_contents( $page, '<link href="/cache/hspsc/assets/' . $name . '">' );
+		touch( $asset, time() - MONTH_IN_SECONDS - DAY_IN_SECONDS );
+		touch( $page, time() - MONTH_IN_SECONDS - 100 );
+		$this->asset_files = array_merge( $this->asset_files, array( $asset, $page ) );
+		clearstatcache();
+		HSPSC_Minify::cleanup_old_assets();
+		$this->assertFileExists( $asset );
+	}
+
     /**
      * Explicit URL versions survive deployments that retain source timestamps.
      *

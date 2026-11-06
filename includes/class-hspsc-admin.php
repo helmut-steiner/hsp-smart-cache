@@ -348,14 +348,7 @@ class HSPSC_Admin {
 	 * @return array Status label, reason, and optional file details.
 	 */
 	protected static function get_admin_bar_cache_status() {
-		$url = self::get_current_url();
-		if ( ! $url ) {
-			$url = home_url( '/' );
-		}
-
-		$info = HSPSC_Page::get_cache_info_for_url( $url );
-
-		if ( empty( $info['enabled'] ) ) {
+		if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
 			return array(
 				'label'   => __( 'OFF', 'hsp-smart-cache' ),
 				'reason'  => __( 'Page cache is disabled.', 'hsp-smart-cache' ),
@@ -379,7 +372,10 @@ class HSPSC_Admin {
 			);
 		}
 
-		if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
+		$logged_in = is_user_logged_in();
+		if ( $logged_in && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
+			$url           = self::get_current_url();
+			$info          = HSPSC_Page::get_cache_info_for_url( $url ? $url : home_url( '/' ) );
 			$public_status = __( 'MISS', 'hsp-smart-cache' );
 			if ( ! empty( $info['fresh'] ) ) {
 				$public_status = __( 'HIT', 'hsp-smart-cache' );
@@ -399,11 +395,24 @@ class HSPSC_Admin {
 			);
 		}
 
+		if ( ! HSPSC_Utils::is_request_cacheable() ) {
+			return array(
+				'label'   => __( 'BYPASS', 'hsp-smart-cache' ),
+				'reason'  => __( 'This request is excluded from page caching.', 'hsp-smart-cache' ),
+				'details' => '',
+			);
+		}
+
+		$info    = HSPSC_Page::get_cache_info_for_request();
+		$details = self::format_cache_info_details( $info );
+		if ( $logged_in ) {
+			$details .= ' | ' . __( 'Status recorded when this page was generated; response headers show the current request.', 'hsp-smart-cache' );
+		}
 		if ( ! empty( $info['fresh'] ) ) {
 			return array(
 				'label'   => __( 'HIT', 'hsp-smart-cache' ),
 				'reason'  => __( 'Fresh cache file exists for this URL.', 'hsp-smart-cache' ),
-				'details' => self::format_cache_info_details( $info ),
+				'details' => $details,
 			);
 		}
 
@@ -411,14 +420,14 @@ class HSPSC_Admin {
 			return array(
 				'label'   => __( 'STALE', 'hsp-smart-cache' ),
 				'reason'  => __( 'Cache file exists but is older than the page cache TTL.', 'hsp-smart-cache' ),
-				'details' => self::format_cache_info_details( $info ),
+				'details' => $details,
 			);
 		}
 
 		return array(
 			'label'   => __( 'MISS', 'hsp-smart-cache' ),
 			'reason'  => __( 'No cache file exists for this URL.', 'hsp-smart-cache' ),
-			'details' => self::format_cache_info_details( $info ),
+			'details' => $details,
 		);
 	}
 
@@ -1794,10 +1803,10 @@ class HSPSC_Admin {
 							</p>
 							<label>
 								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cache_logged_in]" value="1" <?php checked( $options['cache_logged_in'] ); ?> title="<?php echo esc_attr__( 'Enable only if logged-in users see cache-safe content.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Allow page caching for logged-in users', 'hsp-smart-cache' ); ?>
+								<?php echo esc_html__( 'Cache eligible frontend pages for logged-in users', 'hsp-smart-cache' ); ?>
 							</label>
-							<p class="description" style="color:#b32d2e;">
-								<?php echo esc_html__( 'Warning: Can serve private data if enabled on sites with personalized content.', 'hsp-smart-cache' ); ?>
+							<p class="description">
+								<?php echo esc_html__( 'WordPress admin and settings pages always bypass the page cache.', 'hsp-smart-cache' ); ?>
 							</p>
 							<label>
 								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[optimize_logged_in]" value="1" <?php checked( $options['optimize_logged_in'] ); ?> title="<?php echo esc_attr__( 'Apply frontend optimizations for logged-in users.', 'hsp-smart-cache' ); ?>" />

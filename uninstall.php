@@ -36,8 +36,8 @@ function hspsc_uninstall() {
 			$fs->delete( $object_dropin );
 		}
 
-		hspsc_delete_dir_contents( HSPSC_PATH, $fs );
-		if ( $fs->is_dir( HSPSC_PATH ) ) {
+		$cache_root = realpath( HSPSC_PATH );
+		if ( hspsc_delete_dir_contents( HSPSC_PATH, $fs ) && hspsc_uninstall_is_safe_cache_path( HSPSC_PATH, $cache_root ) ) {
 			$fs->rmdir( HSPSC_PATH, false );
 		}
 
@@ -59,27 +59,64 @@ function hspsc_uninstall() {
  *
  * @param string             $dir Cache directory to clear.
  * @param WP_Filesystem_Base $fs Initialized WordPress filesystem transport.
+ * @param string|null        $root Resolved cache root retained across recursion.
+ * @return bool Whether the directory was safe to inspect.
  */
-function hspsc_delete_dir_contents( $dir, $fs ) {
-	if ( ! $fs || ! is_dir( $dir ) ) {
-		return;
+function hspsc_delete_dir_contents( $dir, $fs, $root = null ) {
+	$root = null === $root ? realpath( $dir ) : $root;
+	if ( ! $fs || ! is_dir( $dir ) || ! hspsc_uninstall_is_safe_cache_path( $dir, $root ) ) {
+		return false;
 	}
 	$items = scandir( $dir );
 	if ( ! $items ) {
-		return;
+		return false;
 	}
 	foreach ( $items as $item ) {
 		if ( '.' === $item || '..' === $item ) {
 			continue;
 		}
 		$path = $dir . '/' . $item;
+		if ( ! hspsc_uninstall_is_safe_cache_path( $path, $root ) ) {
+			continue;
+		}
 		if ( is_dir( $path ) ) {
-			hspsc_delete_dir_contents( $path, $fs );
-			$fs->rmdir( $path, false );
+			if ( hspsc_delete_dir_contents( $path, $fs, $root ) && hspsc_uninstall_is_safe_cache_path( $path, $root ) ) {
+				$fs->rmdir( $path, false );
+			}
 		} else {
 			$fs->delete( $path );
 		}
 	}
+	return true;
+}
+
+// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+/**
+ * Confines deletion to real cache paths, including Windows junction checks.
+ *
+ * @param string       $path Existing cache entry to inspect.
+ * @param string|false $root Resolved cache root.
+ * @return bool Whether the entry resolves directly inside the retained root.
+ */
+function hspsc_uninstall_is_safe_cache_path( $path, $root ) {
+	if ( ! is_string( $root ) || '' === $root || is_link( $path ) ) {
+		return false;
+	}
+	$resolved = realpath( $path );
+	$parent   = realpath( dirname( $path ) );
+	if ( false === $resolved || false === $parent ) {
+		return false;
+	}
+	$resolved = untrailingslashit( wp_normalize_path( $resolved ) );
+	$expected = untrailingslashit( wp_normalize_path( $parent . '/' . basename( $path ) ) );
+	$root     = untrailingslashit( wp_normalize_path( $root ) );
+	if ( '\\' === DIRECTORY_SEPARATOR ) {
+		$resolved = strtolower( $resolved );
+		$expected = strtolower( $expected );
+		$root     = strtolower( $root );
+	}
+	// is_link() alone does not recognize every Windows directory junction.
+	return $resolved === $expected && ( $resolved === $root || strpos( $resolved, $root . '/' ) === 0 );
 }
 
 // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound

@@ -194,17 +194,20 @@ class HSPSC_Utils {
 	/**
 	 * Reevaluates privacy and representation guards for page-cache eligibility.
 	 *
+	 * @param bool $resolve_language Whether the initialized WPML language context is required.
 	 * @return bool Whether this request may use the page cache.
 	 */
-	public static function is_request_cacheable() {
+	public static function is_request_cacheable( $resolve_language = true ) {
 		// Sessions and no-cache flags can change after the initial cache lookup.
 		if ( self::is_backend_or_login_request() || self::has_private_request_context() ) {
 			return false;
 		}
-		if ( is_user_logged_in() && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
+		$is_logged_in = is_user_logged_in();
+		if ( $is_logged_in && ! HSPSC_Settings::get( 'cache_logged_in' ) ) {
 			return false;
 		}
-		if ( self::is_page_cache_path_excluded() || self::has_sensitive_cookies() || self::is_sensitive_request_uri() ) {
+		// Only a verified user may ignore the login cookie; all other private cookies remain exclusions.
+		if ( self::is_page_cache_path_excluded() || self::has_sensitive_cookies( ! $is_logged_in ) || self::is_sensitive_request_uri() ) {
 			return false;
 		}
 		if ( self::get_request_method() !== 'GET' ) {
@@ -213,7 +216,7 @@ class HSPSC_Utils {
 		if ( is_preview() || is_feed() || is_robots() || is_trackback() || is_search() || is_404() || post_password_required() ) {
 			return false;
 		}
-		if ( class_exists( 'HSPSC_WPML', false ) && null === HSPSC_WPML::request_context() ) {
+		if ( $resolve_language && class_exists( 'HSPSC_WPML', false ) && null === HSPSC_WPML::request_context() ) {
 			return false;
 		}
 		if ( HSPSC_Commerce::is_dynamic_request() ) {
@@ -301,10 +304,8 @@ class HSPSC_Utils {
 			return true;
 		}
 
-		$uri = strtolower( rawurldecode( self::get_request_uri() ) );
-		return strpos( $uri, '/wp-login.php' ) !== false
-			|| strpos( $uri, '/wp-register.php' ) !== false
-			|| strpos( $uri, '/wp-admin/' ) !== false;
+		$path = self::normalize_page_cache_path( wp_parse_url( self::get_request_uri(), PHP_URL_PATH ) );
+		return null === $path || (bool) preg_match( '~/(?:wp-admin|wp-login\.php|wp-register\.php|wp-json)(?:/|$)~i', $path );
 	}
 
 	/**

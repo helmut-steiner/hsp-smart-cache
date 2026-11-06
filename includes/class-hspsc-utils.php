@@ -235,12 +235,22 @@ class HSPSC_Utils {
 	 * @return bool Whether this path is excluded from page caching.
 	 */
 	public static function is_page_cache_path_excluded() {
+		return self::is_configured_cache_path_excluded( wp_parse_url( self::get_request_uri(), PHP_URL_PATH ) );
+	}
+
+	/**
+	 * Tests one target path against the configured exact exclusions.
+	 *
+	 * @param string|null $path URL path before normalization.
+	 * @return bool Whether the configured exclusions contain the path.
+	 */
+	protected static function is_configured_cache_path_excluded( $path ) {
 		$configured = HSPSC_Settings::get( 'page_cache_excluded_paths', '' );
 		if ( ! is_string( $configured ) || '' === trim( $configured ) ) {
 			return false;
 		}
 
-		$path = self::normalize_page_cache_path( wp_parse_url( self::get_request_uri(), PHP_URL_PATH ) );
+		$path = self::normalize_page_cache_path( $path );
 		if ( null === $path ) {
 			return false;
 		}
@@ -305,7 +315,44 @@ class HSPSC_Utils {
 		}
 
 		$path = self::normalize_page_cache_path( wp_parse_url( self::get_request_uri(), PHP_URL_PATH ) );
+		return self::is_wordpress_backend_path( $path );
+	}
+
+	/**
+	 * Checks a normalized path for WordPress administrative or action endpoints.
+	 *
+	 * @param string|null $path Normalized target path.
+	 * @return bool Whether it is invalid or resolves to a backend endpoint.
+	 */
+	protected static function is_wordpress_backend_path( $path ) {
 		return null === $path || (bool) preg_match( '~/(?:wp-admin|wp-login\.php|wp-register\.php|wp-json)(?:/|$)~i', $path );
+	}
+
+	/**
+	 * Applies request URI exclusions to a planned public GET without impersonating it.
+	 *
+	 * @param string $url Absolute target on an already validated origin.
+	 * @return bool Whether warming must avoid fetching the target.
+	 */
+	public static function is_warming_url_excluded( $url ) {
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || isset( $parts['fragment'] ) ) {
+			return true;
+		}
+		$path  = isset( $parts['path'] ) && '' !== $parts['path'] ? $parts['path'] : '/';
+		$query = isset( $parts['query'] ) ? $parts['query'] : '';
+		$args  = array();
+		wp_parse_str( $query, $args );
+		$args = array_change_key_case( $args, CASE_LOWER );
+		// A warmer must never initiate action links, searches, feeds or moderation previews.
+		$actions    = array( 'action', 'logout', 'redirect_to', 'doing_wp_cron', 's', 'feed', 'unapproved', 'moderation-hash', 'hspsc_notice' );
+		$normalized = self::normalize_page_cache_path( $path );
+		return self::is_wordpress_backend_path( $normalized )
+			|| (bool) preg_match( '~/(?:wp-(?:signup|activate|cron|comments-post|trackback|mail)\.php|xmlrpc\.php)(?:/|$)~i', $normalized )
+			|| self::is_configured_cache_path_excluded( $path )
+			|| self::has_editor_query_args( $args )
+			|| (bool) array_intersect( $actions, array_keys( $args ) )
+			|| self::is_sensitive_uri( $path . ( '' === $query ? '' : '?' . $query ), $args );
 	}
 
 	/**
@@ -339,7 +386,16 @@ class HSPSC_Utils {
 	 * @return bool Whether the request belongs to an editor or preview.
 	 */
 	public static function is_editor_or_builder_request() {
-		$args = self::get_request_query_args();
+		return self::has_editor_query_args( self::get_request_query_args() );
+	}
+
+	/**
+	 * Checks parsed query arguments for supported editor markers.
+	 *
+	 * @param array $args Query arguments keyed by lowercase names.
+	 * @return bool Whether an editor marker is present.
+	 */
+	protected static function has_editor_query_args( $args ) {
 		if ( isset( $args['bricks'] ) && is_string( $args['bricks'] ) && in_array( $args['bricks'], array( 'run', 'preview' ), true ) ) {
 			return true;
 		}
@@ -450,6 +506,170 @@ class HSPSC_Utils {
 		}
 
 		return '/' . ltrim( $parts['path'], '/' );
+	}
+
+	/**
+	 * Fetches an approved public URL into private temporary storage.
+	 *
+	 * Requests can decode compressed response bodies despite the HTTP API flag.
+	 * Streaming keeps the response body out of that decoder. Inspect the encoding
+	 * before reading, and retain one extra byte so callers can detect truncation.
+	 *
+	 * @param string $url Explicit URL already approved by the caller.
+	 * @param array  $headers Accept and optional warming challenge headers.
+	 * @param int    $timeout Timeout in seconds.
+	 * @param int    $max_bytes Maximum accepted body size.
+	 * @return array|WP_Error WordPress HTTP response with a bounded identity body.
+	 */
+	public static function get_bounded_identity_response( $url, $headers, $timeout, $max_bytes ) {
+		$file = self::create_private_http_temp_file();
+		if ( false === $file ) {
+			return new WP_Error( 'hspsc_http_temp', __( 'Private temporary storage is unavailable.', 'hsp-smart-cache' ) );
+		}
+		$headers                    = array_intersect_key(
+			$headers,
+			array(
+				'Accept'             => true,
+				'X-HSPSC-Warm-Check' => true,
+			)
+		);
+		$headers['Accept-Encoding'] = 'identity';
+		$used_curl                  = false;
+		$mark_curl                  = static function ( $handle, $args, $target ) use ( $url, $file, &$used_curl ) {
+			if ( $url === $target && ( $args['filename'] ?? null ) === $file ) {
+				$used_curl = true;
+			}
+		};
+		add_action( 'http_api_curl', $mark_curl, 10, 3 );
+		try {
+			$response = wp_remote_get(
+				$url,
+				array(
+					'timeout'             => max( 1, min( 30, (int) $timeout ) ),
+					'redirection'         => 0,
+					'limit_response_size' => $max_bytes + 1,
+					'decompress'          => false,
+					'cookies'             => array(),
+					'headers'             => $headers,
+					'stream'              => true,
+					'filename'            => $file,
+				)
+			);
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+			if ( ! is_array( $response ) ) {
+				return new WP_Error( 'hspsc_http_read' );
+			}
+			$body = '';
+			if ( self::is_identity_http_response( $response ) ) {
+				$inline = wp_remote_retrieve_body( $response );
+				// HTTP filters can supply an inline fixture without using the stream.
+				$body = is_string( $inline ) && '' !== $inline
+					? substr( $inline, 0, $max_bytes + 1 )
+					: self::read_bounded_http_file( $file, $max_bytes, ! $used_curl && self::has_chunked_http_framing( $response ) );
+				if ( false === $body ) {
+					return new WP_Error( 'hspsc_http_read', __( 'The temporary HTTP response could not be read.', 'hsp-smart-cache' ) );
+				}
+			}
+			$response['body']     = $body;
+			$response['filename'] = null;
+			return $response;
+		} finally {
+			remove_action( 'http_api_curl', $mark_curl, 10 );
+			wp_delete_file( $file );
+		}
+	}
+
+	/**
+	 * Checks whether a response used the requested identity content encoding.
+	 *
+	 * @param array $response WordPress HTTP response.
+	 * @return bool Whether the body can be read without decompression.
+	 */
+	public static function is_identity_http_response( $response ) {
+		$encoding = wp_remote_retrieve_header( $response, 'content-encoding' );
+		return is_string( $encoding ) && in_array( strtolower( trim( $encoding ) ), array( '', 'identity' ), true );
+	}
+
+	/**
+	 * Creates a restricted temporary file outside configured web roots.
+	 *
+	 * @return string|false Temporary file path, or false when no safe directory exists.
+	 */
+	protected static function create_private_http_temp_file() {
+		$public_roots  = array( ABSPATH, WP_CONTENT_DIR );
+		$document_root = filter_input( INPUT_SERVER, 'DOCUMENT_ROOT', FILTER_UNSAFE_RAW );
+		if ( is_string( $document_root ) && '' !== $document_root ) {
+			$public_roots[] = $document_root;
+		}
+		$public_roots = array_filter( array_map( 'realpath', $public_roots ) );
+		foreach ( array_unique( array( get_temp_dir(), sys_get_temp_dir() ) ) as $candidate ) {
+			$directory = realpath( $candidate );
+			if ( false === $directory || ! is_dir( $directory ) || ! wp_is_writable( $directory ) ) {
+				continue;
+			}
+			$path = strtolower( trailingslashit( wp_normalize_path( $directory ) ) );
+			foreach ( $public_roots as $root ) {
+				if ( str_starts_with( $path, strtolower( trailingslashit( wp_normalize_path( $root ) ) ) ) ) {
+					continue 2;
+				}
+			}
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- A racing permission failure must return a fixed error without revealing a private path.
+			$file = @tempnam( $directory, 'hspsc-http-' );
+			if ( false !== $file ) {
+				if ( realpath( dirname( $file ) ) === $directory ) {
+					return $file;
+				}
+				// tempnam can fall back to another directory when creation fails.
+				wp_delete_file( $file );
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Reads the original transfer framing retained by WordPress's Requests wrapper.
+	 *
+	 * @param array $response WordPress HTTP response.
+	 * @return bool Whether the response used chunked transfer framing.
+	 */
+	protected static function has_chunked_http_framing( $response ) {
+		$wrapper = $response['http_response'] ?? null;
+		return $wrapper instanceof WP_HTTP_Requests_Response && (bool) preg_match(
+			'/^(?:Transfer-Encoding):[ \t]*chunked[ \t]*\r?$/im',
+			$wrapper->get_response_object()->raw
+		);
+	}
+
+	/**
+	 * Reads a bounded identity body, undoing socket transport framing when present.
+	 *
+	 * @param string $file Private temporary file created for this request.
+	 * @param int    $max_bytes Maximum accepted body size.
+	 * @param bool   $chunked Whether raw chunk framing remains in the streamed file.
+	 * @return string|false Bounded body, or false on a read failure.
+	 */
+	protected static function read_bounded_http_file( $file, $max_bytes, $chunked ) {
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- The local stream limits bytes and can remove transport framing without exposing file warnings.
+		$handle = @fopen( $file, 'rb' );
+		if ( false === $handle ) {
+			return false;
+		}
+		try {
+			$stat = fstat( $handle );
+			if ( false === $stat || 0100000 !== ( $stat['mode'] & 0170000 ) ) {
+				return false;
+			}
+			// Leave an oversized wire body intact so callers can detect the extra byte.
+			if ( $chunked && $stat['size'] <= $max_bytes && false === stream_filter_append( $handle, 'dechunk', STREAM_FILTER_READ ) ) {
+				return false;
+			}
+			return stream_get_contents( $handle, $max_bytes + 1 );
+		} finally {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the bounded read stream before unlinking the temporary file.
+			fclose( $handle );
+		}
 	}
 
 	/**
@@ -662,7 +882,17 @@ class HSPSC_Utils {
 	 * @return bool Whether the request URI requires a cache bypass.
 	 */
 	protected static function is_sensitive_request_uri() {
-		$args           = self::get_request_query_args();
+		return self::is_sensitive_uri( self::get_request_uri(), self::get_request_query_args() );
+	}
+
+	/**
+	 * Checks a relative URI and its parsed query for private request markers.
+	 *
+	 * @param string $uri Relative target URI.
+	 * @param array  $args Query arguments keyed by lowercase names.
+	 * @return bool Whether it carries a private marker.
+	 */
+	protected static function is_sensitive_uri( $uri, $args ) {
 		$sensitive_args = array(
 			'wc-ajax',
 			'wc-api',
@@ -699,7 +929,7 @@ class HSPSC_Utils {
 			return true;
 		}
 
-		$uri                 = strtolower( rawurldecode( self::get_request_uri() ) );
+		$uri                 = strtolower( rawurldecode( $uri ) );
 		$sensitive_fragments = array(
 			'/cart',
 			'/checkout',

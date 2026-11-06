@@ -40,7 +40,8 @@
 - Conditional HTML revalidation must run after request privacy, response eligibility, variant resolution, and cache freshness checks. Validate raw `If-None-Match` syntax without rewriting opaque tags; recognize only exact validators and documented single gzip/Brotli suffixes for acceptable request codings. Preserve the matching ETag, coding, and Vary metadata on compressed 304 responses without triggering double suffixes downstream. Cache misses and private responses must never take the 304 path.
 - Cache-status headers use fixed bypass codes (`private-request`, `response-headers`, `request-key`, `buffer-conflict`, `late-private-response`, `write-failed`). Never expose visitor cookie values, filesystem paths, or signing secrets in diagnostics.
 - Commerce compatibility must cover actual assigned cart/checkout/account pages, session cookies, request parameters, and dynamic widgets on public pages. English URL fragments alone are insufficient. Add guest-cart and multiple-shopper regression coverage when changing these boundaries.
-- Keep warming restricted through `HSPSC_Page::is_warmable_url()` before fetching sitemaps/pages. Accept only exact configured home, site, or WPML language origins, including scheme and port; reject userinfo and do not follow redirects. Decode XML `<loc>` entities before URL validation and preserve language query arguments. Preloading is manual and disabled by default.
+- Keep warming restricted through `HSPSC_Page::is_warmable_url()` before fetching sitemaps/pages. Accept only exact configured home, site, or WPML language origins, including scheme and port; reject userinfo and do not follow redirects. Decode XML `<loc>` entities before URL validation and preserve language query arguments. Rebuilds start only on an explicit admin action; there is no recurring preload schedule or enable toggle.
+- Public rebuilds use the persistent `hspsc_rebuild_job` option and locked, bounded workers. Purge only anonymous page files, verify the exact requested HTML representation on disk, and retain skipped/failed results. Retry preserves successful results and starts a new attempt ID. Keep status reads separate from authorized worker ticks and preserve cron recovery and discovery limits.
 - Use `HSPSC_Utils::atomic_write()` for normal generated cache files. Keep cleanup limited to the appropriate subtree with age/extension checks.
 - The object-cache drop-in loads before normal plugins. Keep it usable without `HSPSC_Settings` or other plugin classes, with independent filesystem/atomic-write helpers and settings fallbacks.
 - Preserve WordPress object-cache semantics: distinct raw keys, `$found` for falsey values, multisite/global groups, non-persistent groups, and expiration. Keep settings defaults and early drop-in TTL fallbacks aligned.
@@ -54,6 +55,8 @@
 - Settings live in the single `hspsc_settings` option. Coordinate changes across `HSPSC_Settings::defaults()`, `sanitize()`, admin UI, consumers, `tests/test-settings.php`, and `docs/options.md`.
 - Settings are memoized. Preserve `reset_cache()` hooks. Request privacy decisions deliberately reevaluate cookies, authorization, query state, and no-cache flags each time; do not memoize them across rendering.
 - Settings updates synchronize the drop-in and flush object, page, and asset caches through `HSPSC_Admin::handle_settings_update()`; account for these side effects.
+- The admin screen groups Cache, Optimization, Maintenance, and Advanced into progressively enhanced tabs. Keep one shared Settings API form: every settings control is explicitly associated through `form="hspsc-settings-form"`, including controls in hidden panels. Action forms remain separate and use their own nonces. Switching tabs must preserve edits; saving must include every tab.
+- Preserve keyboard tab navigation, native validation that reveals hidden invalid fields, rebuild-result deep links, and the no-JavaScript fallback. Cache status badges describe saved settings and must refresh after successful saves, presets, and resets.
 - Implementation is authoritative when descriptive docs lag. Updater `tested` metadata differs from `readme.txt`; check both when changing compatibility metadata.
 - Object deserialization accepts legitimate WordPress object classes only after verifying a keyed signature. Backup signatures bind exact bytes, filename, and site scope; unsigned older backups are rejected rather than automatically trusted.
 
@@ -134,7 +137,7 @@ cmd.exe /d /c "set PATH=C:\Program Files\Docker\Docker\resources\bin;%PATH%&& np
   - `composer lint:php` inside `tests-cli` in the PHP 8.4 job
   - `npm run wp-env:stop` in an `always()` cleanup step
 - Node is version 24. PHP 8.4 and 8.5 run as separate matrix jobs through `WP_ENV_PHP_VERSION`, against the pinned WordPress 7.1.3 baseline. The separate Node wrapper regression script is not currently called by this workflow.
-- `.github/workflows/release.yml` builds a ZIP rooted at `hsp-smart-cache/` on published releases or manual dispatch; asset upload requires a tag ref.
+- `.github/workflows/release.yml` runs the reusable PHPUnit workflow on pushed `v*` tags or manual tag dispatch, then builds a ZIP rooted at `hsp-smart-cache/`. The release-note helper validates stable version metadata and extracts the matching `CHANGELOG.md` bullet list. Publication verifies the remote tag still matches the packaged commit. No branch dispatch publishes a release.
 
 ## Release Checklist
 
@@ -277,12 +280,15 @@ node .\bin\wp-env-named.js run cli wp transient list
 - `HSPSC_Performance`: lazy loading, decoding, resource hints, and optional frontend feature removal.
 - `HSPSC_Tests`: built-in diagnostics, separate from PHPUnit.
 - `HSPSC_Maintenance`: maintenance/database optimization.
-- `HSPSC_Preload`: cache preloading.
+- `HSPSC_Preload`: bounded sitemap discovery and parsing.
+- `HSPSC_Rebuild`: persistent public page rebuild jobs, verification, retries, and cron workers.
+- `HSPSC_Rebuild_Admin`: authorized rebuild endpoints, progress notices, and paginated results.
 - `HSPSC_Updater`: update integration.
 - `HSPSC_Utils`: shared helpers.
 
 ## Git Hygiene
 
+- Never push commits or tags unless the owner explicitly requests a push. Requests to prepare a release, update a version, or commit changes do not authorize pushing. Default to local commits only.
 - The worktree may already be dirty. Do not revert unrelated changes.
 - Use `git status --short` before staging or committing.
 - Stage only the files relevant to the requested change unless the owner asks for a broad commit.

@@ -91,45 +91,67 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 				$this->assertStringNotContainsString( '<style>', $html );
 				$this->assertStringContainsString( 'id="hsp-htaccess-preview"', $html );
 				$this->assertStringContainsString( 'id="hspsc-settings-form"', $html );
+				$this->assertStringContainsString( 'id="hspsc-rebuild-report"', $html );
+				$this->assertStringContainsString( 'Rebuild all public page caches', $html );
+				$this->assertStringNotContainsString( '[preload_enabled]', $html );
+				$this->assertStringNotContainsString( '[preload_limit]', $html );
 			}
 		);
 	}
 
 	/**
-	 * Frontend notice styling is limited to an authorized, allowlisted notice.
+	 * The notice shell and action-specific nonces are limited to administrators.
 	 */
-	public function test_frontend_notice_assets_require_a_privileged_supported_notice() {
+	public function test_rebuild_notice_assets_require_manage_options() {
 		$this->with_fresh_asset_registries(
 			function () {
 				set_current_screen( 'front' );
-				$_GET['hspsc_notice'] = 'rebuild-all-complete';
-				wp_set_current_user( 0 );
-				HSPSC_Admin::enqueue_action_notice_assets();
-				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
+				wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+				HSPSC_Rebuild_Admin::enqueue_assets();
+				$this->assertFalse( wp_style_is( 'hspsc-rebuild', 'enqueued' ) );
+				$this->assertFalse( wp_script_is( 'hspsc-rebuild', 'enqueued' ) );
+				ob_start();
+				HSPSC_Rebuild_Admin::render_notice();
+				$this->assertSame( '', ob_get_clean() );
 
 				wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
-				$_GET['hspsc_notice'] = array( 'malformed' );
-				HSPSC_Admin::enqueue_action_notice_assets();
-				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
-				$_GET['hspsc_notice'] = 'unsupported';
-				HSPSC_Admin::enqueue_action_notice_assets();
-				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
-
-				$_GET['hspsc_notice'] = 'rebuild-all-complete';
-				set_current_screen( 'dashboard' );
-				HSPSC_Admin::enqueue_action_notice_assets();
-				$this->assertFalse( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
-				set_current_screen( 'front' );
-				HSPSC_Admin::enqueue_action_notice_assets();
-				$this->assertTrue( wp_style_is( 'hspsc-action-notice', 'enqueued' ) );
+				HSPSC_Rebuild_Admin::enqueue_assets();
+				$this->assertTrue( wp_style_is( 'hspsc-rebuild', 'enqueued' ) );
+				$this->assertTrue( wp_script_is( 'hspsc-rebuild', 'enqueued' ) );
 				$this->assertFalse( wp_style_is( 'hspsc-admin', 'enqueued' ) );
 				$this->assertFalse( wp_script_is( 'hspsc-admin', 'enqueued' ) );
+				$data = wp_scripts()->get_data( 'hspsc-rebuild', 'data' );
+				$this->assertSame( 1, preg_match( '/^var HSPSCRebuild = (.+);$/s', $data, $matches ) );
+				$config = json_decode( $matches[1], true );
+				$this->assertNotFalse( wp_verify_nonce( $config['statusNonce'], 'hspsc_rebuild_status' ) );
+				$this->assertNotFalse( wp_verify_nonce( $config['tickNonce'], 'hspsc_rebuild_tick' ) );
+				$this->assertArrayNotHasKey( 'job', $config );
 
 				ob_start();
-				HSPSC_Admin::render_action_notice();
+				HSPSC_Rebuild_Admin::render_notice();
 				$html = ob_get_clean();
-				$this->assertStringContainsString( 'All cache files were rebuilt.', $html );
+				$this->assertStringContainsString( 'id="hspsc-rebuild-notice"', $html );
+				$this->assertStringContainsString( '#hspsc-rebuild-report', $html );
+				$this->assertStringContainsString( 'aria-live="polite"', $html );
+				$this->assertStringContainsString( 'name="job_id" value=""', $html );
+				$this->assertStringContainsString( 'name="_wpnonce" value=""', $html );
 				$this->assertStringNotContainsString( '<style>', $html );
+			}
+		);
+	}
+
+	/** The settings document provides exact navigation bytes for AJAX starts. */
+	public function test_rebuild_settings_assets_capture_the_document_accept_header() {
+		$this->with_fresh_asset_registries(
+			function () {
+				wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+				$accept = 'text/html;example="a&amp;b",application/xhtml+xml,image/webp,*/*;q=0.8';
+				$_SERVER['HTTP_ACCEPT'] = wp_slash( $accept );
+				HSPSC_Rebuild_Admin::enqueue_assets( 'settings_page_hsp-smart-cache' );
+				$data = wp_scripts()->get_data( 'hspsc-rebuild', 'data' );
+				$this->assertSame( 1, preg_match( '/^var HSPSCRebuild = (.+);$/s', $data, $matches ) );
+				$config = json_decode( $matches[1], true );
+				$this->assertSame( $accept, hex2bin( $config['navigationAccept'] ) );
 			}
 		);
 	}
@@ -488,40 +510,6 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         $this->assertTrue( $options['minify_html'] );
     }
 
-    public function test_cache_test_results_render_in_cache_operations_card() {
-        $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
-        wp_set_current_user( $admin_id );
-
-        set_transient(
-            'hspsc_test_results',
-            array(
-                array(
-                    'status' => true,
-                    'label'  => 'Cache directories exist',
-                ),
-            ),
-            300
-        );
-
-        ob_start();
-        HSPSC_Admin::render_settings_page();
-        $html = ob_get_clean();
-
-        $cache_heading = strpos( $html, 'Cache Operations' );
-        $tests_panel = strpos( $html, 'id="hspsc-tests-panel"' );
-        $maintenance_heading = strpos( $html, 'Database Maintenance' );
-
-        $this->assertNotFalse( $cache_heading );
-        $this->assertNotFalse( $tests_panel );
-        $this->assertNotFalse( $maintenance_heading );
-        $this->assertStringContainsString( 'Apply Bricks Preset', $html );
-        $this->assertGreaterThan( $cache_heading, $tests_panel );
-        $this->assertLessThan( $maintenance_heading, $tests_panel );
-
-        delete_transient( 'hspsc_test_results' );
-        wp_set_current_user( 0 );
-    }
-
     public function test_admin_bar_actions_use_current_url_as_return_target() {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
         wp_set_current_user( $admin_id );
@@ -537,6 +525,10 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 
         $node = $bar->get_node( 'hspsc-rebuild-all' );
         $this->assertNotNull( $node );
+        $this->assertSame( __( 'Rebuild all public page caches', 'hsp-smart-cache' ), $node->title );
+        $this->assertSame( __( 'Clear all caches', 'hsp-smart-cache' ), $bar->get_node( 'hspsc-clear-all' )->title );
+        $this->assertSame( __( "Rebuild this page's public cache", 'hsp-smart-cache' ), $bar->get_node( 'hspsc-rebuild-current' )->title );
+        $this->assertNull( $bar->get_node( 'hspsc-clear-current' ) );
         $this->assertStringContainsString( rawurlencode( home_url( '/cache-view/?preview=true' ) ), $node->href );
 
         wp_set_current_user( 0 );
@@ -573,7 +565,7 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         wp_set_current_user( 0 );
     }
 
-    public function test_handle_rebuild_all_redirects_back_with_status_notice() {
+    public function test_handle_rebuild_all_queues_a_job_and_redirects_back() {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
         wp_set_current_user( $admin_id );
 
@@ -590,14 +582,42 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
 
         try {
             HSPSC_Admin::handle_rebuild_all();
+            $job = HSPSC_Rebuild::get_status();
+            $this->assertNotEmpty( $job['id'] );
+            $this->assertContains( $job['state'], array( 'discovering', 'running' ) );
+            $this->assertSame( 0, $job['processed'] );
+            $this->assertSame( home_url( '/return-rebuild-all/' ), $redirect_to );
         } finally {
             remove_filter( 'wp_redirect', $capture_redirect );
+            HSPSC_Rebuild::reset();
+            wp_set_current_user( 0 );
         }
-
-        $this->assertSame( home_url( '/return-rebuild-all/?hspsc_notice=rebuild-all-complete' ), $redirect_to );
-
-        wp_set_current_user( 0 );
     }
+
+	/** The browser-decoded return parameter still contains the page's encoded query. */
+	public function test_rebuild_current_keeps_encoded_query_values() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$target_url               = home_url( '/rebuild-current/?label=a%26b' );
+		$_GET['hspsc_return']      = $target_url;
+		$_REQUEST['_wpnonce']     = wp_create_nonce( 'hspsc_rebuild_current' );
+		$redirect_to              = '';
+		$capture_redirect         = static function ( $location ) use ( &$redirect_to ) {
+			$redirect_to = $location;
+			return false;
+		};
+		add_filter( 'wp_redirect', $capture_redirect );
+		try {
+			HSPSC_Admin::handle_rebuild_current();
+			$job = HSPSC_Rebuild::get_status();
+			$this->assertSame( 1, $job['total'] );
+			$this->assertSame( 0, $job['processed'] );
+			$this->assertSame( $target_url, $redirect_to );
+		} finally {
+			remove_filter( 'wp_redirect', $capture_redirect );
+			HSPSC_Rebuild::reset();
+			wp_set_current_user( 0 );
+		}
+	}
 
     public function test_handle_clear_current_removes_requested_url_cache() {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
@@ -636,65 +656,30 @@ class HSPSC_Admin_Test extends WP_UnitTestCase {
         }
     }
 
-    public function test_handle_run_preload_sets_result_transient() {
+    public function test_legacy_preload_form_queues_the_public_rebuild_job() {
         $admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
         wp_set_current_user( $admin_id );
-
-        $sitemap_url = home_url( '/admin-preload-sitemap.xml' );
-        update_option(
-            HSPSC_Settings::OPTION_KEY,
-            array_merge(
-                HSPSC_Settings::defaults(),
-                array(
-                    'page_cache'          => true,
-                    'preload_enabled'     => true,
-                    'preload_sitemap_url' => $sitemap_url,
-                    'preload_limit'       => 1,
-                )
-            )
-        );
 
         $_GET['_wpnonce'] = wp_create_nonce( 'hspsc_run_preload' );
         $_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
 
-        $mock_http = static function( $preempt, $args, $url ) use ( $sitemap_url ) {
-            if ( $url === $sitemap_url ) {
-                return array(
-                    'headers'  => array(),
-                    'body'     => '<urlset><url><loc>' . esc_url_raw( home_url( '/preload-one/' ) ) . '</loc></url></urlset>',
-                    'response' => array( 'code' => 200, 'message' => 'OK' ),
-                    'cookies'  => array(),
-                    'filename' => null,
-                );
-            }
-
-            return array(
-                'headers'  => array(),
-                'body'     => 'ok',
-                'response' => array( 'code' => 200, 'message' => 'OK' ),
-                'cookies'  => array(),
-                'filename' => null,
-            );
-        };
-
-        add_filter( 'pre_http_request', $mock_http, 10, 3 );
-        $capture_redirect = static function() {
+        $redirect_to = '';
+        $capture_redirect = static function( $location ) use ( &$redirect_to ) {
+            $redirect_to = $location;
             return false;
         };
         add_filter( 'wp_redirect', $capture_redirect );
 
         try {
             HSPSC_Admin::handle_run_preload();
+            $job = HSPSC_Rebuild::get_status();
+            $this->assertNotEmpty( $job['id'] );
+            $this->assertSame( 0, $job['processed'] );
+            $this->assertSame( HSPSC_Rebuild_Admin::results_url(), $redirect_to );
         } finally {
-            remove_filter( 'pre_http_request', $mock_http, 10 );
             remove_filter( 'wp_redirect', $capture_redirect );
+            HSPSC_Rebuild::reset();
+            wp_set_current_user( 0 );
         }
-
-        $result = get_transient( 'hspsc_preload_result' );
-        $this->assertIsArray( $result );
-        $this->assertArrayHasKey( 'ok', $result );
-        $this->assertArrayHasKey( 'count', $result );
-
-        wp_set_current_user( 0 );
     }
 }

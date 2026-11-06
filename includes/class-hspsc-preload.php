@@ -1,6 +1,6 @@
 <?php
 /**
- * Warms explicitly allowed sitemap URLs on manual request.
+ * Fetches and parses one bounded sitemap document for the rebuild queue.
  *
  * @package HSPSC
  */
@@ -10,126 +10,144 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Warms explicitly allowed sitemap URLs on manual request.
+ * Provides sitemap discovery without performing page warming.
  */
 class HSPSC_Preload {
+	const MAX_DOCUMENT_BYTES = 2 * MB_IN_BYTES;
+
 	/**
-	 * Fetches the configured sitemap and attempts bounded manual cache warming.
+	 * Resolves the configured sitemap or WordPress's actual core index URL.
 	 *
-	 * @return array Status, attempted URL count, and optional error code.
+	 * @return string Absolute sitemap URL.
 	 */
-	public static function run() {
-		if ( ! HSPSC_Settings::get( 'preload_enabled' ) ) {
-			return array(
-				'ok'    => false,
-				'count' => 0,
-			);
+	public static function get_sitemap_url() {
+		$sitemap = HSPSC_Settings::get( 'preload_sitemap_url', '' );
+		if ( is_string( $sitemap ) && '' !== $sitemap ) {
+			return $sitemap;
 		}
-
-		$sitemap = HSPSC_Settings::get( 'preload_sitemap_url' );
-		if ( empty( $sitemap ) ) {
-			$sitemap = function_exists( 'wp_sitemaps_get_server' ) ? wp_sitemaps_get_server()->index->get_index_url() : home_url( '/wp-sitemap.xml' );
-		}
-		if ( ! HSPSC_Page::is_warmable_url( $sitemap ) ) {
-			return array(
-				'ok'    => false,
-				'count' => 0,
-				'error' => 'invalid_sitemap_url',
-			);
-		}
-
-		$limit   = intval( HSPSC_Settings::get( 'preload_limit', 50 ) );
-		$timeout = intval( HSPSC_Settings::get( 'preload_timeout', 8 ) );
-
-		$urls  = self::fetch_sitemap_urls( $sitemap, $limit );
-		$count = 0;
-		foreach ( $urls as $url ) {
-			HSPSC_Page::warm_url_with_timeout( $url, $timeout );
-			++$count;
-		}
-
-		return array(
-			'ok'    => true,
-			'count' => $count,
-		);
+		return function_exists( 'wp_sitemaps_get_server' ) ? wp_sitemaps_get_server()->index->get_index_url() : home_url( '/wp-sitemap.xml' );
 	}
 
 	/**
-	 * Walks bounded sitemap indexes without following redirects or external origins.
+	 * Reads one allowed document without redirects, credentials or entity expansion.
 	 *
-	 * @param string $sitemap_url Validated sitemap URL.
-	 * @param int    $limit Maximum number of URLs to return.
-	 * @return string[] Approved decoded sitemap locations.
+	 * @param string $url Sitemap URL.
+	 * @param int    $timeout HTTP timeout in seconds.
+	 * @param int    $byte_budget Remaining discovery byte allowance.
+	 * @return array Document kind, decoded locations, bytes read, and a fixed failure reason.
 	 */
-	protected static function fetch_sitemap_urls( $sitemap_url, $limit ) {
-		$limit           = max( 1, intval( $limit ) );
-		$pending         = array( array( $sitemap_url, 0 ) );
-		$visited         = array();
-		$urls            = array();
-		$remaining_bytes = 8 * MB_IN_BYTES;
-		$fetched_count   = 0;
-		$page_count      = 0;
-		while ( $pending && $fetched_count < 50 && $page_count < $limit && $remaining_bytes > 0 ) {
-			list( $current_url, $depth ) = array_shift( $pending );
-			if ( isset( $visited[ $current_url ] ) || ! HSPSC_Page::is_warmable_url( $current_url ) ) {
-				continue;
-			}
-			$visited[ $current_url ] = true;
-			++$fetched_count;
-			$max_bytes = min( 2 * MB_IN_BYTES, $remaining_bytes );
-			$response  = wp_remote_get(
-				$current_url,
-				array(
-					'timeout'             => 8,
-					'redirection'         => 0,
-					'limit_response_size' => $max_bytes + 1,
-				)
-			);
-			if ( is_wp_error( $response ) ) {
-				continue;
-			}
-			$body             = wp_remote_retrieve_body( $response );
-			$remaining_bytes -= strlen( $body );
-			if ( 200 !== wp_remote_retrieve_response_code( $response ) || '' === $body || strlen( $body ) > $max_bytes || stripos( $body, '<!DOCTYPE' ) !== false ) {
-				continue;
-			}
-			// Do not expand XML entities or mistake image/video locations for pages.
-			$body = ltrim( $body, "\xEF\xBB\xBF \t\r\n" );
-			if ( ! preg_match( '~\A(?:<\?xml\b[^?]*\?>\s*)?(?:<!--.*?-->\s*)*<(sitemapindex|urlset)\b[^>]*>~is', $body, $root ) ) {
-				continue;
-			}
-			$is_index = 'sitemapindex' === strtolower( $root[1] );
-			$entry    = $is_index ? 'sitemap' : 'url';
-			preg_match_all( '~<' . $entry . '\b[^>]*>(.*?)</' . $entry . '\s*>~is', $body, $entries );
-			foreach ( $entries[1] as $entry_body ) {
-				if ( ! preg_match( '~<loc\b[^>]*>(.*?)</loc\s*>~is', $entry_body, $location ) ) {
-					continue;
-				}
-				$value = trim( $location[1] );
-				if ( str_starts_with( $value, '<![CDATA[' ) && str_ends_with( $value, ']]>' ) ) {
-					$value = substr( $value, 9, -3 );
-				} else {
-					$value = html_entity_decode( $value, ENT_QUOTES | ENT_XML1, 'UTF-8' );
-				}
-				$url = esc_url_raw( trim( $value ) );
-				if ( ! $url || ! HSPSC_Page::is_warmable_url( $url ) ) {
-					continue;
-				}
-				if ( $is_index ) {
-					if ( $depth < 5 && count( $pending ) + $fetched_count < 50 && ! isset( $visited[ $url ] ) ) {
-						$pending[] = array( $url, $depth + 1 );
-					}
-				} else {
-					if ( ! isset( $urls[ $url ] ) ) {
-						$urls[ $url ] = $url;
-						++$page_count;
-					}
-					if ( $page_count >= $limit ) {
-						break;
-					}
-				}
-			}
+	public static function fetch_sitemap( $url, $timeout, $byte_budget = self::MAX_DOCUMENT_BYTES ) {
+		$result = array(
+			'kind'      => '',
+			'locations' => array(),
+			'bytes'     => 0,
+			'reason'    => '',
+		);
+		$reason = HSPSC_Page::validate_public_warming_url( $url, true );
+		if ( '' !== $reason ) {
+			$result['reason'] = $reason;
+			return $result;
 		}
-		return array_values( $urls );
+		$max_bytes = min( self::MAX_DOCUMENT_BYTES, (int) $byte_budget );
+		if ( $max_bytes < 1 ) {
+			$result['reason'] = 'discovery-byte-limit';
+			return $result;
+		}
+		$response = HSPSC_Utils::get_bounded_identity_response(
+			$url,
+			array( 'Accept' => 'application/xml,text/xml,*/*;q=0.1' ),
+			$timeout,
+			$max_bytes
+		);
+		if ( is_wp_error( $response ) ) {
+			$result['reason'] = 'request-error';
+			return $result;
+		}
+		$body = wp_remote_retrieve_body( $response );
+		if ( ! is_string( $body ) ) {
+			$result['reason'] = 'invalid-sitemap';
+			return $result;
+		}
+		$result['bytes'] = strlen( $body );
+		if ( $result['bytes'] > $max_bytes ) {
+			$result['reason'] = $max_bytes < self::MAX_DOCUMENT_BYTES ? 'discovery-byte-limit' : 'sitemap-too-large';
+			return $result;
+		}
+		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			$result['reason'] = 'response-status';
+			return $result;
+		}
+		if ( ! HSPSC_Utils::is_identity_http_response( $response ) ) {
+			$result['reason'] = 'response-encoding';
+			return $result;
+		}
+		$parsed = self::parse_document( $body );
+		if ( null === $parsed ) {
+			$result['reason'] = 'invalid-sitemap';
+			return $result;
+		}
+		$result['kind']      = $parsed['kind'];
+		$result['locations'] = $parsed['locations'];
+		return $result;
+	}
+
+	/**
+	 * Accepts complete sitemap documents without requiring an XML extension.
+	 *
+	 * @param string $body Bounded response body.
+	 * @return array|null Root kind and direct location values, or null for invalid XML structure.
+	 */
+	protected static function parse_document( $body ) {
+		if ( stripos( $body, '<!DOCTYPE' ) !== false ) {
+			return null;
+		}
+		$body = preg_replace( '~<!--.*?-->~s', '', ltrim( $body, "\xEF\xBB\xBF \t\r\n" ) );
+		if ( ! is_string( $body ) ) {
+			return null;
+		}
+		// The core stylesheet URL has a query string when plain permalinks are used.
+		$prefix = '\A(?:\s*<\?xml(?:-stylesheet)?(?=\s)(?>.*?\?>))*\s*';
+		if ( preg_match( '~' . $prefix . '<(sitemapindex|urlset)(?=[\s/])[^>]*/\s*>\s*\z~is', $body, $root ) ) {
+			return array(
+				'kind'      => strtolower( $root[1] ),
+				'locations' => array(),
+			);
+		}
+		if ( ! preg_match( '~' . $prefix . '<(sitemapindex|urlset)(?=[\s>])[^>]*>(.*)</\1\s*>\s*\z~is', $body, $root ) ) {
+			return null;
+		}
+		$kind      = strtolower( $root[1] );
+		$entry     = 'sitemapindex' === $kind ? 'sitemap' : 'url';
+		$pattern   = '~\G\s*<' . $entry . '(?=[\s>])[^>]*>(.*?)</' . $entry . '\s*>~is';
+		$locations = array();
+		$consumed  = 0;
+		while ( 1 === preg_match( $pattern, $root[2], $match, 0, $consumed ) ) {
+			$consumed += strlen( $match[0] );
+			// The required loc element is first in both sitemap entry types.
+			if ( ! preg_match( '~\A\s*<loc(?=[\s>])[^>]*>(.*?)</loc\s*>~is', $match[1], $location ) ) {
+				return null;
+			}
+			$value = trim( $location[1] );
+			if ( str_starts_with( $value, '<![CDATA[' ) && str_ends_with( $value, ']]>' ) ) {
+				$value = substr( $value, 9, -3 );
+			} else {
+				if ( preg_match( '~[<>]|&(?!(?:amp|lt|gt|apos|quot|#[0-9]+|#x[0-9a-fA-F]+);)~', $value ) ) {
+					return null;
+				}
+				$value = html_entity_decode( $value, ENT_QUOTES | ENT_XML1, 'UTF-8' );
+			}
+			$value = trim( $value );
+			if ( '' === $value ) {
+				return null;
+			}
+			$locations[] = $value;
+		}
+		if ( '' !== trim( substr( $root[2], $consumed ) ) ) {
+			return null;
+		}
+		return array(
+			'kind'      => $kind,
+			'locations' => $locations,
+		);
 	}
 }

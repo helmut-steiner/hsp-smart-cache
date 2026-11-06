@@ -4,7 +4,7 @@ Tags: cache, caching, performance, minify, cdn
 Requires at least: 7.1.3
 Tested up to: 7.1.3
 Requires PHP: 8.4
-Stable tag: 0.10.0
+Stable tag: 0.11.0
 License: HSP Personal Noncommercial Contribution License 1.0
 License URI: https://github.com/helmut-steiner/hsp-smart-cache/blob/main/LICENSE
 Fast page caching and asset optimization for WordPress with simple controls.
@@ -26,7 +26,7 @@ It includes the following functionality:
 * **Static asset caching rules** for Apache (.htaccess), including optional immutable directives and gzip/deflate compression.
 * **Render-blocking optimization** controls: defer/async for scripts, handle exclusions, preconnect hints, preload for fonts/CSS, and inline critical CSS.
 * **Additional frontend performance controls**: lazy loading for images/iframes, decoding=async for images, disable emojis/embeds/dashicons-for-guests, and custom DNS prefetch hints.
-* **Cache preload** from sitemap URLs with configurable max URLs and per-request timeout.
+* **Public page cache rebuilds** from sitemap URLs, with background progress, verified results, and retry for failed pages.
 * **Built-in cache diagnostics** from the settings page.
 * **Database maintenance tools**: cleanup (revisions, trashed content, expired transients), optimization analysis summary, table optimization, automatic timestamped backup before optimization, and backup management (list, restore, delete).
 * **GitHub release updater integration** for plugin update checks and release changelog display.
@@ -64,7 +64,7 @@ Use the **Run Cache Tests** button on the settings page.
 = How does WPML integration work? =
 When WPML is active, documented APIs isolate page output for language directories, separate domains, and query URLs such as `?lang=de`. Unknown or conflicting language contexts bypass caching and frontend transformations. Language-only WPML pages remain cacheable. Translated WooCommerce/FluentCart private pages stay excluded. WCML currency cookies or its registered multicurrency API bypass page caching and frontend transformations, including first visits before cookies exist, when geolocation may personalize prices. WPML scripts keep their source URLs, localization data, and loading behavior; visitor-language redirect opt-outs remain under WPML's control. Translation, string removal, source-language/source-string edits, and language-setting changes invalidate cached pages. Ordinary frontend string registration leaves cached pages intact.
 
-Manual preload preserves XML-escaped language query arguments and fetches only exact configured home, site, or currently API-resolvable WPML language origins, without following redirects. Early/admin preload may skip other language domains before WPML's full active-language map is available. Page-cache namespace 4 and render-cache schema 6 purge older page and asset cache files when the schema changes.
+Public cache rebuilds preserve XML-escaped language query arguments and fetch only exact configured home, site, or currently API-resolvable WPML language origins, without following redirects. Rebuilds may skip other language domains when WPML's full active-language map is unavailable. Page-cache namespace 4 and render-cache schema 6 purge older page and asset cache files when the schema changes.
 
 Normal PHPUnit and CI coverage uses API fixtures without requiring WPML/WCML, Independent Analytics, Slim SEO, or WebP Express plugins, private ZIP files, or license keys. Optional live integration checks run separately on a local development installation, with tested versions and configurations reported separately. These checks do not establish WPML certification.
 
@@ -79,6 +79,13 @@ Source review covered supplied Independent Analytics Pro 2.14.10 and Slim SEO Pr
 When headers can still be sent, X-HSPSC-Cache reports HIT, MISS, or BYPASS. X-HSPSC-Cache-Reason uses fixed codes: private-request, response-headers, request-key, buffer-conflict, late-private-response, or write-failed. These headers reveal no cookie values, signing secrets, or filesystem paths. The option reference explains each code. Absence of a header alone does not identify the source of a slow request.
 
 == Changelog ==
+
+= 0.11.0 =
+
+* Organize settings into Cache, Optimization, Maintenance, and Advanced tabs, with rebuild controls and results together and unsaved edits preserved across tabs.
+* Rebuild public sitemap pages in persistent background batches with progress, verified cache files, paginated results, and retry for failed pages. Public rebuilds preserve authenticated entries, generated assets, and object data.
+* Replace the preload checkbox and overall page limit with explicit rebuild actions for the site or current public page. Preserve the initiating browser's requested HTML variant and keep admin, settings, and private pages excluded.
+* Publish GitHub Releases from validated version tags after automated checks pass, using the matching changelog bullets as the release message.
 
 = 0.10.0 =
 

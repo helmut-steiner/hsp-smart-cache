@@ -17,6 +17,8 @@ function hspsc_uninstall() {
 	delete_option( 'hspsc_settings' );
 	delete_option( 'hspsc_cache_schema' );
 	delete_option( 'hspsc_object_cache_security_revision' );
+	delete_option( 'hspsc_rebuild_job' );
+	wp_unschedule_hook( 'hspsc_run_rebuild_batch' );
 
 	if ( ! defined( 'HSPSC_PATH' ) ) {
 		define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );

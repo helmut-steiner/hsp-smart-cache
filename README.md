@@ -27,9 +27,17 @@ Install the latest maintenance/security patches for WordPress and your chosen PH
 
 ## Usage
 
-- Enable features individually in **Settings → HSP Smart Cache**.
+- Open **Settings → HSP Smart Cache**. The **Cache** tab contains cache status, rebuild results, and page/browser/object-cache settings. **Optimization** contains frontend optimizations and CDN settings, **Maintenance** contains database tools and backups, and **Advanced** contains diagnostics and compatibility controls.
+- Tab changes preserve unsaved edits. **Save all settings** saves settings from every tab.
 - Use **Clear All Caches** to purge.
-- Use **Run Cache Tests** to validate cache routines and permissions.
+- Use **Run Cache Tests** under **Advanced** to validate cache routines and permissions.
+- Use **Rebuild all public page caches** to rebuild anonymous sitemap pages in the background. Progress, verified results, and retry are available in the toolbar notice and settings report; admin and settings pages remain uncached.
+
+## Tagged Releases
+
+Push a stable version tag such as `v0.11.0` after updating the plugin header, `HSPSC_VERSION`, readme stable tag, and matching `## 0.11.0` changelog section. The tag must point to the commit containing those updates and the release workflow.
+
+The release workflow runs the PHP 8.4/8.5 checks, validates matching version metadata, packages only runtime files, and publishes a GitHub Release. Its message is exactly the matching `CHANGELOG.md` bullet list; older entries and the Unreleased section are excluded. A manual rerun can select the same tag. Invalid tags, missing notes, and failed checks prevent publication.
 
 ## Documentation
 
@@ -61,8 +69,8 @@ Local HTTP validation used WPML 5.2.0, String Translation 5.2.0, WCML 5.7.0, and
 - Independent Analytics tracking remains enabled on eligible cached pages. Campaign arguments are removed only from cache keys, preserving the browser URL for tracking. Ignore-visitor cookies bypass caching; tracking, Complianz consent-integration, and public-counter configuration changes invalidate page output. A server-rendered public view counter remains a snapshot until the page TTL expires or pages are cleared.
 - Slim SEO metadata, JSON-LD, redirects, and public HTML remain under the SEO plugin's control. Output-affecting option, metadata, link, and successful REST mutations invalidate pages without purging object data or generated assets.
 - WebP Express picture markup is preserved. Page-cache entries vary by the exact request `Accept` header, and `Vary: Accept` is sent on cache hits and misses. Changes to HTML-rewriting options invalidate all page representations; non-HTML Markdown and XML responses remain uncached.
-- Manual preload preserves XML-escaped language query arguments and accepts only exact configured home, site, or currently API-resolvable WPML language origins. Admin preload may skip other language domains before WPML's full language map is available. Sitemap and page requests do not follow redirects.
-- Page-cache namespace 4 and render-cache schema 6 discard older page and asset cache files when the schema changes. URL purges clear anonymous and authenticated `Accept` variants, and warming forwards the initiating request's `Accept` header. Preloading warms only that representation: an admin AJAX request using `Accept: */*` does not warm a visitor's different browser-navigation header.
+- Public cache rebuilds preserve XML-escaped language query arguments and accept only exact configured home, site, or currently API-resolvable WPML language origins. Rebuilds may skip other language domains when WPML's full language map is unavailable. Sitemap and page requests do not follow redirects.
+- Page-cache namespace 4 and render-cache schema 6 discard older page and asset cache files when the schema changes. Ordinary URL purges clear anonymous and authenticated `Accept` variants; explicit public rebuilds preserve authenticated entries. Rebuilds preserve the initiating browser document's `Accept` header, including settings AJAX starts. Other browser representations can require a separate first request.
 - Page capture allows nested plugin buffers and WordPress 6.9+ template enhancements to finish naturally before saving the complete response. Late privacy and representation checks still apply; incomplete or discarded HSP output remains uncached.
 - HTML responses are private and revalidated before reuse. Matching gzip/Brotli validators added by server compression can return `304 Not Modified` without downloading the HTML again; private requests still bypass caching. Server-side page caching remains available for eligible public pages.
 - Persistent object files are guarded and authenticated; legacy plaintext entries are discarded automatically. Keep WordPress auth keys configured for persistent storage.

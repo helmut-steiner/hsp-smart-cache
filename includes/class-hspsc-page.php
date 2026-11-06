@@ -18,6 +18,9 @@ class HSPSC_Page {
 	 */
 	const PRIVATE_FILE_GUARD = "<?php exit; ?>\n";
 
+	/** Maximum HTML bytes accepted from one public warming request. */
+	const WARMING_RESPONSE_LIMIT = 4194304;
+
 	/**
 	 * Whether the early header filter removed WordPress's default login policy.
 	 *
@@ -161,6 +164,7 @@ class HSPSC_Page {
 		if ( false !== $snapshot ) {
 			header( 'Content-Type: text/html; charset=' . get_option( 'blog_charset', 'UTF-8' ) );
 			header( 'X-HSPSC-Cache: HIT' );
+			self::send_warming_proof( $cache_file, $snapshot['etag'] );
 			if ( ! self::send_browser_cache_headers( $snapshot['etag'] ) ) {
 				self::stream_cache_file( $snapshot['handle'] );
 			}
@@ -274,8 +278,10 @@ class HSPSC_Page {
 
 		HSPSC_Utils::ensure_cache_dirs();
 		if ( self::write_cache_file( $cache_file, $html, $generation ) ) {
-			self::send_browser_cache_headers( self::get_content_etag( $cache_file, $html ), true );
+			$etag = self::get_content_etag( $cache_file, $html );
+			self::send_browser_cache_headers( $etag, true );
 			self::send_cache_status( 'MISS' );
+			self::send_warming_proof( $cache_file, $etag );
 			self::maybe_cleanup_expired_cache();
 		} else {
 			self::send_cache_status( 'BYPASS', 'write-failed' );
@@ -610,11 +616,12 @@ class HSPSC_Page {
 	/**
 	 * Isolates content negotiated by SEO and image plugins without guessing formats.
 	 *
-	 * @param string $key URL, language and user cache key.
+	 * @param string      $key URL, language and user cache key.
+	 * @param string|null $accept Explicit negotiated representation, or null to use the current request.
 	 * @return string|null Cache filename, or null for an invalid request header.
 	 */
-	protected static function get_variant_cache_file_path( $key ) {
-		$accept = self::get_request_accept();
+	protected static function get_variant_cache_file_path( $key, $accept = null ) {
+		$accept = $accept ?? self::get_request_accept();
 		if ( ! $key || null === $accept ) {
 			return null;
 		}
@@ -630,7 +637,7 @@ class HSPSC_Page {
 	 * @return string|null Accept header, or null when malformed or oversized.
 	 */
 	protected static function get_request_accept() {
-		if ( ! isset( $_SERVER['HTTP_ACCEPT'] ) ) {
+		if ( ! array_key_exists( 'HTTP_ACCEPT', $_SERVER ) ) {
 			return '';
 		}
 		if ( ! is_string( $_SERVER['HTTP_ACCEPT'] ) ) {
@@ -638,10 +645,26 @@ class HSPSC_Page {
 		}
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Preserve representation identity; validate control bytes and length below.
 		$accept = wp_unslash( $_SERVER['HTTP_ACCEPT'] );
-		if ( strlen( $accept ) > 8192 || preg_match( '/[\x00-\x08\x0a-\x1f\x7f]/', $accept ) ) {
-			return null;
-		}
-		return $accept;
+		return self::is_valid_warming_accept( $accept ) ? $accept : null;
+	}
+
+	/**
+	 * Checks header type, length and control bytes without rewriting its identity.
+	 *
+	 * @param mixed $accept Exact HTTP Accept header bytes.
+	 * @return bool Whether the value can be used as an Accept field and cache key.
+	 */
+	public static function is_valid_warming_accept( $accept ) {
+		return is_string( $accept ) && strlen( $accept ) <= 8192 && ! preg_match( '/[\x00-\x08\x0a-\x1f\x7f]/', $accept );
+	}
+
+	/**
+	 * Captures the initiating Accept value for a later anonymous rebuild request.
+	 *
+	 * @return string|null Exact header, HTML if absent, or null if invalid.
+	 */
+	public static function get_warming_accept() {
+		return array_key_exists( 'HTTP_ACCEPT', $_SERVER ) ? self::get_request_accept() : 'text/html';
 	}
 
 	/**
@@ -793,6 +816,37 @@ class HSPSC_Page {
 	}
 
 	/**
+	 * Proves the selected anonymous cache key to a worker with a partial WPML map.
+	 *
+	 * @param string $cache_file Selected anonymous cache file.
+	 * @param string $etag Validator of the selected HTML body.
+	 * @return void
+	 */
+	protected static function send_warming_proof( $cache_file, $etag ) {
+		if ( headers_sent() || self::is_private_cache_file( $cache_file ) || is_user_logged_in()
+			|| ! isset( $_SERVER['HTTP_X_HSPSC_WARM_CHECK'] ) || ! is_string( $_SERVER['HTTP_X_HSPSC_WARM_CHECK'] ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validate the opaque challenge without altering its bytes.
+		$challenge = wp_unslash( $_SERVER['HTTP_X_HSPSC_WARM_CHECK'] );
+		if ( preg_match( '/\A[a-f0-9]{32}\z/', $challenge ) ) {
+			header( 'X-HSPSC-Warm-Proof: ' . self::get_warming_proof( $challenge, $cache_file, $etag ) );
+		}
+	}
+
+	/**
+	 * Binds the loopback challenge to the selected key and exact HTML validator.
+	 *
+	 * @param string $challenge Unique per-request challenge.
+	 * @param string $cache_file Selected cache file path, used only as HMAC input.
+	 * @param string $etag Validator of the selected HTML body.
+	 * @return string Opaque signed proof without a path or language disclosure.
+	 */
+	protected static function get_warming_proof( $challenge, $cache_file, $etag ) {
+		return hash_hmac( 'sha256', 'hspsc-warm|' . $challenge . '|' . basename( $cache_file ) . '|' . $etag, wp_salt( 'auth' ) );
+	}
+
+	/**
 	 * Identifies authenticated files within the dedicated private cache subtree.
 	 *
 	 * @param string $cache_file Plugin-generated cache path.
@@ -811,11 +865,12 @@ class HSPSC_Page {
 	 * larger responses into PHP's private temporary storage. Validate the complete
 	 * copy before using it for both the content hash and response body.
 	 *
-	 * @param string $cache_file Plugin-generated cache path.
-	 * @param int    $ttl Maximum fresh file age in seconds.
+	 * @param string   $cache_file Plugin-generated cache path.
+	 * @param int      $ttl Maximum fresh file age in seconds.
+	 * @param int|null $max_size Maximum HTML bytes to copy, or null for normal serving.
 	 * @return array|false Open handle and content validator, or false for a miss.
 	 */
-	protected static function open_cache_snapshot( $cache_file, $ttl ) {
+	protected static function open_cache_snapshot( $cache_file, $ttl, $max_size = null ) {
 		if ( is_link( $cache_file ) ) {
 			return false;
 		}
@@ -827,7 +882,8 @@ class HSPSC_Page {
 		$stat   = fstat( $handle );
 		$offset = self::is_private_cache_file( $cache_file ) ? strlen( self::PRIVATE_FILE_GUARD ) : 0;
 		$valid  = is_array( $stat ) && 0100000 === ( $stat['mode'] & 0170000 )
-			&& time() - $stat['mtime'] <= $ttl && $stat['size'] >= $offset;
+			&& time() - $stat['mtime'] <= $ttl && $stat['size'] >= $offset
+			&& ( null === $max_size || $stat['size'] - $offset <= $max_size );
 		if ( $valid && $offset > 0 ) {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread -- Validate the guard on the already-opened local cache source.
 			$valid = self::PRIVATE_FILE_GUARD === fread( $handle, $offset );
@@ -1124,6 +1180,69 @@ class HSPSC_Page {
 	}
 
 	/**
+	 * Clears generated anonymous pages while preserving private pages and assets.
+	 *
+	 * @return bool Whether invalidation and file removal completed.
+	 */
+	public static function clear_public_cache() {
+		return self::clear_public_cache_keys( array() );
+	}
+
+	/**
+	 * Clears every anonymous representation of a URL with a resolved language.
+	 *
+	 * @param string $url Absolute URL whose anonymous cache files should be removed.
+	 * @return bool Whether this exact target could be invalidated.
+	 */
+	public static function clear_public_cache_for_url( $url ) {
+		if ( ! self::is_warmable_url( $url ) ) {
+			return false;
+		}
+		$context = self::get_public_warming_context( $url );
+		return ! empty( $context['keys'] ) && self::clear_public_cache_keys( $context['keys'] );
+	}
+
+	/**
+	 * Advances the generation before removing owned anonymous files under its lock.
+	 *
+	 * @param string[] $keys Resolved URL keys, or empty for all public cache entries.
+	 * @return bool Whether the coordinated purge completed.
+	 */
+	protected static function clear_public_cache_keys( $keys ) {
+		$lock = self::lock_cache_state();
+		if ( false === $lock ) {
+			return false;
+		}
+		try {
+			$dir = HSPSC_PATH . '/pages';
+			if ( is_link( $dir ) || ! is_dir( $dir ) ) {
+				return false;
+			}
+			if ( false === self::advance_cache_generation( $lock ) ) {
+				self::$request_generation = false;
+				return false;
+			}
+			$files = array();
+			foreach ( $keys ? $keys : array( '' ) as $key ) {
+				$matches = glob( $dir . '/' . $key . '*.html', GLOB_NOSORT );
+				if ( false === $matches ) {
+					return false;
+				}
+				$files = array_merge( $files, $matches );
+			}
+			$owned = array_filter(
+				$files,
+				static function ( $file ) {
+					return (bool) preg_match( '/\A[a-f0-9]{32}(?:-[a-f0-9]{32})?\.html\z/', basename( $file ) );
+				}
+			);
+			return self::delete_cache_files( $owned );
+		} finally {
+			self::unlock_cache_state( $lock );
+		}
+	}
+
+	/**
 	 * Invalidates every Accept variant for a URL and rejects older in-flight renders.
 	 *
 	 * @param string $url Absolute URL whose cached responses should be removed.
@@ -1169,17 +1288,33 @@ class HSPSC_Page {
 			(array) glob( HSPSC_PATH . '/pages/private/' . $key . '-user-*.php' )
 		);
 		$files[] = HSPSC_PATH . '/pages/' . $key . '.html';
+		self::delete_cache_files( $files );
+	}
+
+	/**
+	 * Deletes only supplied cache entries and checks that removal succeeded.
+	 *
+	 * @param string[] $files Local cache paths selected by the caller.
+	 * @return bool Whether all selected entries were removed.
+	 */
+	protected static function delete_cache_files( $files ) {
 		$fs      = HSPSC_Utils::get_filesystem();
+		$deleted = true;
 		foreach ( $files as $file ) {
 			if ( ! is_file( $file ) && ! is_link( $file ) ) {
 				continue;
 			}
-			if ( $fs ) {
+			if ( $fs && ! is_link( $file ) ) {
 				$fs->delete( $file );
 			} else {
 				wp_delete_file( $file );
 			}
+			clearstatcache( true, $file );
+			if ( file_exists( $file ) || is_link( $file ) ) {
+				$deleted = false;
+			}
 		}
+		return $deleted;
 	}
 
 	/**
@@ -1255,20 +1390,7 @@ class HSPSC_Page {
 	 * @return void
 	 */
 	public static function warm_url( $url ) {
-		if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
-			return;
-		}
-		if ( ! self::is_warmable_url( $url ) ) {
-			return;
-		}
-		wp_remote_get(
-			$url,
-			array(
-				'timeout'     => 8,
-				'redirection' => 0,
-				'headers'     => array( 'Accept' => self::get_request_accept() ?? '' ),
-			)
-		);
+		self::warm_public_url( $url, self::get_warming_accept() );
 	}
 
 	/**
@@ -1279,19 +1401,189 @@ class HSPSC_Page {
 	 * @return void
 	 */
 	public static function warm_url_with_timeout( $url, $timeout ) {
+		self::warm_public_url( $url, self::get_warming_accept(), max( 3, intval( $timeout ) ) );
+	}
+
+	/**
+	 * Warms one exact public representation and verifies its stored HTML.
+	 *
+	 * @param string      $url Absolute target URL on a configured origin.
+	 * @param string|null $accept Exact Accept header captured by the initiating request.
+	 * @param int         $timeout Per-request timeout in seconds.
+	 * @return array Result with a cached, skipped or failed status and fixed reason.
+	 */
+	public static function warm_public_url( $url, $accept, $timeout = 8 ) {
 		if ( ! HSPSC_Settings::get( 'page_cache' ) ) {
-			return;
+			return array(
+				'status' => 'skipped',
+				'reason' => 'cache-disabled',
+			);
 		}
-		if ( ! self::is_warmable_url( $url ) ) {
-			return;
+		if ( ! self::is_valid_warming_accept( $accept ) ) {
+			return array(
+				'status' => 'skipped',
+				'reason' => 'invalid-accept',
+			);
 		}
-		wp_remote_get(
-			$url,
-			array(
-				'timeout'     => max( 3, intval( $timeout ) ),
-				'redirection' => 0,
-				'headers'     => array( 'Accept' => self::get_request_accept() ?? '' ),
-			)
+		$target = self::get_public_warming_target( $url );
+		if ( '' !== $target['reason'] ) {
+			return array(
+				'status' => 'skipped',
+				'reason' => $target['reason'],
+			);
+		}
+
+		$headers   = array( 'Accept' => $accept );
+		$challenge = '';
+		if ( null === $target['language'] ) {
+			$challenge                     = str_replace( '-', '', wp_generate_uuid4() );
+			$headers['X-HSPSC-Warm-Check'] = $challenge;
+		}
+		$response = HSPSC_Utils::get_bounded_identity_response( $url, $headers, $timeout, self::WARMING_RESPONSE_LIMIT );
+		$rejected = self::get_warming_response_failure( $response );
+		if ( null !== $rejected ) {
+			return $rejected;
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		if ( ! is_string( $body ) || '' === $body || strlen( $body ) > self::WARMING_RESPONSE_LIMIT ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'response-size',
+			);
+		}
+		$proof = wp_remote_retrieve_header( $response, 'x-hspsc-warm-proof' );
+		foreach ( $target['keys'] as $key ) {
+			$file = self::get_variant_cache_file_path( $key, $accept );
+			$etag = self::get_content_etag( $file, $body );
+			if ( '' !== $challenge && ( ! is_string( $proof ) || ! hash_equals( self::get_warming_proof( $challenge, $file, $etag ), $proof ) ) ) {
+				continue;
+			}
+			return self::verify_warmed_file( $file, $etag );
+		}
+		return array(
+			'status' => 'skipped',
+			'reason' => 'unresolved-language',
+		);
+	}
+
+	/**
+	 * Rejects failed, non-HTML or private loopback responses before file checks.
+	 *
+	 * @param array|WP_Error $response HTTP API response.
+	 * @return array|null Fixed result for a rejected response, or null for a candidate.
+	 */
+	protected static function get_warming_response_failure( $response ) {
+		if ( is_wp_error( $response ) ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'request-error',
+			);
+		}
+		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'response-status',
+			);
+		}
+		$cache_status = wp_remote_retrieve_header( $response, 'x-hspsc-cache' );
+		$bypass       = 'BYPASS' === $cache_status ? wp_remote_retrieve_header( $response, 'x-hspsc-cache-reason' ) : '';
+		if ( in_array( $bypass, array( 'write-failed', 'buffer-conflict' ), true ) ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'write-failed',
+			);
+		}
+		if ( in_array( $bypass, array( 'private-request', 'late-private-response' ), true ) ) {
+			return array(
+				'status' => 'skipped',
+				'reason' => 'private-response',
+			);
+		}
+		$type = wp_remote_retrieve_header( $response, 'content-type' );
+		if ( ! is_string( $type ) || 'text/html' !== strtolower( trim( explode( ';', $type )[0] ) ) ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'response-type',
+			);
+		}
+		if ( ! HSPSC_Utils::is_identity_http_response( $response ) ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'response-encoding',
+			);
+		}
+		if ( 'response-headers' === $bypass || self::has_private_warming_headers( $response ) ) {
+			return array(
+				'status' => 'skipped',
+				'reason' => 'private-response',
+			);
+		}
+		if ( ! in_array( $cache_status, array( 'HIT', 'MISS' ), true ) ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'cache-bypass',
+			);
+		}
+		return null;
+	}
+
+	/**
+	 * Distinguishes private origin responses from HSP's browser revalidation policy.
+	 *
+	 * @param array $response HTTP API response.
+	 * @return bool Whether response headers prevent confirmed public warming.
+	 */
+	protected static function has_private_warming_headers( $response ) {
+		$headers = wp_remote_retrieve_headers( $response );
+		if ( isset( $headers['set-cookie'] ) || isset( $headers['location'] ) || isset( $headers['content-disposition'] )
+			|| wp_remote_retrieve_cookies( $response ) ) {
+			return true;
+		}
+		$policy = implode( ', ', (array) wp_remote_retrieve_header( $response, 'cache-control' ) );
+		if ( preg_match( '/(?:\A|,)[ \t]*(?:private|no-store|no-cache)[ \t]*(?:=|,|\z)/i', $policy )
+			&& ! preg_match( '/\Aprivate, *no-cache, *max-age=[0-9]+, *must-revalidate\z/i', trim( $policy ) ) ) {
+			return true;
+		}
+		$vary = implode( ',', (array) wp_remote_retrieve_header( $response, 'vary' ) );
+		$vary = array_filter( array_map( 'trim', explode( ',', strtolower( $vary ) ) ), 'strlen' );
+		return (bool) array_diff( $vary, array( 'accept', 'accept-encoding' ) );
+	}
+
+	/**
+	 * Confirms that the exact bytes received also exist in the fresh public file.
+	 *
+	 * @param string $file Expected anonymous cache file.
+	 * @param string $etag Expected content validator derived from the full response.
+	 * @return array Fixed result of the persisted cache verification.
+	 */
+	protected static function verify_warmed_file( $file, $etag ) {
+		clearstatcache( true, $file );
+		$snapshot = self::open_cache_snapshot( $file, (int) HSPSC_Settings::get( 'page_cache_ttl', 3600 ), self::WARMING_RESPONSE_LIMIT );
+		if ( false === $snapshot ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'cache-missing',
+			);
+		}
+		$stat = fstat( $snapshot['handle'] );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Close the verified immutable local snapshot after comparing its validator.
+		fclose( $snapshot['handle'] );
+		if ( false === $stat || 0 === $stat['size'] ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'cache-missing',
+			);
+		}
+		if ( ! hash_equals( $snapshot['etag'], $etag ) ) {
+			return array(
+				'status' => 'failed',
+				'reason' => 'cache-mismatch',
+			);
+		}
+		return array(
+			'status' => 'cached',
+			'reason' => 'cached',
 		);
 	}
 
@@ -1307,6 +1599,82 @@ class HSPSC_Page {
 				self::warm_url( $url );
 			}
 		}
+	}
+
+	/**
+	 * Checks the explicit target before planning a page or sitemap loopback.
+	 *
+	 * @param string $url Absolute target URL.
+	 * @param bool   $for_sitemap Whether the target is a sitemap, not an HTML page.
+	 * @return string Empty on acceptance, or a fixed skip reason.
+	 */
+	public static function validate_public_warming_url( $url, $for_sitemap = false ) {
+		$target = self::get_public_warming_target( $url, $for_sitemap );
+		return $target['reason'];
+	}
+
+	/**
+	 * Resolves target privacy and candidate cache keys without changing the request.
+	 *
+	 * @param string $url Absolute target URL.
+	 * @param bool   $for_sitemap Whether page-only checks should be omitted.
+	 * @return array Skip reason and, for allowed pages, the cache context.
+	 */
+	protected static function get_public_warming_target( $url, $for_sitemap = false ) {
+		if ( ! self::is_warmable_url( $url ) ) {
+			return array( 'reason' => 'invalid-url' );
+		}
+		if ( HSPSC_Utils::is_warming_url_excluded( $url ) ) {
+			return array( 'reason' => 'excluded' );
+		}
+		$context = $for_sitemap ? array() : self::get_public_warming_context( $url );
+		if ( ! $for_sitemap && empty( $context['keys'] ) ) {
+			return array( 'reason' => 'unresolved-language' );
+		}
+		$post_id = url_to_postid( $url );
+		$post    = 0 < $post_id ? get_post( $post_id ) : null;
+		if ( $post instanceof WP_Post && ( '' !== $post->post_password || ! is_post_publicly_viewable( $post ) ) ) {
+			return array( 'reason' => 'private-page' );
+		}
+		// Real sitemap endpoints have no queried post. Still reject a private page used as a sitemap URL.
+		if ( ( ! $for_sitemap || $post instanceof WP_Post ) && HSPSC_Commerce::is_warming_url_dynamic( $post, $context['language'] ?? '' ) ) {
+			return array( 'reason' => 'private-page' );
+		}
+		return array( 'reason' => '' ) + $context;
+	}
+
+	/**
+	 * Lists exact URL keys for API-known languages on the approved target origin.
+	 *
+	 * An incomplete admin or cron WPML catalog cannot always select a language.
+	 * In that case the loopback must prove which candidate the live request used.
+	 *
+	 * @param string $url Absolute target URL on an already validated origin.
+	 * @return array Candidate keys and the resolved language, or null if ambiguous.
+	 */
+	protected static function get_public_warming_context( $url ) {
+		$language  = HSPSC_WPML::url_context( $url );
+		$languages = array( $language );
+		if ( null === $language ) {
+			$languages = array();
+			$origin    = self::get_url_origin( $url );
+			foreach ( HSPSC_WPML::language_urls() as $code => $root ) {
+				if ( self::get_url_origin( $root ) === $origin ) {
+					$languages[] = $code;
+				}
+			}
+		}
+		$keys = array();
+		foreach ( $languages as $code ) {
+			$key = self::get_url_cache_key( $url, '', $code );
+			if ( '' !== $key ) {
+				$keys[] = $key;
+			}
+		}
+		return array(
+			'keys'     => $keys,
+			'language' => $language,
+		);
 	}
 
 	/**
@@ -1333,7 +1701,7 @@ class HSPSC_Page {
 	 * @param string $url Absolute URL.
 	 * @return string Normalized scheme, host and port, or an empty string.
 	 */
-	protected static function get_url_origin( $url ) {
+	public static function get_url_origin( $url ) {
 		if ( ! is_string( $url ) || preg_match( '/[\x00-\x20\x7f]/', $url ) ) {
 			return '';
 		}

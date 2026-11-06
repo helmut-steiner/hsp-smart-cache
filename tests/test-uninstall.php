@@ -32,7 +32,8 @@ class HSPSC_Uninstall_Test extends WP_UnitTestCase {
                 $this->markTestSkipped( 'Directory symlinks are unavailable.' );
             }
             $body = <<<'PHP'
-function delete_option( $name ) {}
+function delete_option( $name ) { $GLOBALS['hspsc_deleted_options'][] = $name; }
+function wp_unschedule_hook( $hook ) { $GLOBALS['hspsc_unscheduled_hooks'][] = $hook; }
 function untrailingslashit( $path ) { return rtrim( $path, '/\\' ); }
 function wp_normalize_path( $path ) { return str_replace( '\\', '/', $path ); }
 class HSPSC_Uninstall_Test_Filesystem {
@@ -51,6 +52,8 @@ echo json_encode( array(
     'foreign_dropin_exists' => file_exists( WP_CONTENT_DIR . '/object-cache.php' ),
     'generated_exists' => file_exists( HSPSC_PATH . '/nested/generated.html' ),
     'link_exists' => is_link( HSPSC_TEST_LINK ),
+    'job_removed' => in_array( 'hspsc_rebuild_job', $GLOBALS['hspsc_deleted_options'], true ),
+    'job_unscheduled' => in_array( 'hspsc_run_rebuild_batch', $GLOBALS['hspsc_unscheduled_hooks'], true ),
 ) );
 PHP;
             file_put_contents(
@@ -77,6 +80,8 @@ PHP;
             $this->assertTrue( $result['foreign_dropin_exists'] );
             $this->assertFalse( $result['generated_exists'] );
             $this->assertTrue( $result['link_exists'] );
+            $this->assertTrue( $result['job_removed'] );
+            $this->assertTrue( $result['job_unscheduled'] );
         } finally {
             if ( is_link( $link ) ) {
                 unlink( $link );

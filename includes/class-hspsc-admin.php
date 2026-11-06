@@ -20,7 +20,6 @@ class HSPSC_Admin {
 		add_filter( 'plugin_action_links_' . HSPSC_BASENAME, array( __CLASS__, 'add_settings_link' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_settings_assets' ) );
-		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_action_notice_assets' ) );
 		add_action( 'admin_post_hspsc_clear', array( __CLASS__, 'handle_clear_cache' ) );
 		add_action( 'admin_post_hspsc_run_tests', array( __CLASS__, 'handle_run_tests' ) );
 		add_action( 'admin_post_hspsc_clear_current', array( __CLASS__, 'handle_clear_current' ) );
@@ -49,8 +48,6 @@ class HSPSC_Admin {
 		add_action( 'wp_ajax_hspsc_restore_db_backup', array( __CLASS__, 'ajax_restore_db_backup' ) );
 		add_action( 'wp_ajax_hspsc_delete_db_backup', array( __CLASS__, 'ajax_delete_db_backup' ) );
 		add_action( 'admin_bar_menu', array( __CLASS__, 'register_admin_bar' ), 100 );
-		add_action( 'admin_notices', array( __CLASS__, 'render_action_notice' ) );
-		add_action( 'wp_footer', array( __CLASS__, 'render_action_notice' ) );
 		add_action( 'update_option_' . HSPSC_Settings::OPTION_KEY, array( __CLASS__, 'handle_settings_update' ), 10, 2 );
 	}
 
@@ -75,41 +72,11 @@ class HSPSC_Admin {
 				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
 				'actionFailed'    => __( 'Action failed. Please try again.', 'hsp-smart-cache' ),
 				'actionCompleted' => __( 'Action completed.', 'hsp-smart-cache' ),
+				'savedEnabled'    => __( 'Enabled', 'hsp-smart-cache' ),
+				'savedDisabled'   => __( 'Disabled', 'hsp-smart-cache' ),
+				'unsavedChanges'  => __( 'You have unsaved settings changes.', 'hsp-smart-cache' ),
 			)
 		);
-	}
-
-	/**
-	 * Loads frontend feedback styling only when a privileged notice is present.
-	 */
-	public static function enqueue_action_notice_assets() {
-		if ( is_admin() || ! current_user_can( 'manage_options' ) || '' === self::get_action_notice() ) {
-			return;
-		}
-
-		wp_enqueue_style(
-			'hspsc-action-notice',
-			plugins_url( 'assets/css/action-notice.css', dirname( __DIR__ ) . '/hsp-smart-cache.php' ),
-			array(),
-			HSPSC_VERSION
-		);
-	}
-
-	/**
-	 * Reads the allowlisted, informational cache-action notice code.
-	 *
-	 * @return string Supported notice code, or an empty string.
-	 */
-	protected static function get_action_notice() {
-		$notice = filter_input( INPUT_GET, 'hspsc_notice', FILTER_UNSAFE_RAW );
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice selection; no action or stored state changes here.
-		if ( null === $notice && isset( $_GET['hspsc_notice'] ) && is_string( $_GET['hspsc_notice'] ) ) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- The value selects an allowlisted informational message only.
-			$notice = sanitize_key( wp_unslash( $_GET['hspsc_notice'] ) );
-		}
-		$notice = is_string( $notice ) ? sanitize_key( $notice ) : '';
-
-		return in_array( $notice, array( 'rebuild-all-complete', 'rebuild-all-failed' ), true ) ? $notice : '';
 	}
 
 	/**
@@ -150,7 +117,7 @@ class HSPSC_Admin {
 		}
 		check_admin_referer( 'hspsc_clear' );
 		HSPSC_Plugin::flush_all_caches();
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&cache=cleared' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&cache=cleared#hspsc-panel-cache' ) );
 	}
 
 	/**
@@ -175,70 +142,21 @@ class HSPSC_Admin {
 	}
 
 	/**
-	 * Clears and warms the requested URL after verifying the toolbar action.
+	 * Queues a rebuild for the current page's public cache.
 	 */
 	public static function handle_rebuild_current() {
 		self::ensure_admin_bar_access( 'hspsc_rebuild_current' );
-		$url = self::get_target_url();
-		if ( $url ) {
-			HSPSC_Page::clear_cache_for_url( $url );
-			HSPSC_Page::warm_url( $url );
-		}
-		self::redirect_back();
+		$url    = self::get_target_url();
+		$result = $url ? HSPSC_Rebuild::start( $url ) : new WP_Error( 'hspsc_rebuild_invalid_url' );
+		self::safe_redirect( HSPSC_Rebuild_Admin::start_redirect_url( $result, $url ) );
 	}
 
 	/**
-	 * Clears all caches and warms eligible URLs with redirected status feedback.
+	 * Queues a site-wide rebuild of public page cache entries.
 	 */
 	public static function handle_rebuild_all() {
 		self::ensure_admin_bar_access( 'hspsc_rebuild_all' );
-		$notice = 'rebuild-all-complete';
-
-		try {
-			HSPSC_Plugin::flush_all_caches();
-			HSPSC_Page::warm_urls( array( home_url( '/' ) ) );
-			if ( HSPSC_Settings::get( 'preload_enabled' ) ) {
-				$preload = HSPSC_Preload::run();
-				if ( empty( $preload['ok'] ) ) {
-					$notice = 'rebuild-all-failed';
-				}
-			}
-		} catch ( Throwable $e ) {
-			$notice = 'rebuild-all-failed';
-		}
-
-		self::redirect_back_with_notice( $notice );
-	}
-
-	/**
-	 * Renders an allowlisted action message for users who can manage settings.
-	 */
-	public static function render_action_notice() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		$notice = self::get_action_notice();
-		if ( '' === $notice ) {
-			return;
-		}
-
-		$is_error = 'rebuild-all-failed' === $notice;
-		$message  = $is_error
-			? __( 'Rebuilding all cache files failed.', 'hsp-smart-cache' )
-			: __( 'All cache files were rebuilt.', 'hsp-smart-cache' );
-		$class    = $is_error ? 'notice notice-error' : 'notice notice-success';
-
-		if ( is_admin() ) {
-			printf( '<div class="%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
-			return;
-		}
-
-		printf(
-			'<div class="hspsc-action-notice %1$s" role="status" aria-live="polite"><p>%2$s</p></div>',
-			esc_attr( $class ),
-			esc_html( $message )
-		);
+		self::safe_redirect( HSPSC_Rebuild_Admin::start_redirect_url( HSPSC_Rebuild::start(), self::get_target_url() ) );
 	}
 
 	/**
@@ -302,32 +220,11 @@ class HSPSC_Admin {
 			);
 		}
 
-		$is_frontend = ! is_admin();
-
-		if ( $is_frontend ) {
-			$wp_admin_bar->add_node(
-				array(
-					'id'     => 'hspsc-clear-current',
-					'parent' => 'hspsc',
-					'title'  => __( 'Delete cache of current page', 'hsp-smart-cache' ),
-					'href'   => self::action_url( 'hspsc_clear_current' ),
-				)
-			);
-			$wp_admin_bar->add_node(
-				array(
-					'id'     => 'hspsc-rebuild-current',
-					'parent' => 'hspsc',
-					'title'  => __( 'Rebuild current page cache', 'hsp-smart-cache' ),
-					'href'   => self::action_url( 'hspsc_rebuild_current' ),
-				)
-			);
-		}
-
 		$wp_admin_bar->add_node(
 			array(
 				'id'     => 'hspsc-clear-all',
 				'parent' => 'hspsc',
-				'title'  => __( 'Delete all cache files', 'hsp-smart-cache' ),
+				'title'  => __( 'Clear all caches', 'hsp-smart-cache' ),
 				'href'   => self::action_url( 'hspsc_clear_all' ),
 			)
 		);
@@ -336,10 +233,21 @@ class HSPSC_Admin {
 			array(
 				'id'     => 'hspsc-rebuild-all',
 				'parent' => 'hspsc',
-				'title'  => __( 'Rebuild all caches', 'hsp-smart-cache' ),
+				'title'  => __( 'Rebuild all public page caches', 'hsp-smart-cache' ),
 				'href'   => self::action_url( 'hspsc_rebuild_all' ),
 			)
 		);
+
+		if ( ! is_admin() ) {
+			$wp_admin_bar->add_node(
+				array(
+					'id'     => 'hspsc-rebuild-current',
+					'parent' => 'hspsc',
+					'title'  => __( "Rebuild this page's public cache", 'hsp-smart-cache' ),
+					'href'   => self::action_url( 'hspsc_rebuild_current' ),
+				)
+			);
+		}
 	}
 
 	/**
@@ -496,8 +404,12 @@ class HSPSC_Admin {
 
 		$scheme = is_ssl() ? 'https://' : 'http://';
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Preserve the URI until the complete URL is sanitized with esc_url_raw() below.
-		$url = $scheme . sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) . wp_unslash( $_SERVER['REQUEST_URI'] );
-		$url = remove_query_arg( array( 'hspsc_notice', '_wpnonce', 'action', 'hspsc_return' ), $url );
+		$url         = $scheme . sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) . wp_unslash( $_SERVER['REQUEST_URI'] );
+		$action_args = array( 'hspsc_notice', 'hspsc_rebuild_error', 'hspsc_rebuild_page', '_wpnonce', 'hspsc_return' );
+		if ( is_admin() ) {
+			$action_args[] = 'action';
+		}
+		$url = remove_query_arg( $action_args, $url );
 
 		return esc_url_raw( $url );
 	}
@@ -511,11 +423,15 @@ class HSPSC_Admin {
 		$return = filter_input( INPUT_GET, 'hspsc_return', FILTER_UNSAFE_RAW );
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Callers verified their action-specific nonce before resolving the redirect.
 		if ( null === $return && isset( $_GET['hspsc_return'] ) ) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Verified by the caller; decode before esc_url_raw() sanitizes the complete return URL below.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Verified by the caller; esc_url_raw() sanitizes the complete return URL below.
 			$return = wp_unslash( $_GET['hspsc_return'] );
 		}
 		if ( is_string( $return ) && '' !== $return ) {
-			$return = rawurldecode( $return );
+			// PHP normally decodes the outer query value already. Preserve the
+			// encoded characters that belong to the page's own query string.
+			if ( preg_match( '~\Ahttps?%3a%2f%2f~i', $return ) ) {
+				$return = rawurldecode( $return );
+			}
 			return esc_url_raw( $return );
 		}
 		$referer = wp_get_referer();
@@ -530,16 +446,6 @@ class HSPSC_Admin {
 	 */
 	protected static function redirect_back() {
 		$url = self::get_target_url();
-		self::safe_redirect( $url );
-	}
-
-	/**
-	 * Redirects to the return URL with an informational notice code.
-	 *
-	 * @param string $notice Notice code to sanitize before adding it to the URL.
-	 */
-	protected static function redirect_back_with_notice( $notice ) {
-		$url = add_query_arg( 'hspsc_notice', sanitize_key( $notice ), self::get_target_url() );
 		self::safe_redirect( $url );
 	}
 
@@ -565,7 +471,7 @@ class HSPSC_Admin {
 		check_admin_referer( 'hspsc_run_tests' );
 		$results = HSPSC_Tests::run();
 		set_transient( 'hspsc_test_results', $results, 300 );
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&tests=done' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&tests=done#hspsc-panel-advanced' ) );
 	}
 
 	/**
@@ -580,7 +486,7 @@ class HSPSC_Admin {
 		HSPSC_Object::sync_dropin();
 		HSPSC_Page::clear_cache();
 		HSPSC_Minify::clear_cache();
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=restored' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=restored#hspsc-panel-advanced' ) );
 	}
 
 	/**
@@ -593,20 +499,18 @@ class HSPSC_Admin {
 		check_admin_referer( 'hspsc_apply_bricks_preset' );
 
 		self::apply_bricks_compatibility_preset();
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=bricks-preset' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&settings=bricks-preset#hspsc-panel-advanced' ) );
 	}
 
 	/**
-	 * Runs manual preload after verification and retains its result for feedback.
+	 * Routes the settings form and its legacy action name to the rebuild job.
 	 */
 	public static function handle_run_preload() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			self::deny_access();
 		}
 		check_admin_referer( 'hspsc_run_preload' );
-		$result = HSPSC_Preload::run();
-		set_transient( 'hspsc_preload_result', $result, 300 );
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&preload=done' ) );
+		self::safe_redirect( HSPSC_Rebuild_Admin::start_redirect_url( HSPSC_Rebuild::start(), HSPSC_Rebuild_Admin::results_url() ) );
 	}
 
 	/**
@@ -619,12 +523,12 @@ class HSPSC_Admin {
 		check_admin_referer( 'hspsc_run_db_cleanup' );
 		$result = HSPSC_Maintenance::run_db_cleanup();
 		if ( empty( $result['ok'] ) ) {
-			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=cleanupfailed' ) );
+			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=cleanupfailed#hspsc-panel-maintenance' ) );
 		}
 
 		$analysis = HSPSC_Maintenance::analyze_optimization();
 		set_transient( 'hspsc_db_analysis', $analysis, 15 * MINUTE_IN_SECONDS );
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=cleaned' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=cleaned#hspsc-panel-maintenance' ) );
 	}
 
 	/**
@@ -639,7 +543,7 @@ class HSPSC_Admin {
 		$analysis = HSPSC_Maintenance::analyze_optimization();
 		set_transient( 'hspsc_db_analysis', $analysis, 15 * MINUTE_IN_SECONDS );
 
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=analyzed' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=analyzed#hspsc-panel-maintenance' ) );
 	}
 
 	/**
@@ -653,12 +557,12 @@ class HSPSC_Admin {
 
 		$backup = HSPSC_Maintenance::create_backup();
 		if ( empty( $backup['ok'] ) ) {
-			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupfailed' ) );
+			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupfailed#hspsc-panel-maintenance' ) );
 		}
 
 		set_transient( 'hspsc_db_last_backup', $backup, 15 * MINUTE_IN_SECONDS );
 
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupcreated' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupcreated#hspsc-panel-maintenance' ) );
 	}
 
 	/**
@@ -672,20 +576,20 @@ class HSPSC_Admin {
 
 		$backup = HSPSC_Maintenance::create_backup();
 		if ( empty( $backup['ok'] ) ) {
-			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupfailed' ) );
+			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=backupfailed#hspsc-panel-maintenance' ) );
 		}
 
 		set_transient( 'hspsc_db_last_backup', $backup, 15 * MINUTE_IN_SECONDS );
 
 		$optimize = HSPSC_Maintenance::optimize_tables();
 		if ( empty( $optimize['ok'] ) ) {
-			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=optimizefailed' ) );
+			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=optimizefailed#hspsc-panel-maintenance' ) );
 		}
 
 		$analysis = HSPSC_Maintenance::analyze_optimization();
 		set_transient( 'hspsc_db_analysis', $analysis, 15 * MINUTE_IN_SECONDS );
 
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=optimized' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=optimized#hspsc-panel-maintenance' ) );
 	}
 
 	/**
@@ -707,11 +611,11 @@ class HSPSC_Admin {
 		$result = HSPSC_Maintenance::restore_backup( $backup_file );
 		if ( empty( $result['ok'] ) ) {
 			set_transient( 'hspsc_db_restore_error', $result, 15 * MINUTE_IN_SECONDS );
-			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restorefailed' ) );
+			self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restorefailed#hspsc-panel-maintenance' ) );
 		}
 
 		set_transient( 'hspsc_db_restore_result', $result, 15 * MINUTE_IN_SECONDS );
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restored' ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=restored#hspsc-panel-maintenance' ) );
 	}
 
 	/**
@@ -735,7 +639,7 @@ class HSPSC_Admin {
 		if ( ! $deleted ) {
 			set_transient( 'hspsc_db_delete_error', $delete_error, 5 * MINUTE_IN_SECONDS );
 		}
-		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=' . ( $deleted ? 'backupdeleted' : 'deletefailed' ) ) );
+		self::safe_redirect( admin_url( 'options-general.php?page=hsp-smart-cache&db=' . ( $deleted ? 'backupdeleted' : 'deletefailed' ) . '#hspsc-panel-maintenance' ) );
 	}
 
 	/**
@@ -817,23 +721,20 @@ class HSPSC_Admin {
 	}
 
 	/**
-	 * Runs verified manual preload and returns its count-aware completion message.
+	 * Queues the same verified rebuild through the legacy settings AJAX action.
 	 */
 	public static function ajax_run_preload() {
 		self::ensure_ajax_access( 'hspsc_run_preload' );
 
-		$result = HSPSC_Preload::run();
-		set_transient( 'hspsc_preload_result', $result, 300 );
-
-		$count = is_array( $result ) && isset( $result['count'] ) ? intval( $result['count'] ) : 0;
-		self::send_ajax_success(
-			sprintf(
-				/* translators: %d is the number of warmed URLs. */
-				_n( 'Preload completed. %d URL warmed.', 'Preload completed. %d URLs warmed.', $count, 'hsp-smart-cache' ),
-				$count
-			),
-			array( 'result' => $result )
-		);
+		$accept = null;
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The action-specific nonce was verified above.
+		if ( array_key_exists( 'navigation_accept', $_POST ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validate ASCII transport before decoding and validate exact header bytes in the rebuild service.
+			$encoded = is_string( $_POST['navigation_accept'] ) ? wp_unslash( $_POST['navigation_accept'] ) : null;
+			$accept  = is_string( $encoded ) && strlen( $encoded ) <= 16384 && 0 === strlen( $encoded ) % 2
+				&& preg_match( '/\A[a-f0-9]*\z/', $encoded ) ? hex2bin( $encoded ) : false;
+		}
+		HSPSC_Rebuild_Admin::send_start_result( HSPSC_Rebuild::start( '', $accept ) );
 	}
 
 	/**
@@ -1552,13 +1453,13 @@ class HSPSC_Admin {
 									<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Restore this database backup?', 'hsp-smart-cache' ); ?>">
 										<input type="hidden" name="action" value="hspsc_restore_db_backup" />
 										<input type="hidden" name="backup_file" value="<?php echo esc_attr( $backup['file'] ); ?>" />
-										<?php wp_nonce_field( 'hspsc_restore_db_backup' ); ?>
+										<?php self::render_action_nonce( 'hspsc_restore_db_backup' ); ?>
 										<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Restoring...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Restore', 'hsp-smart-cache' ); ?></button>
 									</form>
 									<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Delete this database backup?', 'hsp-smart-cache' ); ?>">
 										<input type="hidden" name="action" value="hspsc_delete_db_backup" />
 										<input type="hidden" name="backup_file" value="<?php echo esc_attr( $backup['file'] ); ?>" />
-										<?php wp_nonce_field( 'hspsc_delete_db_backup' ); ?>
+										<?php self::render_action_nonce( 'hspsc_delete_db_backup' ); ?>
 										<button type="submit" class="button hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Deleting...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Delete', 'hsp-smart-cache' ); ?></button>
 									</form>
 								</td>
@@ -1675,21 +1576,419 @@ class HSPSC_Admin {
 	}
 
 	/**
-	 * Renders the privileged settings form, diagnostics, and maintenance controls.
+	 * Renders all settings panels and one shared form for their controls.
 	 */
 	public static function render_settings_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 
-		$options           = get_option( HSPSC_Settings::OPTION_KEY, HSPSC_Settings::defaults() );
-		$options           = wp_parse_args( $options, HSPSC_Settings::defaults() );
-		$test_results      = get_transient( 'hspsc_test_results' );
-		$cache_notice      = filter_input( INPUT_GET, 'cache', FILTER_UNSAFE_RAW );
-		$settings_notice   = filter_input( INPUT_GET, 'settings', FILTER_UNSAFE_RAW );
-		$preload_notice    = filter_input( INPUT_GET, 'preload', FILTER_UNSAFE_RAW );
-		$db_notice         = filter_input( INPUT_GET, 'db', FILTER_UNSAFE_RAW );
-		$tests_notice      = filter_input( INPUT_GET, 'tests', FILTER_UNSAFE_RAW );
+		$options = wp_parse_args( get_option( HSPSC_Settings::OPTION_KEY ), HSPSC_Settings::defaults() );
+		$tabs    = array(
+			'cache'        => __( 'Cache', 'hsp-smart-cache' ),
+			'optimization' => __( 'Optimization', 'hsp-smart-cache' ),
+			'maintenance'  => __( 'Maintenance', 'hsp-smart-cache' ),
+			'advanced'     => __( 'Advanced', 'hsp-smart-cache' ),
+		);
+		?>
+		<div class="wrap hspsc-admin">
+			<h1><?php esc_html_e( 'HSP Smart Cache', 'hsp-smart-cache' ); ?></h1>
+			<nav class="hspsc-tabs" aria-label="<?php esc_attr_e( 'HSP Smart Cache settings', 'hsp-smart-cache' ); ?>">
+				<?php foreach ( $tabs as $key => $label ) : ?>
+					<a id="hspsc-tab-<?php echo esc_attr( $key ); ?>" href="#hspsc-panel-<?php echo esc_attr( $key ); ?>" data-hspsc-tab="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></a>
+				<?php endforeach; ?>
+			</nav>
+			<div id="hspsc-feedback" class="hspsc-feedback" role="status" aria-live="polite" aria-atomic="true"></div>
+			<form id="hspsc-settings-form" class="hspsc-settings-form" method="post" action="options.php">
+				<?php settings_fields( 'hspsc_settings_group' ); ?>
+			</form>
+			<section id="hspsc-panel-cache" class="hspsc-tab-panel" data-hspsc-panel="cache" aria-labelledby="hspsc-tab-cache">
+				<?php self::render_cache_tab( $options ); ?>
+			</section>
+			<section id="hspsc-panel-optimization" class="hspsc-tab-panel" data-hspsc-panel="optimization" aria-labelledby="hspsc-tab-optimization">
+				<?php self::render_optimization_tab( $options ); ?>
+			</section>
+			<section id="hspsc-panel-maintenance" class="hspsc-tab-panel" data-hspsc-panel="maintenance" aria-labelledby="hspsc-tab-maintenance">
+				<?php self::render_maintenance_tab(); ?>
+			</section>
+			<section id="hspsc-panel-advanced" class="hspsc-tab-panel" data-hspsc-panel="advanced" aria-labelledby="hspsc-tab-advanced">
+				<?php self::render_advanced_tab( $options ); ?>
+			</section>
+			<p class="description hspsc-credit">
+				<?php esc_html_e( 'Made by Helmut Steiner Productions with ❤️ in Vienna', 'hsp-smart-cache' ); ?>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Reads a display-only redirect code for a settings panel.
+	 *
+	 * @param string $key Notice query parameter.
+	 * @return string Sanitized notice code.
+	 */
+	protected static function get_settings_notice( $key ) {
+		$value = filter_input( INPUT_GET, $key, FILTER_UNSAFE_RAW );
+		return is_string( $value ) ? sanitize_key( $value ) : '';
+	}
+
+	/**
+	 * Shows saved cache settings, routine actions, and rebuild results.
+	 *
+	 * @param array $options Saved plugin settings with defaults applied.
+	 */
+	protected static function render_cache_tab( $options ) {
+		$cache_notice = self::get_settings_notice( 'cache' );
+		$statuses     = array(
+			'page_cache'      => __( 'Public page cache', 'hsp-smart-cache' ),
+			'cache_logged_in' => __( 'Logged-in page cache', 'hsp-smart-cache' ),
+			'browser_cache'   => __( 'Browser cache headers', 'hsp-smart-cache' ),
+			'object_cache'    => __( 'Persistent object cache', 'hsp-smart-cache' ),
+		);
+		?>
+		<div class="hspsc-card">
+			<h2 class="hspsc-section-title"><?php esc_html_e( 'Cache Operations', 'hsp-smart-cache' ); ?></h2>
+			<p class="hspsc-section-lede"><?php esc_html_e( 'Rebuild the public page cache in the background, or clear the page, asset, and object caches.', 'hsp-smart-cache' ); ?></p>
+			<?php if ( 'cleared' === $cache_notice ) : ?>
+				<div class="notice notice-success"><p><?php echo esc_html__( 'Cache cleared.', 'hsp-smart-cache' ); ?></p></div>
+			<?php endif; ?>
+			<h3><?php esc_html_e( 'Saved cache settings', 'hsp-smart-cache' ); ?></h3>
+			<dl class="hspsc-cache-summary">
+				<?php foreach ( $statuses as $key => $label ) : ?>
+					<?php $enabled = ! empty( $options[ $key ] ); ?>
+					<div class="hspsc-cache-status">
+						<dt><?php echo esc_html( $label ); ?></dt>
+						<dd data-hspsc-saved-option="<?php echo esc_attr( $key ); ?>" data-enabled="<?php echo esc_attr( $enabled ? '1' : '0' ); ?>"><?php echo esc_html( $enabled ? __( 'Enabled', 'hsp-smart-cache' ) : __( 'Disabled', 'hsp-smart-cache' ) ); ?></dd>
+					</div>
+				<?php endforeach; ?>
+			</dl>
+			<div class="hspsc-cache-actions">
+				<form class="hspsc-rebuild-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="hspsc_run_preload" />
+					<?php self::render_action_nonce( 'hspsc_run_preload' ); ?>
+					<button type="submit" class="button button-primary hspsc-action-button"><?php esc_html_e( 'Rebuild all public page caches', 'hsp-smart-cache' ); ?></button>
+				</form>
+				<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="hspsc_clear" />
+					<?php self::render_action_nonce( 'hspsc_clear' ); ?>
+					<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php esc_attr_e( 'Clearing...', 'hsp-smart-cache' ); ?>"><?php esc_html_e( 'Clear all caches', 'hsp-smart-cache' ); ?></button>
+				</form>
+			</div>
+			<?php HSPSC_Rebuild_Admin::render_report(); ?>
+		</div>
+		<div class="hspsc-card hspsc-settings-section">
+			<h2 class="hspsc-section-title"><?php esc_html_e( 'Cache settings', 'hsp-smart-cache' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Page Cache', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache]" value="1" <?php checked( $options['page_cache'] ); ?> title="<?php echo esc_attr__( 'Cache full HTML pages for visitors.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Enable page caching for anonymous visitors', 'hsp-smart-cache' ); ?>
+						</label>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Cache TTL (seconds)', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache_ttl]" value="<?php echo esc_attr( $options['page_cache_ttl'] ); ?>" title="<?php echo esc_attr__( 'How long a page stays cached before regeneration.', 'hsp-smart-cache' ); ?>" />
+							</label>
+						</p>
+						<p>
+							<label for="hspsc-page-cache-excluded-paths"><?php echo esc_html__( 'Excluded page paths', 'hsp-smart-cache' ); ?></label>
+							<textarea form="hspsc-settings-form" id="hspsc-page-cache-excluded-paths" class="large-text ltr" rows="4" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache_excluded_paths]" placeholder="/booking/&#10;/member-area/" aria-describedby="hspsc-page-cache-excluded-paths-help"><?php echo esc_textarea( $options['page_cache_excluded_paths'] ); ?></textarea>
+						</p>
+						<p id="hspsc-page-cache-excluded-paths-help" class="description">
+							<?php echo esc_html__( 'One exact URL path per line, starting with /. Include the installation subdirectory and translated paths when needed. Queries and trailing slashes do not affect matching. Subpages, full URLs, and wildcards are not included. Asset optimizations remain enabled.', 'hsp-smart-cache' ); ?>
+						</p>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cache_logged_in]" value="1" <?php checked( $options['cache_logged_in'] ); ?> title="<?php echo esc_attr__( 'Enable only if logged-in users see cache-safe content.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Cache eligible frontend pages for logged-in users', 'hsp-smart-cache' ); ?>
+						</label>
+						<p class="description">
+							<?php echo esc_html__( 'WordPress admin and settings pages always bypass the page cache.', 'hsp-smart-cache' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Browser Cache Headers', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[browser_cache]" value="1" <?php checked( $options['browser_cache'] ); ?> title="<?php echo esc_attr__( 'Send Cache-Control and ETag headers for cached pages.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Send Cache-Control headers for cacheable pages', 'hsp-smart-cache' ); ?>
+						</label>
+						<p>
+							<label>
+								<?php echo esc_html__( 'HTML cache TTL (seconds)', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[browser_cache_html_ttl]" value="<?php echo esc_attr( $options['browser_cache_html_ttl'] ); ?>" title="<?php echo esc_attr__( 'Browser cache lifetime for HTML pages.', 'hsp-smart-cache' ); ?>" />
+							</label>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Asset cache TTL (seconds)', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[browser_cache_asset_ttl]" value="<?php echo esc_attr( $options['browser_cache_asset_ttl'] ); ?>" title="<?php echo esc_attr__( 'Browser cache lifetime for static assets.', 'hsp-smart-cache' ); ?>" />
+							</label>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Static Asset Caching', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_cache]" value="1" <?php checked( $options['static_asset_cache'] ); ?> title="<?php echo esc_attr__( 'Cache generated CSS/JS for longer and revalidate other static files.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Enable safe browser cache rules for static assets', 'hsp-smart-cache' ); ?>
+						</label>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Generated CSS/JS TTL (seconds)', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_ttl]" value="<?php echo esc_attr( $options['static_asset_ttl'] ); ?>" title="<?php echo esc_attr__( 'Cache lifetime for HSP-generated CSS/JS via web server rules.', 'hsp-smart-cache' ); ?>" />
+							</label>
+						</p>
+						<p>
+							<label>
+								<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_immutable]" value="1" <?php checked( $options['static_asset_immutable'] ); ?> title="<?php echo esc_attr__( 'Add immutable only to HSP-generated CSS/JS.', 'hsp-smart-cache' ); ?>" />
+								<?php echo esc_html__( 'Add immutable to generated CSS/JS', 'hsp-smart-cache' ); ?>
+							</label>
+						</p>
+						<p>
+							<label>
+								<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_auto_write]" value="1" <?php checked( $options['static_asset_auto_write'] ); ?> title="<?php echo esc_attr__( 'Automatically update .htaccess if writable.', 'hsp-smart-cache' ); ?>" />
+								<?php echo esc_html__( 'Auto-write .htaccess rules when possible', 'hsp-smart-cache' ); ?>
+							</label>
+						</p>
+						<p class="description" style="color:#b32d2e;">
+							<?php echo esc_html__( 'Warning: Incorrect .htaccess rules can break site access. Use with care.', 'hsp-smart-cache' ); ?>
+						</p>
+						<p>
+							<label>
+								<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_compression]" value="1" <?php checked( $options['static_asset_compression'] ); ?> title="<?php echo esc_attr__( 'Enable gzip/deflate compression via web server rules.', 'hsp-smart-cache' ); ?>" />
+								<?php echo esc_html__( 'Enable gzip/deflate compression', 'hsp-smart-cache' ); ?>
+							</label>
+						</p>
+						<p class="description" style="color:#b32d2e;">
+							<?php echo esc_html__( 'Warning: If your server already manages compression, double-compression can cause issues.', 'hsp-smart-cache' ); ?>
+						</p>
+						<p>
+							<label for="hsp-htaccess-preview"><?php echo esc_html__( 'Apache .htaccess snippet', 'hsp-smart-cache' ); ?></label><br />
+							<textarea form="hspsc-settings-form"
+								class="large-text ltr"
+								rows="8"
+								readonly
+								id="hsp-htaccess-preview"
+								data-template-cache="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, false, false ) ); ?>"
+								data-template-cache-immutable="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, true, false ) ); ?>"
+								data-template-cache-compress="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, false, true ) ); ?>"
+								data-template-cache-immutable-compress="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, true, true ) ); ?>"
+							><?php echo esc_textarea( HSPSC_Static_Assets::get_htaccess_rules( $options['static_asset_ttl'], $options['static_asset_immutable'], $options['static_asset_compression'] ) ); ?></textarea>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Object Cache', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache]" value="1" <?php checked( $options['object_cache'] ); ?> title="<?php echo esc_attr__( 'Use file-based persistent object cache drop-in.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Enable file-based persistent object cache (drop-in)', 'hsp-smart-cache' ); ?>
+						</label>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Default TTL for uncached entries (seconds)', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="number" min="0" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache_default_ttl]" value="<?php echo esc_attr( $options['object_cache_default_ttl'] ); ?>" title="<?php echo esc_attr__( 'Used when an object cache write does not provide an expiration.', 'hsp-smart-cache' ); ?>" />
+							</label>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Maximum TTL cap (seconds)', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="number" min="0" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache_max_ttl]" value="<?php echo esc_attr( $options['object_cache_max_ttl'] ); ?>" title="<?php echo esc_attr__( 'Caps any longer object cache expiration and bounds legacy unlimited entries.', 'hsp-smart-cache' ); ?>" />
+							</label>
+						</p>
+						<p class="description" style="color:#b32d2e;">
+							<?php echo esc_html__( 'Warning: Object cache drop-ins can conflict with other cache plugins. Entries without an expiration are now capped by the maximum TTL and periodically cleaned up.', 'hsp-smart-cache' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Public page cache rebuild', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<p class="description"><?php esc_html_e( 'Rebuilds start only when you request them and continue in the background. An all-pages rebuild discovers public URLs from the sitemap.', 'hsp-smart-cache' ); ?></p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Sitemap URL', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="url" class="regular-text" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[preload_sitemap_url]" value="<?php echo esc_attr( $options['preload_sitemap_url'] ); ?>" placeholder="<?php echo esc_attr( home_url( '/wp-sitemap.xml' ) ); ?>" />
+							</label>
+							<span class="description"><?php esc_html_e( 'Leave blank to use the site’s default sitemap.', 'hsp-smart-cache' ); ?></span>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Request timeout (seconds)', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="number" min="3" max="<?php echo esc_attr( HSPSC_Rebuild::MAX_TIMEOUT ); ?>" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[preload_timeout]" value="<?php echo esc_attr( max( 3, min( HSPSC_Rebuild::MAX_TIMEOUT, (int) $options['preload_timeout'] ) ) ); ?>" aria-describedby="hspsc-rebuild-timeout-description" />
+							</label>
+							<span id="hspsc-rebuild-timeout-description" class="description"><?php esc_html_e( 'Maximum time to wait for each page or sitemap request during a rebuild.', 'hsp-smart-cache' ); ?></span>
+						</p>
+					</td>
+				</tr>
+			</table>
+			<?php self::render_settings_save_button(); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Shows controls for asset loading, minification, and CDN rewriting.
+	 *
+	 * @param array $options Saved plugin settings with defaults applied.
+	 */
+	protected static function render_optimization_tab( $options ) {
+		?>
+		<div class="hspsc-card hspsc-settings-section">
+			<h2 class="hspsc-section-title"><?php esc_html_e( 'Frontend optimization', 'hsp-smart-cache' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Minification', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[minify_html]" value="1" <?php checked( $options['minify_html'] ); ?> title="<?php echo esc_attr__( 'Remove whitespace/comments from HTML.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Minify HTML', 'hsp-smart-cache' ); ?>
+						</label><br />
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[minify_css]" value="1" <?php checked( $options['minify_css'] ); ?> title="<?php echo esc_attr__( 'Create minified CSS files in the cache.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Minify CSS files', 'hsp-smart-cache' ); ?>
+						</label><br />
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[minify_js]" value="1" <?php checked( $options['minify_js'] ); ?> title="<?php echo esc_attr__( 'Create minified JS files in the cache.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Minify JS files', 'hsp-smart-cache' ); ?>
+						</label>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Render Blocking Optimization', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_defer_js]" value="1" <?php checked( $options['render_defer_js'] ); ?> title="<?php echo esc_attr__( 'Add defer to scripts to reduce render blocking.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Add defer to enqueued scripts', 'hsp-smart-cache' ); ?>
+						</label>
+						<p class="description" style="color:#b32d2e;">
+							<?php echo esc_html__( 'Warning: Deferring scripts may break plugins that expect blocking execution.', 'hsp-smart-cache' ); ?>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Defer exclusions (script handles, one per line)', 'hsp-smart-cache' ); ?>
+								<textarea form="hspsc-settings-form" class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_defer_exclusions]" placeholder="jquery\nwp-embed" title="<?php echo esc_attr__( 'Script handles that must not be deferred.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_defer_exclusions'] ); ?></textarea>
+							</label>
+						</p>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_async_js]" value="1" <?php checked( $options['render_async_js'] ); ?> title="<?php echo esc_attr__( 'Use async when defer is disabled.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Add async to enqueued scripts (if defer is off)', 'hsp-smart-cache' ); ?>
+						</label>
+						<p class="description" style="color:#b32d2e;">
+							<?php echo esc_html__( 'Warning: Async can change execution order and break dependencies.', 'hsp-smart-cache' ); ?>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Async exclusions (script handles, one per line)', 'hsp-smart-cache' ); ?>
+								<textarea form="hspsc-settings-form" class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_async_exclusions]" placeholder="jquery\nwp-embed" title="<?php echo esc_attr__( 'Script handles that must not be async.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_async_exclusions'] ); ?></textarea>
+							</label>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Preconnect URLs (one per line)', 'hsp-smart-cache' ); ?>
+								<textarea form="hspsc-settings-form" class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_preconnect_urls]" placeholder="https://fonts.gstatic.com" title="<?php echo esc_attr__( 'Origins to preconnect for faster TLS/handshake.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_preconnect_urls'] ); ?></textarea>
+							</label>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Preload font URLs (one per line)', 'hsp-smart-cache' ); ?>
+								<textarea form="hspsc-settings-form" class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_preload_fonts]" placeholder="https://example.com/fonts/myfont.woff2" title="<?php echo esc_attr__( 'Font files to preload early.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_preload_fonts'] ); ?></textarea>
+							</label>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Preload CSS URLs (one per line)', 'hsp-smart-cache' ); ?>
+								<textarea form="hspsc-settings-form" class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_preload_css]" placeholder="https://example.com/style.css" title="<?php echo esc_attr__( 'Stylesheets to preload before render.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_preload_css'] ); ?></textarea>
+							</label>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'Inline critical CSS', 'hsp-smart-cache' ); ?>
+								<textarea form="hspsc-settings-form" class="large-text ltr" rows="5" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_critical_css]" placeholder="/* Critical CSS */" title="<?php echo esc_attr__( 'CSS injected inline to speed up first render.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_critical_css'] ); ?></textarea>
+							</label>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Additional Performance', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_lazy_images]" value="1" <?php checked( $options['perf_lazy_images'] ); ?> title="<?php echo esc_attr__( 'Adds loading="lazy" to images where safe.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Enable native lazy-loading for images', 'hsp-smart-cache' ); ?>
+						</label><br />
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_lazy_iframes]" value="1" <?php checked( $options['perf_lazy_iframes'] ); ?> title="<?php echo esc_attr__( 'Adds loading="lazy" to iframes where safe.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Enable native lazy-loading for iframes', 'hsp-smart-cache' ); ?>
+						</label><br />
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_decoding_async]" value="1" <?php checked( $options['perf_decoding_async'] ); ?> title="<?php echo esc_attr__( 'Hints browser to decode images asynchronously.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Add decoding="async" to images', 'hsp-smart-cache' ); ?>
+						</label><br />
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_disable_emojis]" value="1" <?php checked( $options['perf_disable_emojis'] ); ?> title="<?php echo esc_attr__( 'Remove emoji scripts and styles for faster loads.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Disable emoji scripts and styles', 'hsp-smart-cache' ); ?>
+						</label><br />
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_disable_embeds]" value="1" <?php checked( $options['perf_disable_embeds'] ); ?> title="<?php echo esc_attr__( 'Disable oEmbed discovery and scripts.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Disable WordPress embeds', 'hsp-smart-cache' ); ?>
+						</label><br />
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_disable_dashicons]" value="1" <?php checked( $options['perf_disable_dashicons'] ); ?> title="<?php echo esc_attr__( 'Remove Dashicons for non-logged-in visitors.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Disable Dashicons for guests', 'hsp-smart-cache' ); ?>
+						</label>
+						<p class="description" style="color:#b32d2e;">
+							<?php echo esc_html__( 'Warning: Disabling embeds or Dashicons can affect themes or plugins that rely on them.', 'hsp-smart-cache' ); ?>
+						</p>
+						<p>
+							<label>
+								<?php echo esc_html__( 'DNS prefetch URLs (one per line)', 'hsp-smart-cache' ); ?>
+								<textarea form="hspsc-settings-form" class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_dns_prefetch_urls]" placeholder="//fonts.googleapis.com" title="<?php echo esc_attr__( 'Hostnames to DNS-prefetch.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['perf_dns_prefetch_urls'] ); ?></textarea>
+							</label>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'CDN', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cdn_enabled]" value="1" <?php checked( $options['cdn_enabled'] ); ?> title="<?php echo esc_attr__( 'Rewrite static asset URLs to your CDN.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Enable CDN URL rewriting for static assets', 'hsp-smart-cache' ); ?>
+						</label>
+						<p>
+							<label>
+								<?php echo esc_html__( 'CDN Base URL', 'hsp-smart-cache' ); ?>
+								<input form="hspsc-settings-form" type="url" class="regular-text" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cdn_url]" value="<?php echo esc_attr( $options['cdn_url'] ); ?>" placeholder="https://cdn.example.com" title="<?php echo esc_attr__( 'Base URL used for CDN rewriting.', 'hsp-smart-cache' ); ?>" />
+							</label>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Logged-in visitors', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[optimize_logged_in]" value="1" <?php checked( $options['optimize_logged_in'] ); ?> title="<?php echo esc_attr__( 'Apply frontend optimizations for logged-in users.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Allow frontend optimizations for logged-in users', 'hsp-smart-cache' ); ?>
+						</label>
+						<p class="description">
+							<?php echo esc_html__( 'Recommended off for editors/builders. Controls minify, script defer/async, and frontend performance tweaks.', 'hsp-smart-cache' ); ?>
+						</p>
+					</td>
+				</tr>
+			</table>
+			<?php self::render_settings_save_button(); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Shows database maintenance, analysis, and backup controls.
+	 */
+	protected static function render_maintenance_tab() {
+		$db_notice         = self::get_settings_notice( 'db' );
 		$db_analysis       = get_transient( 'hspsc_db_analysis' );
 		$last_backup       = get_transient( 'hspsc_db_last_backup' );
 		$db_restore_result = get_transient( 'hspsc_db_restore_result' );
@@ -1704,35 +2003,12 @@ class HSPSC_Admin {
 		if ( $db_delete_error ) {
 			delete_transient( 'hspsc_db_delete_error' );
 		}
-		$db_backups      = HSPSC_Maintenance::list_backups();
-		$bricks_detected = self::is_bricks_detected();
-
-		$cache_notice    = $cache_notice ? sanitize_key( $cache_notice ) : '';
-		$settings_notice = $settings_notice ? sanitize_key( $settings_notice ) : '';
-		$preload_notice  = $preload_notice ? sanitize_key( $preload_notice ) : '';
-		$db_notice       = $db_notice ? sanitize_key( $db_notice ) : '';
-		$tests_notice    = $tests_notice ? sanitize_key( $tests_notice ) : '';
+		$db_backups = HSPSC_Maintenance::list_backups();
 		?>
-		<div class="wrap">
-			<h1><?php echo esc_html__( 'HSP Smart Cache', 'hsp-smart-cache' ); ?></h1>
-			<?php if ( 'cleared' === $cache_notice ) : ?>
-				<div class="notice notice-success"><p><?php echo esc_html__( 'Cache cleared.', 'hsp-smart-cache' ); ?></p></div>
-			<?php endif; ?>
-			<?php if ( 'restored' === $settings_notice ) : ?>
-				<div class="notice notice-success"><p><?php echo esc_html__( 'Defaults restored.', 'hsp-smart-cache' ); ?></p></div>
-			<?php endif; ?>
-			<?php if ( 'bricks-preset' === $settings_notice ) : ?>
-				<div class="notice notice-success"><p><?php echo esc_html( self::get_bricks_preset_message() ); ?></p></div>
-			<?php endif; ?>
-			<?php if ( 'done' === $preload_notice ) : ?>
-				<?php $preload_result = get_transient( 'hspsc_preload_result' ); ?>
-				<div class="notice notice-success"><p><?php echo esc_html__( 'Preload completed.', 'hsp-smart-cache' ); ?>
-				<?php
-				if ( is_array( $preload_result ) ) {
-					/* translators: %d is the number of warmed URLs. */ echo esc_html( sprintf( _n( '%d URL warmed.', '%d URLs warmed.', intval( $preload_result['count'] ), 'hsp-smart-cache' ), $preload_result['count'] ) ); }
-				?>
-				</p></div>
-			<?php endif; ?>
+		<div class="hspsc-card hspsc-maintenance-panel" aria-labelledby="hspsc-maintenance-title">
+			<h2 id="hspsc-maintenance-title" class="hspsc-section-title"><?php echo esc_html__( 'Database Maintenance', 'hsp-smart-cache' ); ?></h2>
+			<p class="hspsc-section-lede"><?php echo esc_html__( 'Inspect, clean, optimize, and manage generated backups from one workspace.', 'hsp-smart-cache' ); ?></p>
+
 			<?php if ( 'cleaned' === $db_notice ) : ?>
 				<div class="notice notice-success"><p><?php echo esc_html__( 'Database cleanup completed.', 'hsp-smart-cache' ); ?></p></div>
 			<?php endif; ?>
@@ -1772,423 +2048,141 @@ class HSPSC_Admin {
 			<?php if ( 'deletefailed' === $db_notice ) : ?>
 				<div class="notice notice-error"><p><?php echo esc_html( self::get_delete_backup_error_message( $db_delete_error ) ); ?></p></div>
 			<?php endif; ?>
+
+			<div class="hspsc-maintenance-actions">
+				<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="hspsc_analyze_db" />
+					<?php self::render_action_nonce( 'hspsc_analyze_db' ); ?>
+					<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Analyzing...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Analyze', 'hsp-smart-cache' ); ?></button>
+				</form>
+				<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Run database cleanup now?', 'hsp-smart-cache' ); ?>">
+					<input type="hidden" name="action" value="hspsc_run_db_cleanup" />
+					<?php self::render_action_nonce( 'hspsc_run_db_cleanup' ); ?>
+					<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Cleaning...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Clean Database', 'hsp-smart-cache' ); ?></button>
+				</form>
+				<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="hspsc_create_db_backup" />
+					<?php self::render_action_nonce( 'hspsc_create_db_backup' ); ?>
+					<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Creating...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Create Backup', 'hsp-smart-cache' ); ?></button>
+				</form>
+				<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Create a backup and optimize database tables now?', 'hsp-smart-cache' ); ?>">
+					<input type="hidden" name="action" value="hspsc_optimize_db" />
+					<?php self::render_action_nonce( 'hspsc_optimize_db' ); ?>
+					<button type="submit" class="button button-primary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Optimizing...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Optimize Tables', 'hsp-smart-cache' ); ?></button>
+				</form>
+			</div>
+
+			<p class="hspsc-note"><?php echo esc_html__( 'A timestamped backup is created automatically before optimization starts.', 'hsp-smart-cache' ); ?></p>
+			<p class="hspsc-callout"><?php echo esc_html__( 'Database cleanup deletes revisions, trashed posts, spam comments, and expired transients. Table optimization can be slow on large databases.', 'hsp-smart-cache' ); ?></p>
+
+			<div id="hspsc-db-analysis-panel" class="hspsc-dynamic-panel">
+				<?php echo self::get_db_analysis_html( $db_analysis ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The rendering helper escapes each dynamic value in its appropriate HTML context. ?>
+			</div>
+
+			<div id="hspsc-db-backups-panel" class="hspsc-dynamic-panel hspsc-backups">
+				<?php echo self::get_db_backups_html( $last_backup, $db_backups ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The rendering helper escapes each dynamic value in its appropriate HTML context. ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Shows diagnostics, compatibility controls, and site-wide options.
+	 *
+	 * @param array $options Saved plugin settings with defaults applied.
+	 */
+	protected static function render_advanced_tab( $options ) {
+		$test_results    = get_transient( 'hspsc_test_results' );
+		$tests_notice    = self::get_settings_notice( 'tests' );
+		$settings_notice = self::get_settings_notice( 'settings' );
+		$bricks_detected = self::is_bricks_detected();
+		?>
+		<div class="hspsc-card">
+			<h2 class="hspsc-section-title"><?php esc_html_e( 'Diagnostics', 'hsp-smart-cache' ); ?></h2>
 			<?php if ( 'done' === $tests_notice && is_array( $test_results ) ) : ?>
 				<div class="notice notice-info">
 					<p><?php echo esc_html__( 'Cache tests completed.', 'hsp-smart-cache' ); ?></p>
 				</div>
 			<?php endif; ?>
-
-			<form id="hspsc-settings-form" class="hspsc-settings-form" method="post" action="options.php">
-				<?php settings_fields( 'hspsc_settings_group' ); ?>
-				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Page Cache', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache]" value="1" <?php checked( $options['page_cache'] ); ?> title="<?php echo esc_attr__( 'Cache full HTML pages for visitors.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Enable page caching for anonymous visitors', 'hsp-smart-cache' ); ?>
-							</label>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Cache TTL (seconds)', 'hsp-smart-cache' ); ?>
-									<input type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache_ttl]" value="<?php echo esc_attr( $options['page_cache_ttl'] ); ?>" title="<?php echo esc_attr__( 'How long a page stays cached before regeneration.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-							<p>
-								<label for="hspsc-page-cache-excluded-paths"><?php echo esc_html__( 'Excluded page paths', 'hsp-smart-cache' ); ?></label>
-								<textarea id="hspsc-page-cache-excluded-paths" class="large-text ltr" rows="4" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[page_cache_excluded_paths]" placeholder="/booking/&#10;/member-area/" aria-describedby="hspsc-page-cache-excluded-paths-help"><?php echo esc_textarea( $options['page_cache_excluded_paths'] ); ?></textarea>
-							</p>
-							<p id="hspsc-page-cache-excluded-paths-help" class="description">
-								<?php echo esc_html__( 'One exact URL path per line, starting with /. Include the installation subdirectory and translated paths when needed. Queries and trailing slashes do not affect matching. Subpages, full URLs, and wildcards are not included. Asset optimizations remain enabled.', 'hsp-smart-cache' ); ?>
-							</p>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cache_logged_in]" value="1" <?php checked( $options['cache_logged_in'] ); ?> title="<?php echo esc_attr__( 'Enable only if logged-in users see cache-safe content.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Cache eligible frontend pages for logged-in users', 'hsp-smart-cache' ); ?>
-							</label>
-							<p class="description">
-								<?php echo esc_html__( 'WordPress admin and settings pages always bypass the page cache.', 'hsp-smart-cache' ); ?>
-							</p>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[optimize_logged_in]" value="1" <?php checked( $options['optimize_logged_in'] ); ?> title="<?php echo esc_attr__( 'Apply frontend optimizations for logged-in users.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Allow frontend optimizations for logged-in users', 'hsp-smart-cache' ); ?>
-							</label>
-							<p class="description">
-								<?php echo esc_html__( 'Recommended off for editors/builders. Controls minify, script defer/async, and frontend performance tweaks.', 'hsp-smart-cache' ); ?>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Robots.txt', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[robots_disallow_ai]" value="1" <?php checked( $options['robots_disallow_ai'] ); ?> title="<?php echo esc_attr__( 'Add disallow rules for known AI crawlers.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Disallow common AI crawlers', 'hsp-smart-cache' ); ?>
-							</label>
-							<p class="description">
-								<?php echo esc_html__( 'Adds rules via WordPress robots.txt output (no file write).', 'hsp-smart-cache' ); ?>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Browser Cache Headers', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[browser_cache]" value="1" <?php checked( $options['browser_cache'] ); ?> title="<?php echo esc_attr__( 'Send Cache-Control and ETag headers for cached pages.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Send Cache-Control headers for cacheable pages', 'hsp-smart-cache' ); ?>
-							</label>
-							<p>
-								<label>
-									<?php echo esc_html__( 'HTML cache TTL (seconds)', 'hsp-smart-cache' ); ?>
-									<input type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[browser_cache_html_ttl]" value="<?php echo esc_attr( $options['browser_cache_html_ttl'] ); ?>" title="<?php echo esc_attr__( 'Browser cache lifetime for HTML pages.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Asset cache TTL (seconds)', 'hsp-smart-cache' ); ?>
-									<input type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[browser_cache_asset_ttl]" value="<?php echo esc_attr( $options['browser_cache_asset_ttl'] ); ?>" title="<?php echo esc_attr__( 'Browser cache lifetime for static assets.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Static Asset Caching', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_cache]" value="1" <?php checked( $options['static_asset_cache'] ); ?> title="<?php echo esc_attr__( 'Cache generated CSS/JS for longer and revalidate other static files.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Enable safe browser cache rules for static assets', 'hsp-smart-cache' ); ?>
-							</label>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Generated CSS/JS TTL (seconds)', 'hsp-smart-cache' ); ?>
-									<input type="number" min="60" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_ttl]" value="<?php echo esc_attr( $options['static_asset_ttl'] ); ?>" title="<?php echo esc_attr__( 'Cache lifetime for HSP-generated CSS/JS via web server rules.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-							<p>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_immutable]" value="1" <?php checked( $options['static_asset_immutable'] ); ?> title="<?php echo esc_attr__( 'Add immutable only to HSP-generated CSS/JS.', 'hsp-smart-cache' ); ?>" />
-									<?php echo esc_html__( 'Add immutable to generated CSS/JS', 'hsp-smart-cache' ); ?>
-								</label>
-							</p>
-							<p>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_auto_write]" value="1" <?php checked( $options['static_asset_auto_write'] ); ?> title="<?php echo esc_attr__( 'Automatically update .htaccess if writable.', 'hsp-smart-cache' ); ?>" />
-									<?php echo esc_html__( 'Auto-write .htaccess rules when possible', 'hsp-smart-cache' ); ?>
-								</label>
-							</p>
-							<p class="description" style="color:#b32d2e;">
-								<?php echo esc_html__( 'Warning: Incorrect .htaccess rules can break site access. Use with care.', 'hsp-smart-cache' ); ?>
-							</p>
-							<p>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[static_asset_compression]" value="1" <?php checked( $options['static_asset_compression'] ); ?> title="<?php echo esc_attr__( 'Enable gzip/deflate compression via web server rules.', 'hsp-smart-cache' ); ?>" />
-									<?php echo esc_html__( 'Enable gzip/deflate compression', 'hsp-smart-cache' ); ?>
-								</label>
-							</p>
-							<p class="description" style="color:#b32d2e;">
-								<?php echo esc_html__( 'Warning: If your server already manages compression, double-compression can cause issues.', 'hsp-smart-cache' ); ?>
-							</p>
-							<p>
-								<label for="hsp-htaccess-preview"><?php echo esc_html__( 'Apache .htaccess snippet', 'hsp-smart-cache' ); ?></label><br />
-								<textarea
-									class="large-text ltr"
-									rows="8"
-									readonly
-									id="hsp-htaccess-preview"
-									data-template-cache="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, false, false ) ); ?>"
-									data-template-cache-immutable="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, true, false ) ); ?>"
-									data-template-cache-compress="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, false, true ) ); ?>"
-									data-template-cache-immutable-compress="<?php echo esc_attr( HSPSC_Static_Assets::get_htaccess_rules( 0, true, true ) ); ?>"
-								><?php echo esc_textarea( HSPSC_Static_Assets::get_htaccess_rules( $options['static_asset_ttl'], $options['static_asset_immutable'], $options['static_asset_compression'] ) ); ?></textarea>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Render Blocking Optimization', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_defer_js]" value="1" <?php checked( $options['render_defer_js'] ); ?> title="<?php echo esc_attr__( 'Add defer to scripts to reduce render blocking.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Add defer to enqueued scripts', 'hsp-smart-cache' ); ?>
-							</label>
-							<p class="description" style="color:#b32d2e;">
-								<?php echo esc_html__( 'Warning: Deferring scripts may break plugins that expect blocking execution.', 'hsp-smart-cache' ); ?>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Defer exclusions (script handles, one per line)', 'hsp-smart-cache' ); ?>
-									<textarea class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_defer_exclusions]" placeholder="jquery\nwp-embed" title="<?php echo esc_attr__( 'Script handles that must not be deferred.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_defer_exclusions'] ); ?></textarea>
-								</label>
-							</p>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_async_js]" value="1" <?php checked( $options['render_async_js'] ); ?> title="<?php echo esc_attr__( 'Use async when defer is disabled.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Add async to enqueued scripts (if defer is off)', 'hsp-smart-cache' ); ?>
-							</label>
-							<p class="description" style="color:#b32d2e;">
-								<?php echo esc_html__( 'Warning: Async can change execution order and break dependencies.', 'hsp-smart-cache' ); ?>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Async exclusions (script handles, one per line)', 'hsp-smart-cache' ); ?>
-									<textarea class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_async_exclusions]" placeholder="jquery\nwp-embed" title="<?php echo esc_attr__( 'Script handles that must not be async.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_async_exclusions'] ); ?></textarea>
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Preconnect URLs (one per line)', 'hsp-smart-cache' ); ?>
-									<textarea class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_preconnect_urls]" placeholder="https://fonts.gstatic.com" title="<?php echo esc_attr__( 'Origins to preconnect for faster TLS/handshake.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_preconnect_urls'] ); ?></textarea>
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Preload font URLs (one per line)', 'hsp-smart-cache' ); ?>
-									<textarea class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_preload_fonts]" placeholder="https://example.com/fonts/myfont.woff2" title="<?php echo esc_attr__( 'Font files to preload early.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_preload_fonts'] ); ?></textarea>
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Preload CSS URLs (one per line)', 'hsp-smart-cache' ); ?>
-									<textarea class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_preload_css]" placeholder="https://example.com/style.css" title="<?php echo esc_attr__( 'Stylesheets to preload before render.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_preload_css'] ); ?></textarea>
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Inline critical CSS', 'hsp-smart-cache' ); ?>
-									<textarea class="large-text ltr" rows="5" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[render_critical_css]" placeholder="/* Critical CSS */" title="<?php echo esc_attr__( 'CSS injected inline to speed up first render.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['render_critical_css'] ); ?></textarea>
-								</label>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Additional Performance', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_lazy_images]" value="1" <?php checked( $options['perf_lazy_images'] ); ?> title="<?php echo esc_attr__( 'Adds loading="lazy" to images where safe.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Enable native lazy-loading for images', 'hsp-smart-cache' ); ?>
-							</label><br />
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_lazy_iframes]" value="1" <?php checked( $options['perf_lazy_iframes'] ); ?> title="<?php echo esc_attr__( 'Adds loading="lazy" to iframes where safe.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Enable native lazy-loading for iframes', 'hsp-smart-cache' ); ?>
-							</label><br />
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_decoding_async]" value="1" <?php checked( $options['perf_decoding_async'] ); ?> title="<?php echo esc_attr__( 'Hints browser to decode images asynchronously.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Add decoding="async" to images', 'hsp-smart-cache' ); ?>
-							</label><br />
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_disable_emojis]" value="1" <?php checked( $options['perf_disable_emojis'] ); ?> title="<?php echo esc_attr__( 'Remove emoji scripts and styles for faster loads.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Disable emoji scripts and styles', 'hsp-smart-cache' ); ?>
-							</label><br />
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_disable_embeds]" value="1" <?php checked( $options['perf_disable_embeds'] ); ?> title="<?php echo esc_attr__( 'Disable oEmbed discovery and scripts.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Disable WordPress embeds', 'hsp-smart-cache' ); ?>
-							</label><br />
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_disable_dashicons]" value="1" <?php checked( $options['perf_disable_dashicons'] ); ?> title="<?php echo esc_attr__( 'Remove Dashicons for non-logged-in visitors.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Disable Dashicons for guests', 'hsp-smart-cache' ); ?>
-							</label>
-							<p class="description" style="color:#b32d2e;">
-								<?php echo esc_html__( 'Warning: Disabling embeds or Dashicons can affect themes or plugins that rely on them.', 'hsp-smart-cache' ); ?>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'DNS prefetch URLs (one per line)', 'hsp-smart-cache' ); ?>
-									<textarea class="large-text ltr" rows="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[perf_dns_prefetch_urls]" placeholder="//fonts.googleapis.com" title="<?php echo esc_attr__( 'Hostnames to DNS-prefetch.', 'hsp-smart-cache' ); ?>"><?php echo esc_textarea( $options['perf_dns_prefetch_urls'] ); ?></textarea>
-								</label>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Cache Preload', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[preload_enabled]" value="1" <?php checked( $options['preload_enabled'] ); ?> title="<?php echo esc_attr__( 'Allow manual preload of URLs from sitemap.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Enable cache preloading', 'hsp-smart-cache' ); ?>
-							</label>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Sitemap URL', 'hsp-smart-cache' ); ?>
-									<input type="url" class="regular-text" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[preload_sitemap_url]" value="<?php echo esc_attr( $options['preload_sitemap_url'] ); ?>" placeholder="<?php echo esc_attr( home_url( '/sitemap.xml' ) ); ?>" title="<?php echo esc_attr__( 'Sitemap to pull URLs from for warming.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Max URLs to warm', 'hsp-smart-cache' ); ?>
-									<input type="number" min="1" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[preload_limit]" value="<?php echo esc_attr( $options['preload_limit'] ); ?>" title="<?php echo esc_attr__( 'Limit number of URLs warmed per run.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Request timeout (seconds)', 'hsp-smart-cache' ); ?>
-									<input type="number" min="3" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[preload_timeout]" value="<?php echo esc_attr( $options['preload_timeout'] ); ?>" title="<?php echo esc_attr__( 'Timeout per warmed URL.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Minification', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[minify_html]" value="1" <?php checked( $options['minify_html'] ); ?> title="<?php echo esc_attr__( 'Remove whitespace/comments from HTML.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Minify HTML', 'hsp-smart-cache' ); ?>
-							</label><br />
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[minify_css]" value="1" <?php checked( $options['minify_css'] ); ?> title="<?php echo esc_attr__( 'Create minified CSS files in the cache.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Minify CSS files', 'hsp-smart-cache' ); ?>
-							</label><br />
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[minify_js]" value="1" <?php checked( $options['minify_js'] ); ?> title="<?php echo esc_attr__( 'Create minified JS files in the cache.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Minify JS files', 'hsp-smart-cache' ); ?>
-							</label>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Object Cache', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache]" value="1" <?php checked( $options['object_cache'] ); ?> title="<?php echo esc_attr__( 'Use file-based persistent object cache drop-in.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Enable file-based persistent object cache (drop-in)', 'hsp-smart-cache' ); ?>
-							</label>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Default TTL for uncached entries (seconds)', 'hsp-smart-cache' ); ?>
-									<input type="number" min="0" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache_default_ttl]" value="<?php echo esc_attr( $options['object_cache_default_ttl'] ); ?>" title="<?php echo esc_attr__( 'Used when an object cache write does not provide an expiration.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-							<p>
-								<label>
-									<?php echo esc_html__( 'Maximum TTL cap (seconds)', 'hsp-smart-cache' ); ?>
-									<input type="number" min="0" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[object_cache_max_ttl]" value="<?php echo esc_attr( $options['object_cache_max_ttl'] ); ?>" title="<?php echo esc_attr__( 'Caps any longer object cache expiration and bounds legacy unlimited entries.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-							<p class="description" style="color:#b32d2e;">
-								<?php echo esc_html__( 'Warning: Object cache drop-ins can conflict with other cache plugins. Entries without an expiration are now capped by the maximum TTL and periodically cleaned up.', 'hsp-smart-cache' ); ?>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'CDN', 'hsp-smart-cache' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cdn_enabled]" value="1" <?php checked( $options['cdn_enabled'] ); ?> title="<?php echo esc_attr__( 'Rewrite static asset URLs to your CDN.', 'hsp-smart-cache' ); ?>" />
-								<?php echo esc_html__( 'Enable CDN URL rewriting for static assets', 'hsp-smart-cache' ); ?>
-							</label>
-							<p>
-								<label>
-									<?php echo esc_html__( 'CDN Base URL', 'hsp-smart-cache' ); ?>
-									<input type="url" class="regular-text" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[cdn_url]" value="<?php echo esc_attr( $options['cdn_url'] ); ?>" placeholder="https://cdn.example.com" title="<?php echo esc_attr__( 'Base URL used for CDN rewriting.', 'hsp-smart-cache' ); ?>" />
-								</label>
-							</p>
-						</td>
-					</tr>
-				</table>
-				<p class="submit">
-					<button type="submit" class="button button-primary" data-loading-text="<?php echo esc_attr__( 'Saving...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Save Changes', 'hsp-smart-cache' ); ?></button>
-				</p>
+			<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="hspsc_run_tests" />
+				<?php self::render_action_nonce( 'hspsc_run_tests' ); ?>
+				<button type="submit" class="button button-secondary" data-loading-text="<?php esc_attr_e( 'Testing...', 'hsp-smart-cache' ); ?>"><?php esc_html_e( 'Run Cache Tests', 'hsp-smart-cache' ); ?></button>
 			</form>
-
-			<div id="hspsc-feedback" class="hspsc-feedback" role="status" aria-live="polite" aria-atomic="true"></div>
-
-
-			<div class="hspsc-action-area">
-				<div class="hspsc-action-stack" aria-labelledby="hspsc-quick-actions-title">
-					<h2 id="hspsc-quick-actions-title" class="hspsc-section-title"><?php echo esc_html__( 'Cache Operations', 'hsp-smart-cache' ); ?></h2>
-					<p class="hspsc-section-lede"><?php echo esc_html__( 'Run routine cache tasks without leaving this screen.', 'hsp-smart-cache' ); ?></p>
-
-					<div class="hspsc-action-group">
-						<h3><?php echo esc_html__( 'Cache', 'hsp-smart-cache' ); ?></h3>
-						<div class="hspsc-button-list">
-							<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-								<input type="hidden" name="action" value="hspsc_clear" />
-								<?php wp_nonce_field( 'hspsc_clear' ); ?>
-								<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Clearing...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Clear All Caches', 'hsp-smart-cache' ); ?></button>
-							</form>
-							<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-								<input type="hidden" name="action" value="hspsc_run_tests" />
-								<?php wp_nonce_field( 'hspsc_run_tests' ); ?>
-								<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Testing...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Run Cache Tests', 'hsp-smart-cache' ); ?></button>
-							</form>
-						</div>
-						<div id="hspsc-tests-panel" class="hspsc-dynamic-panel">
-							<?php echo self::get_cache_tests_html( $test_results ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The rendering helper escapes each dynamic value in its appropriate HTML context. ?>
-						</div>
-					</div>
-
-					<div class="hspsc-action-group">
-						<h3><?php echo esc_html__( 'Preload', 'hsp-smart-cache' ); ?></h3>
-						<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-							<input type="hidden" name="action" value="hspsc_run_preload" />
-							<?php wp_nonce_field( 'hspsc_run_preload' ); ?>
-							<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Preloading...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Run Cache Preload', 'hsp-smart-cache' ); ?></button>
-						</form>
-					</div>
-
-					<div class="hspsc-action-group">
-						<h3><?php echo esc_html__( 'Settings', 'hsp-smart-cache' ); ?></h3>
-						<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Apply the Bricks compatibility preset? This disables overlapping HSP Smart Cache optimizations so Bricks can own them.', 'hsp-smart-cache' ); ?>">
-							<input type="hidden" name="action" value="hspsc_apply_bricks_preset" />
-							<?php wp_nonce_field( 'hspsc_apply_bricks_preset' ); ?>
-							<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Applying...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Apply Bricks Preset', 'hsp-smart-cache' ); ?></button>
-						</form>
-						<p class="hspsc-compat-note">
-							<?php
-							echo esc_html(
-								$bricks_detected
-									? __( 'Bricks detected. This preset turns off duplicate HSP lazy-load, emoji/embed cleanup, and script defer/async.', 'hsp-smart-cache' )
-									: __( 'Use this on Bricks sites to let Bricks handle its native performance toggles.', 'hsp-smart-cache' )
-							);
-							?>
-						</p>
-						<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Restore all plugin settings to defaults?', 'hsp-smart-cache' ); ?>">
-							<input type="hidden" name="action" value="hspsc_restore_defaults" />
-							<?php wp_nonce_field( 'hspsc_restore_defaults' ); ?>
-							<button type="submit" class="button hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Restoring...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Restore Defaults', 'hsp-smart-cache' ); ?></button>
-						</form>
-					</div>
-				</div>
-
-				<div class="hspsc-maintenance-panel" aria-labelledby="hspsc-maintenance-title">
-					<h2 id="hspsc-maintenance-title" class="hspsc-section-title"><?php echo esc_html__( 'Database Maintenance', 'hsp-smart-cache' ); ?></h2>
-					<p class="hspsc-section-lede"><?php echo esc_html__( 'Inspect, clean, optimize, and manage generated backups from one workspace.', 'hsp-smart-cache' ); ?></p>
-
-					<div class="hspsc-maintenance-actions">
-						<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-							<input type="hidden" name="action" value="hspsc_analyze_db" />
-							<?php wp_nonce_field( 'hspsc_analyze_db' ); ?>
-							<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Analyzing...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Analyze', 'hsp-smart-cache' ); ?></button>
-						</form>
-						<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Run database cleanup now?', 'hsp-smart-cache' ); ?>">
-							<input type="hidden" name="action" value="hspsc_run_db_cleanup" />
-							<?php wp_nonce_field( 'hspsc_run_db_cleanup' ); ?>
-							<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Cleaning...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Clean Database', 'hsp-smart-cache' ); ?></button>
-						</form>
-						<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-							<input type="hidden" name="action" value="hspsc_create_db_backup" />
-							<?php wp_nonce_field( 'hspsc_create_db_backup' ); ?>
-							<button type="submit" class="button button-secondary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Creating...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Create Backup', 'hsp-smart-cache' ); ?></button>
-						</form>
-						<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php echo esc_attr__( 'Create a backup and optimize database tables now?', 'hsp-smart-cache' ); ?>">
-							<input type="hidden" name="action" value="hspsc_optimize_db" />
-							<?php wp_nonce_field( 'hspsc_optimize_db' ); ?>
-							<button type="submit" class="button button-primary hspsc-action-button" data-loading-text="<?php echo esc_attr__( 'Optimizing...', 'hsp-smart-cache' ); ?>"><?php echo esc_html__( 'Optimize Tables', 'hsp-smart-cache' ); ?></button>
-						</form>
-					</div>
-
-					<p class="hspsc-note"><?php echo esc_html__( 'A timestamped backup is created automatically before optimization starts.', 'hsp-smart-cache' ); ?></p>
-					<p class="hspsc-callout"><?php echo esc_html__( 'Database cleanup deletes revisions, trashed posts, spam comments, and expired transients. Table optimization can be slow on large databases.', 'hsp-smart-cache' ); ?></p>
-
-					<div id="hspsc-db-analysis-panel" class="hspsc-dynamic-panel">
-						<?php echo self::get_db_analysis_html( $db_analysis ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The rendering helper escapes each dynamic value in its appropriate HTML context. ?>
-					</div>
-
-					<div id="hspsc-db-backups-panel" class="hspsc-dynamic-panel hspsc-backups">
-						<?php echo self::get_db_backups_html( $last_backup, $db_backups ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The rendering helper escapes each dynamic value in its appropriate HTML context. ?>
-					</div>
-				</div>
+			<div id="hspsc-tests-panel" class="hspsc-dynamic-panel">
+				<?php echo self::get_cache_tests_html( $test_results ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The rendering helper escapes each dynamic value in its appropriate HTML context. ?>
 			</div>
-
-
-			<p class="description hspsc-credit">
-				<?php echo esc_html__( 'Made by Helmut Steiner Productions with ❤️ in Vienna', 'hsp-smart-cache' ); ?>
-			</p>
 		</div>
+		<div class="hspsc-card">
+			<h2 class="hspsc-section-title"><?php esc_html_e( 'Compatibility and defaults', 'hsp-smart-cache' ); ?></h2>
+			<?php if ( 'restored' === $settings_notice ) : ?>
+				<div class="notice notice-success"><p><?php echo esc_html__( 'Defaults restored.', 'hsp-smart-cache' ); ?></p></div>
+			<?php endif; ?>
+			<?php if ( 'bricks-preset' === $settings_notice ) : ?>
+				<div class="notice notice-success"><p><?php echo esc_html( self::get_bricks_preset_message() ); ?></p></div>
+			<?php endif; ?>
+			<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php esc_attr_e( 'Apply the Bricks compatibility preset? This disables overlapping HSP Smart Cache optimizations so Bricks can own them.', 'hsp-smart-cache' ); ?>">
+				<input type="hidden" name="action" value="hspsc_apply_bricks_preset" />
+				<?php self::render_action_nonce( 'hspsc_apply_bricks_preset' ); ?>
+				<button type="submit" class="button button-secondary" data-loading-text="<?php esc_attr_e( 'Applying...', 'hsp-smart-cache' ); ?>"><?php esc_html_e( 'Apply Bricks Preset', 'hsp-smart-cache' ); ?></button>
+			</form>
+			<p class="hspsc-compat-note">
+				<?php
+				echo esc_html(
+					$bricks_detected
+						? __( 'Bricks detected. This preset turns off duplicate HSP lazy-load, emoji/embed cleanup, and script defer/async.', 'hsp-smart-cache' )
+						: __( 'Use this on Bricks sites to let Bricks handle its native performance toggles.', 'hsp-smart-cache' )
+				);
+				?>
+			</p>
+			<form class="hspsc-ajax-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-confirm="<?php esc_attr_e( 'Restore all plugin settings to defaults?', 'hsp-smart-cache' ); ?>">
+				<input type="hidden" name="action" value="hspsc_restore_defaults" />
+				<?php self::render_action_nonce( 'hspsc_restore_defaults' ); ?>
+				<button type="submit" class="button" data-loading-text="<?php esc_attr_e( 'Restoring...', 'hsp-smart-cache' ); ?>"><?php esc_html_e( 'Restore Defaults', 'hsp-smart-cache' ); ?></button>
+			</form>
+		</div>
+		<div class="hspsc-card hspsc-settings-section">
+			<h2 class="hspsc-section-title"><?php esc_html_e( 'Site settings', 'hsp-smart-cache' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Robots.txt', 'hsp-smart-cache' ); ?></th>
+					<td>
+						<label>
+							<input form="hspsc-settings-form" type="checkbox" name="<?php echo esc_attr( HSPSC_Settings::OPTION_KEY ); ?>[robots_disallow_ai]" value="1" <?php checked( $options['robots_disallow_ai'] ); ?> title="<?php echo esc_attr__( 'Add disallow rules for known AI crawlers.', 'hsp-smart-cache' ); ?>" />
+							<?php echo esc_html__( 'Disallow common AI crawlers', 'hsp-smart-cache' ); ?>
+						</label>
+						<p class="description">
+							<?php echo esc_html__( 'Adds rules via WordPress robots.txt output (no file write).', 'hsp-smart-cache' ); ?>
+						</p>
+					</td>
+				</tr>
+			</table>
+			<?php self::render_settings_save_button(); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Renders a submit control associated with the shared settings form.
+	 */
+	protected static function render_settings_save_button() {
+		?>
+		<div class="hspsc-settings-actions">
+			<button type="submit" form="hspsc-settings-form" class="button button-primary" data-loading-text="<?php esc_attr_e( 'Saving...', 'hsp-smart-cache' ); ?>"><?php esc_html_e( 'Save all settings', 'hsp-smart-cache' ); ?></button>
+			<span data-hspsc-unsaved-settings role="status" hidden></span>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Prints an action nonce without repeating the shared settings form's ID.
+	 *
+	 * @param string $action Registered nonce action.
+	 */
+	protected static function render_action_nonce( $action ) {
+		?>
+		<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( wp_create_nonce( $action ) ); ?>" />
+		<?php wp_referer_field(); ?>
 		<?php
 	}
 }

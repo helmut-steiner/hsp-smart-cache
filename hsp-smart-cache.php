@@ -2,7 +2,7 @@
 /**
  * Plugin Name: HSP Smart Cache
  * Description: Page caching, minification, CDN rewriting, and file-based object cache with settings UI.
- * Version: 0.10.0
+ * Version: 0.11.0
  * Requires at least: 7.1.3
  * Requires PHP: 8.4
  * Update URI: https://github.com/helmut-steiner/hsp-smart-cache
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'HSPSC_VERSION', '0.10.0' );
+define( 'HSPSC_VERSION', '0.11.0' );
 define( 'HSPSC_BASENAME', plugin_basename( __FILE__ ) );
 define( 'HSPSC_PATH', WP_CONTENT_DIR . '/cache/hspsc' );
 define( 'HSPSC_URL', content_url( '/cache/hspsc' ) );
@@ -43,6 +43,8 @@ require_once __DIR__ . '/includes/class-hspsc-render.php';
 require_once __DIR__ . '/includes/class-hspsc-performance.php';
 require_once __DIR__ . '/includes/class-hspsc-maintenance.php';
 require_once __DIR__ . '/includes/class-hspsc-preload.php';
+require_once __DIR__ . '/includes/class-hspsc-rebuild.php';
+require_once __DIR__ . '/includes/class-hspsc-rebuild-admin.php';
 require_once __DIR__ . '/includes/class-hspsc-updater.php';
 
 /**
@@ -72,6 +74,8 @@ class HSPSC_Plugin {
 		HSPSC_Static_Assets::init();
 		HSPSC_Render::init();
 		HSPSC_Performance::init();
+		HSPSC_Rebuild::init();
+		HSPSC_Rebuild_Admin::init();
 		HSPSC_Updater::init();
 
 		add_action( 'send_headers', array( 'HSPSC_Minify', 'maybe_send_asset_headers' ), 0 );
@@ -132,6 +136,7 @@ class HSPSC_Plugin {
 	 * Removes the owned object-cache drop-in on deactivation.
 	 */
 	public static function deactivate() {
+		HSPSC_Rebuild::reset();
 		HSPSC_Object::remove_dropin();
 	}
 

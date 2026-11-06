@@ -1,12 +1,63 @@
 /* HSP Smart Cache settings screen. */
 
-.hspsc-settings-form {
+.hspsc-admin {
 	max-width: 1180px;
 }
 
-.hspsc-feedback {
-	margin: 18px 0;
-	min-height: 1px;
+.hspsc-admin .hspsc-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 12px;
+	margin-block: 16px;
+	border-block-end: 1px solid #c3c4c7;
+}
+
+.hspsc-admin .hspsc-tabs a {
+	box-sizing: border-box;
+	padding: 10px 14px 8px;
+	border-block-end: 3px solid transparent;
+	color: #2c3338;
+	font-size: 14px;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.hspsc-admin .hspsc-tabs a:hover,
+.hspsc-admin .hspsc-tabs a[aria-selected='true'] {
+	color: #135e96;
+	background: #f0f6fc;
+}
+
+.hspsc-admin .hspsc-tabs a[aria-selected='true'] {
+	border-block-end-color: currentColor;
+}
+
+.hspsc-admin .hspsc-tabs a:focus-visible,
+.hspsc-admin .hspsc-tab-panel:focus-visible {
+	outline: 2px solid #135e96;
+	outline-offset: 2px;
+	box-shadow: none;
+}
+
+.hspsc-admin .hspsc-tab-panel {
+	display: grid;
+	gap: 16px;
+	margin-block: 16px;
+	scroll-margin-block-start: 56px;
+}
+
+.hspsc-admin .hspsc-tab-panel[hidden] {
+	display: none;
+}
+
+.hspsc-admin .hspsc-feedback:not( :empty ) {
+	position: sticky;
+	/* Leave room for the fixed WordPress admin bar. */
+	inset-block-start: calc( var( --wp-admin--admin-bar--height, 32px ) + 8px );
+	z-index: 5;
+	max-height: 30vh;
+	margin-block: 12px;
+	overflow: auto;
 }
 
 .hspsc-feedback .notice {
@@ -24,28 +75,85 @@
 	word-break: break-word;
 }
 
-.hspsc-action-area {
-	display: grid;
-	grid-template-columns: minmax( 220px, 320px ) minmax( 0, 1fr );
-	gap: 20px;
-	margin-top: 22px;
-	max-width: 1180px;
-}
-
-.hspsc-action-stack,
-.hspsc-maintenance-panel {
+.hspsc-admin .hspsc-card,
+.hspsc-admin .hspsc-report-panel {
+	min-width: 0;
+	padding: clamp( 12px, 2vw, 24px );
 	background: #fff;
 	border: 1px solid #d0d7de;
 	border-radius: 8px;
 	box-shadow: 0 1px 2px rgba( 0, 0, 0, 0.04 );
 }
 
-.hspsc-action-stack {
-	padding: 18px;
+.hspsc-admin .hspsc-report-panel {
+	margin-block-start: 18px;
 }
 
-.hspsc-maintenance-panel {
-	padding: 20px;
+.hspsc-admin .hspsc-cache-summary {
+	display: grid;
+	grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+	gap: 10px;
+	margin: 12px 0 16px;
+}
+
+.hspsc-admin .hspsc-cache-status {
+	padding: 12px;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	background: #f6f7f7;
+	overflow-wrap: anywhere;
+}
+
+.hspsc-admin .hspsc-cache-status dt {
+	margin-block-end: 6px;
+	font-weight: 600;
+}
+
+.hspsc-admin .hspsc-cache-status dd {
+	display: inline-block;
+	margin: 0;
+	padding: 2px 8px;
+	border-radius: 4px;
+	color: #3c434a;
+	background: #e4e7e9;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.hspsc-admin .hspsc-cache-status [data-enabled='1'] {
+	color: #17512d;
+	background: #dff0e4;
+}
+
+.hspsc-admin .hspsc-cache-actions,
+.hspsc-admin .hspsc-settings-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+}
+
+.hspsc-admin .hspsc-cache-actions form {
+	max-width: 100%;
+}
+
+.hspsc-admin .hspsc-settings-section .form-table th {
+	width: min( 200px, 30% );
+}
+
+.hspsc-admin .hspsc-settings-section .form-table .regular-text,
+.hspsc-admin .hspsc-settings-section .form-table .large-text {
+	max-width: 100%;
+}
+
+.hspsc-admin .hspsc-settings-actions {
+	margin-block-start: 14px;
+	padding-block-start: 14px;
+	border-block-start: 1px solid #dcdcde;
+}
+
+.hspsc-admin [data-hspsc-unsaved-settings] {
+	color: #805304;
 }
 
 .hspsc-section-title {
@@ -107,9 +215,12 @@
 	opacity: 0.72;
 }
 
-.hspsc-maintenance-actions {
+.hspsc-admin .hspsc-maintenance-actions {
 	display: grid;
-	grid-template-columns: repeat( 3, minmax( 170px, 1fr ) );
+	grid-template-columns: repeat(
+		auto-fit,
+		minmax( min( 100%, 165px ), 1fr )
+	);
 	gap: 12px;
 	margin-bottom: 16px;
 }
@@ -217,10 +328,32 @@
 	color: #b32d2e;
 }
 
-@media ( max-width: 1200px ) {
-	.hspsc-action-area,
-	.hspsc-maintenance-actions,
-	.hspsc-metric-row {
+@media ( max-width: 900px ) {
+	.hspsc-admin .hspsc-cache-summary,
+	.hspsc-admin .hspsc-metric-row {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
+
+@media ( max-width: 782px ) {
+	.hspsc-admin .hspsc-settings-section .form-table th {
+		width: auto;
+	}
+
+	.hspsc-admin .hspsc-feedback:not( :empty ) {
+		inset-block-start: calc(
+			var( --wp-admin--admin-bar--height, 46px ) + 8px
+		);
+	}
+}
+
+@media ( max-width: 420px ) {
+	.hspsc-admin .hspsc-tabs a {
+		padding-inline: 10px;
+	}
+
+	.hspsc-admin .hspsc-cache-summary,
+	.hspsc-admin .hspsc-metric-row {
 		grid-template-columns: 1fr;
 	}
 }

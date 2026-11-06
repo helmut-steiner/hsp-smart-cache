@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 0.11.0
+
+- Organize the admin screen into Cache, Optimization, Maintenance, and Advanced tabs, keeping rebuild controls beside results and preserving unsaved settings across tabs.
+- Rebuild public sitemap pages in persistent background batches with progress, verified cache files, paginated results, and retry for failed pages. Public rebuilds preserve authenticated entries, generated assets, and object data.
+- Replace the preload checkbox and overall page limit with explicit rebuild actions for the site or current public page. Preserve the initiating browser's requested HTML variant and keep admin, settings, and private pages excluded.
+- Publish GitHub Releases from validated version tags after automated checks pass, using the matching changelog bullets as the release message.
+
 ## 0.10.0
 
 - Fix opt-in logged-in page caching while keeping admin, settings, login, REST, AJAX, cron, builder, and private session requests uncached. Isolate eligible frontend entries by user and login session in guarded private storage, and upgrade render-cache schema to 6.

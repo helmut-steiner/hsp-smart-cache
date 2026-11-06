@@ -2,6 +2,17 @@
 
 This page documents every stored option in `hspsc_settings`. Options are configured in WordPress under **Settings -> HSP Smart Cache**.
 
+The admin screen has four tabs:
+
+| Tab | Contents |
+| --- | --- |
+| Cache | Cache status, public page rebuilds and results, page/browser/static-asset/object-cache settings, and sitemap configuration. |
+| Optimization | Frontend optimization scope, minification, script loading, resource hints, image/performance settings, and CDN rewriting. |
+| Maintenance | Database analysis, cleanup, optimization, backups, and restore. |
+| Advanced | Cache diagnostics, Bricks compatibility preset, crawler rules, and restoring defaults. |
+
+**Cache** opens by default. Switching tabs keeps unsaved values; **Save all settings** submits the complete settings form across tabs. Links to rebuild results open the Cache tab. Tabs support keyboard navigation, and all sections remain available when JavaScript is disabled. Admin and settings pages remain excluded from page caching, including when logged-in caching is enabled.
+
 ## Page Cache
 
 | Option key | Default | Type | Description |
@@ -68,16 +79,22 @@ Local HTTP checks for 0.9.0 used WordPress 7.1.4, PHP 8.4.27, Bricks 2.4.5, and 
 | `perf_disable_dashicons` | `false` | Boolean | Removes Dashicons for non-logged-in frontend visitors. |
 | `perf_dns_prefetch_urls` | Empty | Multiline text | Hostnames or protocol-relative URLs to output as DNS prefetch hints, one per line. Example: `//fonts.googleapis.com`. |
 
-## Cache Preload
+## Public Page Cache Rebuild
 
 | Option key | Default | Type | Description |
 | --- | --- | --- | --- |
-| `preload_enabled` | `false` | Boolean | Enables the manual preload action, which warms page cache entries from sitemap URLs. |
-| `preload_sitemap_url` | Empty | URL | Sitemap or sitemap-index URL used for preload. If empty, uses WordPress's core sitemap URL. Child sitemaps are traversed within bounded limits. |
-| `preload_limit` | `50` | Integer, minimum `1` | Maximum number of URLs warmed during one preload run. |
-| `preload_timeout` | `8` | Seconds, minimum `3` | Per-request timeout used while warming each URL. |
+| `preload_sitemap_url` | Empty | URL | Sitemap or sitemap-index URL used to discover public pages. If empty, uses WordPress's core sitemap URL. |
+| `preload_timeout` | `8` | Seconds, `3`–`10` | Timeout per sitemap/page request. Short batches keep work resumable. |
 
-Sitemap and page URLs must match an exact configured home, site, or currently API-resolvable WPML language origin, including scheme and port. Before WPML's full active-language map is available, early/admin preload may skip other language domains. These requests do not follow redirects. XML entities in sitemap `<loc>` values are decoded before URL validation, preserving query arguments such as `?page=2&lang=de`. Page warming forwards the initiating request's `Accept` header, so it warms that negotiated representation. Admin AJAX commonly sends `Accept: */*`; visitors with a different browser-navigation header populate their own variant on the first request.
+**Rebuild all public page caches** explicitly starts a background job; there is no separate enable checkbox or 50-page overall limit. Obsolete `preload_enabled` and `preload_limit` values are ignored and disappear on the next settings save. The job clears only anonymous page files, then warms the homepage, API-resolvable language roots, and pages discovered through the sitemap tree. Authenticated page files, generated assets, and object entries are preserved. Admin/settings, login, API, builder, and private pages remain excluded.
+
+Sitemap and page URLs must match an exact configured home, site, or currently API-resolvable WPML language origin, including scheme and port. Before WPML's full active-language map is available, unavailable language mappings are reported rather than guessed. Requests never follow redirects or forward login cookies. XML entities in sitemap `<loc>` values are decoded before validation, preserving language queries. Settings AJAX starts preserve the original document's `Accept` header, just like toolbar navigation. Different browser representations can still require their own first request.
+
+Each successful result verifies a fresh, nonempty anonymous cache file and checks that its bytes match the returned HTML. HTTP failures and missing files are failures; private responses are skipped. Progress and paginated results persist in the non-autoloaded `hspsc_rebuild_job` option until a new rebuild or plugin deactivation/uninstall. Reports show cached, skipped, failed, discovery failures, and duration without raw private query values or filesystem paths. A logged-in visit can still show BYPASS because these results describe public visitor caches.
+
+Workers process up to four items within a short time budget, using WordPress cron and authorized visible-browser requests. Work continues after navigation when cron runs; sites that disable WP-Cron need their normal external cron runner. Concurrent workers share a lock. **Retry failed pages** creates a new attempt for failed pages and retryable sitemap fetches only, preserving successful results and avoiding another full purge. The detailed report remains available after dismissing the notice.
+
+Discovery safeguards are explicit: 10,000 pages, 200 sitemap documents, depth 5, 2 MiB per document, 32 MiB downloaded XML per attempt, and 1 MiB of queued URL text. Reaching a limit produces a discovery failure instead of claiming that every page was rebuilt. Pages absent from the sitemap are not discovered automatically; **Rebuild this page's public cache** handles individual eligible URLs.
 
 ## Minification
 
@@ -190,7 +207,9 @@ These controls are not stored options, but they appear on the settings screen an
 | --- | --- |
 | Clear All Caches | Clears page, asset, and object cache files managed by the plugin. |
 | Run Cache Tests | Runs built-in diagnostics for cache directories, file writes, object cache state, and related behavior. |
-| Run Cache Preload | Warms page cache entries from the configured sitemap when preload is enabled. |
+| Rebuild all public page caches | Queues a public-only purge and verified sitemap rebuild with persistent progress and results. |
+| Rebuild this page's public cache | Queues a public-only rebuild of the current eligible frontend URL. |
+| Retry failed pages | Requeues only retryable failures from the displayed rebuild, preserving successful/skipped results. |
 | Apply Bricks Preset | Disables HSP emoji/embed cleanup, image/iframe lazy loading, and script defer/async. The confirmation lists the corresponding Bricks Performance settings: leave `Disable lazy loading` unchecked, and enable `Disable emojis` / `Disable embed` if those features are not needed. |
 | Restore Defaults | Resets `hspsc_settings` to plugin defaults. |
 | Analyze | Reports database cleanup candidates and table optimization information. |

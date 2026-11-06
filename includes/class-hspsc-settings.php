@@ -67,9 +67,7 @@ class HSPSC_Settings {
 			'perf_disable_embeds'       => false,
 			'perf_disable_dashicons'    => false,
 			'perf_dns_prefetch_urls'    => '',
-			'preload_enabled'           => false,
 			'preload_sitemap_url'       => '',
-			'preload_limit'             => 50,
 			'preload_timeout'           => 8,
 			'minify_html'               => true,
 			'minify_css'                => true,
@@ -190,10 +188,8 @@ class HSPSC_Settings {
 		$output['perf_disable_embeds']       = ! empty( $input['perf_disable_embeds'] );
 		$output['perf_disable_dashicons']    = ! empty( $input['perf_disable_dashicons'] );
 		$output['perf_dns_prefetch_urls']    = isset( $input['perf_dns_prefetch_urls'] ) ? sanitize_textarea_field( $input['perf_dns_prefetch_urls'] ) : '';
-		$output['preload_enabled']           = ! empty( $input['preload_enabled'] );
 		$output['preload_sitemap_url']       = isset( $input['preload_sitemap_url'] ) ? esc_url_raw( trim( $input['preload_sitemap_url'] ) ) : '';
-		$output['preload_limit']             = isset( $input['preload_limit'] ) ? max( 1, intval( $input['preload_limit'] ) ) : $defaults['preload_limit'];
-		$output['preload_timeout']           = isset( $input['preload_timeout'] ) ? max( 3, intval( $input['preload_timeout'] ) ) : $defaults['preload_timeout'];
+		$output['preload_timeout']           = isset( $input['preload_timeout'] ) ? min( HSPSC_Rebuild::MAX_TIMEOUT, max( 3, intval( $input['preload_timeout'] ) ) ) : $defaults['preload_timeout'];
 		$output['minify_html']               = ! empty( $input['minify_html'] );
 		$output['minify_css']                = ! empty( $input['minify_css'] );
 		$output['minify_js']                 = ! empty( $input['minify_js'] );

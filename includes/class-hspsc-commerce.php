@@ -129,25 +129,8 @@ class HSPSC_Commerce {
 		}
 
 		$post = get_queried_object();
-		if ( $post instanceof WP_Post ) {
-			$shortcodes = array(
-				'woocommerce_cart',
-				'woocommerce_checkout',
-				'woocommerce_my_account',
-				'fluent_cart_checkout',
-				'fluent_cart_receipt',
-				'fluent_cart_order_review',
-			);
-			foreach ( $shortcodes as $shortcode ) {
-				if ( has_shortcode( $post->post_content, $shortcode ) ) {
-					return true;
-				}
-			}
-			foreach ( array( 'woocommerce/cart', 'woocommerce/checkout' ) as $block ) {
-				if ( has_block( $block, $post ) ) {
-					return true;
-				}
-			}
+		if ( $post instanceof WP_Post && self::has_private_commerce_content( $post ) ) {
+			return true;
 		}
 
 		/**
@@ -158,6 +141,63 @@ class HSPSC_Commerce {
 		 * @param bool $is_dynamic Whether the request requires dynamic output.
 		 */
 		return (bool) apply_filters( 'hspsc_is_dynamic_commerce_request', false );
+	}
+
+	/**
+	 * Rejects known private commerce content when planning an explicit URL fetch.
+	 *
+	 * @param WP_Post|null $post Resolved target post when available.
+	 * @param string       $language Resolved target language, or empty without WPML.
+	 * @return bool Whether the target is known to require dynamic output.
+	 */
+	public static function is_warming_url_dynamic( $post, $language ) {
+		if ( self::has_dynamic_wcml_currency() ) {
+			return true;
+		}
+		$page_ids = self::get_private_page_ids( $language );
+		if ( null === $page_ids ) {
+			return true;
+		}
+		if ( ! $post instanceof WP_Post ) {
+			return false;
+		}
+		if ( in_array( (int) $post->ID, $page_ids, true ) || self::has_private_commerce_content( $post ) ) {
+			return true;
+		}
+		if ( empty( $page_ids ) || 'page' !== $post->post_type ) {
+			return false;
+		}
+		// A worker may know the default private page ID before resolving this translation.
+		$target_ids = self::include_wpml_private_page_translations( array( (int) $post->ID ), $language );
+		return null === $target_ids || (bool) array_intersect( $page_ids, $target_ids );
+	}
+
+	/**
+	 * Detects supported server-rendered cart, checkout and account components.
+	 *
+	 * @param WP_Post $post Post being inspected.
+	 * @return bool Whether the content includes a private commerce component.
+	 */
+	protected static function has_private_commerce_content( $post ) {
+		$shortcodes = array(
+			'woocommerce_cart',
+			'woocommerce_checkout',
+			'woocommerce_my_account',
+			'fluent_cart_checkout',
+			'fluent_cart_receipt',
+			'fluent_cart_order_review',
+		);
+		foreach ( $shortcodes as $shortcode ) {
+			if ( has_shortcode( $post->post_content, $shortcode ) ) {
+				return true;
+			}
+		}
+		foreach ( array( 'woocommerce/cart', 'woocommerce/checkout' ) as $block ) {
+			if ( has_block( $block, $post ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -190,10 +230,11 @@ class HSPSC_Commerce {
 	/**
 	 * Gets configured private pages from the available commerce integrations.
 	 *
+	 * @param string $target_language Additional explicit target language, if known.
 	 * @return int[]|null Unique positive page IDs, or null if integration settings
 	 *                    cannot be read reliably.
 	 */
-	protected static function get_private_page_ids() {
+	protected static function get_private_page_ids( $target_language = '' ) {
 		$ids = array();
 		if ( function_exists( 'wc_get_page_id' ) ) {
 			foreach ( array( 'cart', 'checkout', 'myaccount' ) as $page ) {
@@ -252,7 +293,7 @@ class HSPSC_Commerce {
 				)
 			)
 		);
-		return self::include_wpml_private_page_translations( $ids );
+		return self::include_wpml_private_page_translations( $ids, $target_language );
 	}
 
 	/**
@@ -262,10 +303,11 @@ class HSPSC_Commerce {
 	 * to the default language keeps the source page private alongside that result.
 	 * Missing translations preserve the supplied IDs. WPML owns the lookup.
 	 *
-	 * @param int[] $ids Normalized private page IDs.
+	 * @param int[]  $ids Normalized private page IDs.
+	 * @param string $target_language Additional explicit target language, if known.
 	 * @return int[]|null Base and translated IDs, or null if WPML lookup fails.
 	 */
-	protected static function include_wpml_private_page_translations( $ids ) {
+	protected static function include_wpml_private_page_translations( $ids, $target_language = '' ) {
 		if ( false === has_filter( 'wpml_object_id' ) || empty( $ids ) ) {
 			return $ids;
 		}
@@ -277,6 +319,9 @@ class HSPSC_Commerce {
 				$language = null;
 			}
 			$languages = array( $language );
+			if ( '' !== $target_language && ! in_array( $target_language, $languages, true ) ) {
+				$languages[] = $target_language;
+			}
 			if ( false !== has_filter( 'wpml_default_language' ) ) {
 				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's documented default language API.
 				$default_language = apply_filters( 'wpml_default_language', null );

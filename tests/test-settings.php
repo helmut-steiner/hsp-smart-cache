@@ -23,9 +23,9 @@ class HSPSC_Settings_Test extends WP_UnitTestCase {
         $this->assertArrayHasKey( 'perf_disable_embeds', $defaults );
         $this->assertArrayHasKey( 'perf_disable_dashicons', $defaults );
         $this->assertArrayHasKey( 'perf_dns_prefetch_urls', $defaults );
-        $this->assertArrayHasKey( 'preload_enabled', $defaults );
+        $this->assertArrayNotHasKey( 'preload_enabled', $defaults );
         $this->assertArrayHasKey( 'preload_sitemap_url', $defaults );
-        $this->assertArrayHasKey( 'preload_limit', $defaults );
+        $this->assertArrayNotHasKey( 'preload_limit', $defaults );
         $this->assertArrayHasKey( 'preload_timeout', $defaults );
     }
 
